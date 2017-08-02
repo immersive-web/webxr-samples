@@ -1,0 +1,182 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <title>360 Photos</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/cottontail/build/cottontail.js'></script>
+
+    <script src='js/webxr-button.js'></script>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>360 Photos</summary>
+        <p>
+          This sample demonstrates displaying a 360 degree equirectangular stereo
+          photo. It intentionally suppresses view position to ensure that the user
+          cannot move out of the photo sphere.
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+
+      scene.setSkybox({
+        image_url: 'media/textures/chess_pano_4k.jpg',
+        display_mode: 'stereoTopBottom'
+      });
+
+      function initXR() {
+        xrButton = new XRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
+
+            if (!device)
+              return;
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+
+            device.requestSession({ outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      function onRequestSession(device) {
+        device.requestSession({ exclusive: true }).then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            compatibleXrDevice: session.device
+          });
+
+          renderer = new Renderer(gl);
+          scene.setRenderer(renderer);
+        }
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        // When rendering 360 photos/videos you want to ensure that the user's
+        // head is always at the center of the rendered media. Otherwise users
+        // with 6DoF hardware could walk towards the edges and see a very skewed
+        // or outright broken view of the image. To prevent that, we request a
+        // 'headModel' frame of reference, which suppresses any positional
+        // information from the headset in favor of a head and neck model based
+        // solely on the device orientation. (As an added bonus this mode may
+        // be more power efficent on some hardware!)
+        session.requestFrameOfReference('headModel').then((frameOfRef) => {
+          if (session.exclusive) {
+            xrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            xrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        if (event.session.exclusive)
+          xrButton.setSession(null);
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let frameOfRef = session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        if (pose) {
+          let views = [];
+          for (let view of frame.views) {
+            let render_view = new WebXRView();
+            render_view.projection_matrix = view.projectionMatrix;
+            render_view.view_matrix = pose.getViewMatrix(view);
+            render_view.viewport = view.getViewport(session.baseLayer);
+
+            // It's important to take into account which eye the view is
+            // associated with in cases like this, since it informs which half
+            // of the stereo image should be used when rendering the view.
+            render_view.eye = view.eye
+            views.push(render_view);
+          }
+
+          scene.drawViewArray(views);
+        }
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+      })();
+    </script>
+  </body>
+</html>

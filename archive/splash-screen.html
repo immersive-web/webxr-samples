@@ -1,0 +1,211 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <title>Splash Screen</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <script src='js/third-party/gl-matrix-min.js'></script>
+
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
+
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-splash.js'></script>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Splash Screen</summary>
+        <p>
+          This sample demonstrates best practices when using a splash screen to
+          provide the user with immediate feedback while content is loading.
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let scene = new WebXRSceneCubeSea();
+      let splash = null;
+
+      function initXR() {
+        xrButton = new XRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
+
+            if (!device)
+              return;
+
+            // In order for a non-exclusive session to be used we must provide
+            // an outputContext, which indicates the canvas that will contain
+            // results of the session's rendering.
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+
+            // Pick an arbitrary device for the magic window content and start
+            // up a non-exclusive session if possible.
+            device.requestSession({ outputContext: ctx })
+                .then((session) => {
+                  // Add the canvas to the document once we know that it will be
+                  // rendered to.
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      function onRequestSession(device) {
+        device.requestSession({ exclusive: true }).then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        if (!gl) {
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXRDevice: session.device
+          });
+
+          scene.setWebGLContext(gl);
+        } 
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+          // Since we're dealing with multple sessions now we need to track
+          // which XRFrameOfReference is associated with which XRSession.
+          if (session.exclusive) {
+            xrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            xrNonExclusiveFrameOfRef = frameOfRef;
+          }
+
+          // Start by displaying a single frame of the splash screen. Typically
+          // you would not want to do this if the scene has already been loaded
+          // (For example, by magic window content prior to creating an
+          // exclusive session) but here we're going to do it explicitly for a
+          // few seconds regardless so that the user can see the splash screen
+          // effect no matter how fast the content loads.
+          scene.texture_loader.loadTexture("media/textures/xr_splash.png", null, (texture) => {
+            splash = new WebXRSplashScreen(gl, texture);
+            session.requestAnimationFrame(onXRSplash);
+          });
+          
+          // Then, after the content is loaded (long load simulated here by
+          // waiting for 5 seconds) kick off the normal frame loop.
+          setTimeout(() => {
+            session.requestAnimationFrame(onXRFrame);
+          }, 5000);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        // Only reset the button when the exclusive session ends.
+        if (event.session.exclusive)
+          xrButton.setSession(null);
+      }
+
+      function onXRSplash(frame) {
+        let session = frame.session;
+        // Ensure that we're using the right frame of reference for the session.
+        let frameOfRef = session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let views = [];
+        for (let view of frame.views) {
+          let render_view = new WebXRView();
+
+          render_view.projection_mat = view.projectionMatrix;
+          render_view.view_mat = pose.getViewMatrix(view);
+          render_view.viewport = view.getViewport(session.baseLayer);
+          views.push(render_view);
+        }
+
+        splash.draw(views);
+      }
+
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        // Ensure that we're using the right frame of reference for the session.
+        let frameOfRef = session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        // Every XR frame uses basically the same render loop, so for the sake
+        // of keeping the sample code focused on the interesting bits most
+        // samples after this one will start using this helper function to hide
+        // away the majority of the rendering logic.
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+      })();
+    </script>
+  </body>
+</html>

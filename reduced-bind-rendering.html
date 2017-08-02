@@ -1,0 +1,216 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <title>Reduced Bind Rendering</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/cottontail/build/cottontail.js'></script>
+
+    <script src='js/webxr-button.js'></script>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Reduced Bind Rendering</summary>
+        <p>
+          This sample demonstrates a simple technique to reduce the number of
+          state changes an application needs to make while rendering, potentially
+          enabling better performance.
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new CubeSeaScene();
+
+      function initXR() {
+        xrButton = new XRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
+
+            if (!device)
+              return;
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+
+            device.requestSession({ outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      function onRequestSession(device) {
+        device.requestSession({ exclusive: true }).then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            compatibleXrDevice: session.device
+          });
+
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+          if (session.exclusive) {
+            xrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            xrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        if (event.session.exclusive)
+          xrButton.setSession(null);
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let frameOfRef = session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        if (pose) {
+          // This is a different rendering pattern than the previous samples
+          // used, but it should be more efficent. It's very common for apps
+          // being ported to XR to take existing 2D rendering code and call the
+          // top-level "drawScene" function once per XR view, effectively
+          // drawing a single eye at a time. However, this causes many state
+          // changes to be duplicated, which adds to the render loop's overhead.
+          // By providing the matrices and viewports as an array to the drawing
+          // function it can do all the necessary binding once and then call the
+          // actual draw commands in a tighter loop, only changing the matrices
+          // and viewport each time. This does mean that the viewport is changed
+          // much more frequently (N times per object instead of N times per
+          // scene) but it's typically a pretty cheap thing to change and will
+          // almost always be easily outweighed by the savings from not
+          // redundantly binding everything else.
+
+          // For example, a traditional draw loop would do this:
+
+          // Draw(views):
+          //   for each view in views:
+          //     setViewport();
+          //     for each object in scene:
+          //       bindProgram();
+          //       bindMatrices();
+          //       bindUniforms();
+          //       bindBuffers();
+          //       bindTextures();
+          //       draw();
+
+          // While this method results in a loop more like this:
+
+          // Draw(views):
+          //   for each object in scene:
+          //     bindProgram();  
+          //     bindUniforms();
+          //     bindBuffers();
+          //     bindTextures();
+          //     for each view in views:
+          //       setViewport();
+          //       bindMatrices();
+          //       draw();
+
+          // Note that for the complexity of the scene in this samples this
+          // won't make much visible performance difference, but we're using the
+          // more efficient pattern anyway as a way of promoting best practices.
+
+          let views = [];
+          for (let view of frame.views) {
+            // Gather all the values needed for one view and push it into the
+            // array of views to be drawn. WebXRView is a utility class that
+            // holds all the necessary values for drawing a single view.
+            let render_view = new WebXRView();
+
+            // In future samples we'll hide this part away as well by using the
+            // scene.drawXRViews() function, which handles gathering these
+            // values internally.
+            render_view.projection_matrix = view.projectionMatrix;
+            render_view.view_matrix = pose.getViewMatrix(view);
+            render_view.viewport = view.getViewport(session.baseLayer);
+            views.push(render_view);
+          }
+
+          scene.drawViewArray(views);
+        }
+
+        scene.endFrame();
+      }
+
+      initXR();
+      })();
+    </script>
+  </body>
+</html>
