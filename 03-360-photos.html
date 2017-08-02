@@ -1,0 +1,160 @@
+<!doctype html>
+<!--
+Copyright 2017 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>03 - 360 Photos</title>
+
+    <link href="css/common.css" rel="stylesheet"></link>
+
+    <script src="js/third-party/gl-matrix-min.js"></script>
+
+    <script src="js/third-party/wglu/wglu-program.js"></script>
+    <script src="js/third-party/wglu/wglu-stats.js"></script>
+    <script src="js/third-party/wglu/wglu-texture.js"></script>
+
+    <script src="js/webvr-button.js"></script>
+    <script src="js/webvr-scene.js"></script>
+    <script src="js/webvr-scene-panorama.js"></script>
+    <script src="js/webvr-samples-util.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>03 - 360 Photos</h1>
+      <p>
+        This sample demonstrates scaling the viewports used for a WebVR layer
+        at runtime to dynamically adjust the fillrate required and improve
+        performance or quality as needed.
+      </p>
+    </header>
+    <script>
+      (function () {
+      "use strict";
+
+      // VR globals.
+      let vrButton = null;
+      let vrSession = null;
+      let vrFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let scene = new WebVRScenePanorama({
+        url: "media/textures/chess_pano_4k.jpg",
+        topBottomStereo: true
+      });
+
+      function initVR() {
+        vrButton = new VRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(vrButton.domElement);
+
+        if (navigator.vr) {
+          navigator.vr.getDevices().then((devices) => {
+            for (let device of devices) {
+              vrButton.addDevice(device);
+            }
+          });
+        }
+      }
+
+      // Called when the user selects a device to present to. In response we
+      // will request an exclusive session from that device.
+      function onRequestSession(device) {
+        device.requestSession().then(onSessionStarted);
+      }
+
+      // Called when we've successfully acquired a VRSession. In response we
+      // will set up the necessary session state and kick off the frame loop.
+      function onSessionStarted(session) {
+        vrSession = session;
+        vrButton.setSession(session);
+
+        vrSession.addEventListener('ended', onSessionEnded);
+
+        gl = VRSamplesUtil.initWebGLContext({
+          compatibleVrDevice: vrSession.device
+        });
+
+        scene.setWebGLContext(gl);
+
+        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
+
+        // When rendering 360 photos/videos you want to ensure that the user's
+        // head is always at the center of the rendered media. Otherwise users
+        // with 6DoF hardware could walk towards the edges and see a very skewed
+        // or outright broken view of the image. To prevent that, we request a
+        // "headModel" frame of reference, which suppresses any positional
+        // information from the headset in favor of a head and neck model based
+        // solely on the device orientation. (As an added bonus this mode may
+        // be more power efficent on some hardware!)
+        // TODO: Don't use eyeLevel
+        vrSession.requestFrameOfReference("headModel").then((frameOfRef) => {
+          vrFrameOfRef = frameOfRef;
+
+          vrSession.requestFrame(onVRFrame);
+        });
+      }
+
+      // Called when the user clicks the "Exit VR" button. In response we end
+      // the session.
+      function onEndSession(session) {
+        session.endSession();
+      }
+
+      // Called either when the user has explicitly ended the session (like in
+      // onEndSession()) or when the UA has ended the session for any reason.
+      // At this point the session object is no longer usable and should be
+      // discarded.
+      function onSessionEnded(event) {
+        vrSession = null;
+        vrButton.setSession(null);
+
+        gl = null;
+      }
+
+      // Called every time the VRSession requests that a new frame be drawn.
+      function onVRFrame(frame) {
+        let session = frame.session;
+
+        scene.startFrame();
+
+        session.requestFrame(onVRFrame);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let pose = frame.getDevicePose(vrFrameOfRef);
+
+        if (pose) {
+          for (let view of frame.views) {
+            let viewport = view.getViewport(session.baseLayer);
+            gl.viewport(viewport.x, viewport.y,
+                        viewport.width, viewport.height);
+
+            // Passing the view.eye in here allows us to properly render stereo
+            // images, if we have them. It indicates which eye the view is
+            // intended for, which in turn helps us decide which half of the
+            // stereo image to draw.
+            scene.draw(view.projectionMatrix, pose.getViewMatrix(view), view.eye);
+          }
+        }
+
+        scene.endFrame();
+      }
+
+      // Start the VR application.
+      initVR();
+      })();
+    </script>
+  </body>
+</html>
