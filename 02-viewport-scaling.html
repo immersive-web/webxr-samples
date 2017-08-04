@@ -100,7 +100,7 @@ found in the LICENSE file.
         vrSession = session;
         vrButton.setSession(session);
 
-        vrSession.addEventListener('ended', onSessionEnded);
+        vrSession.addEventListener('end', onSessionEnded);
 
         gl = VRSamplesUtil.initWebGLContext({
           compatibleVrDevice: vrSession.device
@@ -120,7 +120,7 @@ found in the LICENSE file.
       // Called when the user clicks the "Exit VR" button. In response we end
       // the session.
       function onEndSession(session) {
-        session.endSession();
+        session.end();
       }
 
       // Called either when the user has explicitly ended the session (like in

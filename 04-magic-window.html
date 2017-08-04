@@ -78,7 +78,6 @@ found in the LICENSE file.
                   document.body.appendChild(outputCanvas);
 
                   vrNonExclusiveSession = session;
-                  session.addEventListener('ended', onNonExclusiveSessionEnded);
 
                   session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
                     vrNonExclusiveFrameOfRef = frameOfRef;
@@ -94,7 +93,6 @@ found in the LICENSE file.
       function onRequestSession(device) {
         device.requestSession().then((session) => {
           vrExclusiveSession = session;
-          session.addEventListener('ended', onExclusiveSessionEnded);
           vrButton.setSession(session);
 
           session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
@@ -107,6 +105,8 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
         if (!gl) {
           gl = VRSamplesUtil.initWebGLContext({
             compatibleVrDevice: session.device
@@ -123,20 +123,20 @@ found in the LICENSE file.
       // Called when the user clicks the "Exit VR" button. In response we end
       // the session.
       function onEndSession(session) {
-        session.endSession();
+        session.end();
       }
 
       // Called either when the user has explicitly ended the session (like in
       // onEndSession()) or when the UA has ended the session for any reason.
       // At this point the session object is no longer usable and should be
       // discarded.
-      function onExclusiveSessionEnded(event) {
-        vrExclusiveSession = null;
-        vrButton.setSession(null);
-      }
-
-      function onNonExclusiveSessionEnded(event) {
-        vrNonExclusiveSession = null;
+      function onSessionEnded(event) {
+        if (event.session == vrExclusiveSession) {
+          vrExclusiveSession = null;
+          vrButton.setSession(null);
+        } else if (event.session == vrNonExclusiveSession) {
+          vrNonExclusiveSession = null;
+        }
       }
 
       // Called every time a VRSession requests that a new frame be drawn.

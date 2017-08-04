@@ -84,9 +84,9 @@ found in the LICENSE file.
         vrSession = session;
         vrButton.setSession(session);
 
-        // Listen for the sessions 'ended' event so we can respond if the user
+        // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
-        vrSession.addEventListener('ended', onSessionEnded);
+        vrSession.addEventListener('end', onSessionEnded);
 
         // Create a WebGL context to render with, initialized to be compatible
         // with the VRDisplay we're presenting to.
@@ -116,7 +116,7 @@ found in the LICENSE file.
       // Called when the user clicks the "Exit VR" button. In response we end
       // the session.
       function onEndSession(session) {
-        session.endSession();
+        session.end();
       }
 
       // Called either when the user has explicitly ended the session (like in
