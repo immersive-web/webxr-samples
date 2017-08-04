@@ -70,6 +70,13 @@ found in the LICENSE file.
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
+            function onResize () {
+              outputCanvas.width = outputCanvas.offsetWidth * window.devicePixelRatio;
+              outputCanvas.height = outputCanvas.offsetHeight * window.devicePixelRatio;
+            }
+            window.addEventListener("resize", onResize, false);
+            onResize();
+
             // Start up a non-exclusive session if possible.
             device.requestSession({ exclusive: false, outputContext: ctx })
                 .then((session) => {
