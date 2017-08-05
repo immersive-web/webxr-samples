@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+Copyright 2017 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>03 - Framebuffer Scaling</title>
+
+    <link href="css/common.css" rel="stylesheet"></link>
+
+    <script src="js/third-party/gl-matrix-min.js"></script>
+
+    <script src="js/third-party/wglu/wglu-program.js"></script>
+    <script src="js/third-party/wglu/wglu-stats.js"></script>
+    <script src="js/third-party/wglu/wglu-texture.js"></script>
+
+    <script src="js/webvr-button.js"></script>
+    <script src="js/webvr-scene.js"></script>
+    <script src="js/webvr-scene-cube-sea.js"></script>
+    <script src="js/webvr-samples-util.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>03 - Framebuffer Scaling</h1>
+      <p>
+        This sample demonstrates scaling the framebuffer used for a WebVR layer
+        at creation time to control the memory and fillrate required and improve
+        performance or quality as needed.
+
+        Framebuffer scaling should be used to make a performance/memory/quality
+        tradeoff for the lifetime of the session.
+
+        <select id="framebufferScaleSelect">
+          <option value="0.0" selected>Default - Allow the system to decide</option>
+          <option value="1.2">1.2 - "Superscaling" for extreme quality</option>
+          <option value="1.0">1.0 - 1:1 pixel utilization</option>
+          <option value="0.5">0.5 - Low res for high performance</option>
+        </select>
+      </p>
+    </header>
+    <script>
+      (function () {
+      "use strict";
+
+      let scaleSelect = document.getElementById("framebufferScaleSelect");
+
+      // VR globals.
+      let vrButton = null;
+      let vrSession = null;
+      let vrFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let scene = new WebVRSceneCubeSea();
+
+      let resolutionMultiplier = 1.0;
+      let lastAdjustment = Date.now()-1000;
+
+      // Called in the render loop.
+      function adjustViewportScale() {
+        // Update the viewport scale every tenth of a second.
+        let t = Date.now();
+        if (t - lastAdjustment < 100)
+          return;
+        lastAdjustment = t;
+
+        // Modify the scale over time on a sin wave. In the real world this
+        // would probably be based on scene complexity.
+        // Oscillates between 1.0 to 0.5.
+        resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
+
+        // This is the only new VRSession call in this sample from sample 01.
+        // It sets a requested scale to be applied to the viewports reported for
+        // each VRView. The UA is allowed to ignore the request or adjust it as
+        // needed. If the scaling request is honored it will take effect on the
+        // *next* frame, not the current one.
+        vrSession.baseLayer.requestViewportScaling(resolutionMultiplier);
+      }
+
+      function initVR() {
+        vrButton = new VRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(vrButton.domElement);
+
+        if (navigator.vr) {
+          navigator.vr.getDevices().then((devices) => {
+            for (let device of devices) {
+              vrButton.addDevice(device);
+            }
+          });
+        }
+      }
+
+      // Called when the user selects a device to present to. In response we
+      // will request an exclusive session from that device.
+      function onRequestSession(device) {
+        device.requestSession().then(onSessionStarted);
+      }
+
+      // Called when we've successfully acquired a VRSession. In response we
+      // will set up the necessary session state and kick off the frame loop.
+      function onSessionStarted(session) {
+        vrSession = session;
+        vrButton.setSession(session);
+
+        vrSession.addEventListener('end', onSessionEnded);
+
+        gl = VRSamplesUtil.initWebGLContext({
+          compatibleVrDevice: vrSession.device
+        });
+
+        scene.setWebGLContext(gl);
+
+        // This is the only change in this sample from sample 01.
+        // It sets a requested scale to be applied to the framebuffer created
+        // for the layer. The UA is allowed to ignore the request or adjust it
+        // as needed. The scale of the framebuffer cannot be changed after the
+        // layer is created, though the UA is allowed to resize the framebuffer
+        // at any time.
+        let scale = parseFloat(scaleSelect.value);
+        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl, {
+          framebufferScale: scale
+        });
+
+        vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+          vrFrameOfRef = frameOfRef;
+
+          vrSession.requestFrame(onVRFrame);
+        });
+      }
+
+      // Called when the user clicks the "Exit VR" button. In response we end
+      // the session.
+      function onEndSession(session) {
+        session.end();
+      }
+
+      // Called either when the user has explicitly ended the session (like in
+      // onEndSession()) or when the UA has ended the session for any reason.
+      // At this point the session object is no longer usable and should be
+      // discarded.
+      function onSessionEnded(event) {
+        vrSession = null;
+        vrButton.setSession(null);
+
+        gl = null;
+      }
+
+      // Called every time the VRSession requests that a new frame be drawn.
+      function onVRFrame(frame) {
+        let session = frame.session;
+
+        scene.startFrame();
+
+        // Adjust the viewports if needed.
+        adjustViewportScale();
+
+        session.requestFrame(onVRFrame);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let pose = frame.getDevicePose(vrFrameOfRef);
+
+        if (pose) {
+          for (let view of frame.views) {
+            let viewport = view.getViewport(session.baseLayer);
+            gl.viewport(viewport.x, viewport.y,
+                        viewport.width, viewport.height);
+
+            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+          }
+        }
+
+        scene.endFrame();
+      }
+
+      // Start the VR application.
+      initVR();
+      })();
+    </script>
+  </body>
+</html>

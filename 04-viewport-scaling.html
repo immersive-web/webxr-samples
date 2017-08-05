@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <title>04 - Magic Window</title>
+    <title>04 - Viewport Scaling</title>
 
     <link href="css/common.css" rel="stylesheet"></link>
 
@@ -28,11 +28,14 @@ found in the LICENSE file.
   </head>
   <body>
     <header>
-      <h1>04 - Magic Window</h1>
+      <h1>04 - Viewport Scaling</h1>
       <p>
-        This sample demonstrates use of a non-exclusive VRSession to present
-        "Magic Window" content prior to entering VR presentation with an
-        exclusive.
+        This sample demonstrates scaling the viewports used for a WebVR layer
+        at runtime to dynamically adjust the fillrate required and improve
+        performance or quality as needed.
+
+        Viewport scaling should be used to make a performance/quality tradeoff
+        in response to realtime performance monitoring.
       </p>
     </header>
     <script>
@@ -41,16 +44,36 @@ found in the LICENSE file.
 
       // VR globals.
       let vrButton = null;
-
-      let vrExclusiveSession = null;
-      let vrExclusiveFrameOfRef = null;
-
-      let vrNonExclusiveSession = null;
-      let vrNonExclusiveFrameOfRef = null;
+      let vrSession = null;
+      let vrFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
       let scene = new WebVRSceneCubeSea();
+
+      let resolutionMultiplier = 1.0;
+      let lastAdjustment = Date.now()-1000;
+
+      // Called in the render loop.
+      function adjustViewportScale() {
+        // Update the viewport scale every tenth of a second.
+        let t = Date.now();
+        if (t - lastAdjustment < 100)
+          return;
+        lastAdjustment = t;
+
+        // Modify the scale over time on a sin wave. In the real world this
+        // would probably be based on scene complexity.
+        // Oscillates between 1.0 to 0.5.
+        resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
+
+        // This is the only new VRSession call in this sample from sample 01.
+        // It sets a requested scale to be applied to the viewports reported for
+        // each VRView. The UA is allowed to ignore the request or adjust it as
+        // needed. If the scaling request is honored it will take effect on the
+        // *next* frame, not the current one.
+        vrSession.baseLayer.requestViewportScaling(resolutionMultiplier);
+      }
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -61,29 +84,9 @@ found in the LICENSE file.
 
         if (navigator.vr) {
           navigator.vr.getDevices().then((devices) => {
-            let device = devices[0];
-            vrButton.addDevice(device);
-
-            // In order for a non-exclusive session to be used we must provide
-            // an outputContext, which indicates the canvas that will contain
-            // results of the session's rendering.
-            let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
-
-            // Start up a non-exclusive session if possible.
-            device.requestSession({ exclusive: false, outputContext: ctx })
-                .then((session) => {
-                  // Add the canvas to the document once we know that it will be
-                  // rendered to.
-                  document.body.appendChild(outputCanvas);
-
-                  vrNonExclusiveSession = session;
-
-                  session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-                    vrNonExclusiveFrameOfRef = frameOfRef;
-                    onSessionStarted(session);
-                  });
-                });
+            for (let device of devices) {
+              vrButton.addDevice(device);
+            }
           });
         }
       }
@@ -91,33 +94,30 @@ found in the LICENSE file.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession(device) {
-        device.requestSession().then((session) => {
-          vrExclusiveSession = session;
-          vrButton.setSession(session);
-
-          session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-            vrExclusiveFrameOfRef = frameOfRef;
-            onSessionStarted(session);
-          });
-        });
+        device.requestSession().then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        session.addEventListener('end', onSessionEnded);
+        vrSession = session;
+        vrButton.setSession(session);
 
-        if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
-          });
+        vrSession.addEventListener('end', onSessionEnded);
 
-          scene.setWebGLContext(gl);
-        }
+        gl = VRSamplesUtil.initWebGLContext({
+          compatibleVrDevice: vrSession.device
+        });
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        scene.setWebGLContext(gl);
 
-        session.requestFrame(onVRFrame);
+        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
+
+        vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+          vrFrameOfRef = frameOfRef;
+
+          vrSession.requestFrame(onVRFrame);
+        });
       }
 
       // Called when the user clicks the "Exit VR" button. In response we end
@@ -131,29 +131,27 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        if (event.session == vrExclusiveSession) {
-          vrExclusiveSession = null;
-          vrButton.setSession(null);
-        } else if (event.session == vrNonExclusiveSession) {
-          vrNonExclusiveSession = null;
-        }
+        vrSession = null;
+        vrButton.setSession(null);
+
+        gl = null;
       }
 
-      // Called every time a VRSession requests that a new frame be drawn.
+      // Called every time the VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
 
         scene.startFrame();
+
+        // Adjust the viewports if needed.
+        adjustViewportScale();
 
         session.requestFrame(onVRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // Ensure that we're using the right frame of reference for the session.
-        let frameOfRef = (session == vrExclusiveSession ?
-            vrExclusiveFrameOfRef : vrNonExclusiveFrameOfRef);
-        let pose = frame.getDevicePose(frameOfRef);
+        let pose = frame.getDevicePose(vrFrameOfRef);
 
         if (pose) {
           for (let view of frame.views) {
