@@ -22,11 +22,6 @@ header h1 {
   margin-top: 0px;
 }
 
-main {
-  position: relative;
-  z-index: 2;
-}
-
 canvas {
   position: absolute;
   z-index: 0;
