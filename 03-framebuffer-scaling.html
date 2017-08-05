@@ -35,7 +35,7 @@ found in the LICENSE file.
         performance or quality as needed.
 
         Framebuffer scaling should be used to make a performance/memory/quality
-        tradeoff for the lifetime of the session.
+        tradeoff for the lifetime of the session. <br/>
 
         <select id="framebufferScaleSelect">
           <option value="0.0" selected>Default - Allow the system to decide</option>
@@ -59,30 +59,6 @@ found in the LICENSE file.
       // WebGL scene globals.
       let gl = null;
       let scene = new WebVRSceneCubeSea();
-
-      let resolutionMultiplier = 1.0;
-      let lastAdjustment = Date.now()-1000;
-
-      // Called in the render loop.
-      function adjustViewportScale() {
-        // Update the viewport scale every tenth of a second.
-        let t = Date.now();
-        if (t - lastAdjustment < 100)
-          return;
-        lastAdjustment = t;
-
-        // Modify the scale over time on a sin wave. In the real world this
-        // would probably be based on scene complexity.
-        // Oscillates between 1.0 to 0.5.
-        resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
-
-        // This is the only new VRSession call in this sample from sample 01.
-        // It sets a requested scale to be applied to the viewports reported for
-        // each VRView. The UA is allowed to ignore the request or adjust it as
-        // needed. If the scaling request is honored it will take effect on the
-        // *next* frame, not the current one.
-        vrSession.baseLayer.requestViewportScaling(resolutionMultiplier);
-      }
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -160,9 +136,6 @@ found in the LICENSE file.
         let session = frame.session;
 
         scene.startFrame();
-
-        // Adjust the viewports if needed.
-        adjustViewportScale();
 
         session.requestFrame(onVRFrame);
 
