@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <title>03 - Framebuffer Scaling</title>
+    <title>VR Presentation</title>
 
     <link href="css/common.css" rel="stylesheet"></link>
 
@@ -28,28 +28,16 @@ found in the LICENSE file.
   </head>
   <body>
     <header>
-      <h1>03 - Framebuffer Scaling</h1>
+      <h1>VR Presentation</h1>
       <p>
-        This sample demonstrates scaling the framebuffer used for a WebVR layer
-        at creation time to control the memory and fillrate required and improve
-        performance or quality as needed.
-
-        Framebuffer scaling should be used to make a performance/memory/quality
-        tradeoff for the lifetime of the session. <br/>
-
-        <select id="framebufferScaleSelect">
-          <option value="0.0" selected>Default - Allow the system to decide</option>
-          <option value="1.2">1.2 - "Superscaling" for extreme quality</option>
-          <option value="1.0">1.0 - 1:1 pixel utilization</option>
-          <option value="0.5">0.5 - Low res for high performance</option>
-        </select>
+        This sample demonstrates how to present a simple WebGL scene to a
+        VRDevice. The scene is not rendered to the page prior to VR
+        presentation, nor is it mirrored during presentation.
       </p>
     </header>
     <script>
       (function () {
       "use strict";
-
-      let scaleSelect = document.getElementById("framebufferScaleSelect");
 
       // VR globals.
       let vrButton = null;
@@ -60,15 +48,22 @@ found in the LICENSE file.
       let gl = null;
       let scene = new WebVRSceneCubeSea();
 
+      // Checks to see if WebVR is available and, if so, queries a list of
+      // VRDevices that are connected to the system.
       function initVR() {
+        // Adds a helper button to the page that indicates if any VRDevices are
+        // available and let's the user pick between them if there's multiple.
         vrButton = new VRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
         document.querySelector('header').appendChild(vrButton.domElement);
 
+        // Is WebVR available on this UA?
         if (navigator.vr) {
+          // Request a list of all the VR Devices connected to the system.
           navigator.vr.getDevices().then((devices) => {
+            // Add each device to the "Enter VR" button.
             for (let device of devices) {
               vrButton.addDevice(device);
             }
@@ -85,31 +80,35 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
+        // Hold onto the session object for later use
         vrSession = session;
         vrButton.setSession(session);
 
+        // Listen for the sessions 'end' event so we can respond if the user
+        // or UA ends the session for any reason.
         vrSession.addEventListener('end', onSessionEnded);
 
+        // Create a WebGL context to render with, initialized to be compatible
+        // with the VRDisplay we're presenting to.
         gl = VRSamplesUtil.initWebGLContext({
           compatibleVrDevice: vrSession.device
         });
 
+        // Initialize the scene's WebGL content
         scene.setWebGLContext(gl);
 
-        // This is the only change in this sample from sample 01.
-        // It sets a requested scale to be applied to the framebuffer created
-        // for the layer. The UA is allowed to ignore the request or adjust it
-        // as needed. The scale of the framebuffer cannot be changed after the
-        // layer is created, though the UA is allowed to resize the framebuffer
-        // at any time.
-        let scale = parseFloat(scaleSelect.value);
-        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl, {
-          framebufferScaleFactor: scale
-        });
+        // Use the new WebGL context to create a VRWebGLLayer and set it as the
+        // sessions baseLayer. This allows any content rendered to the layer to
+        // be displayed on the VRDevice.
+        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
 
+        // Get a frame of reference, which is required for querying poses. In
+        // this case an "eyeLevel" frame of reference means that all poses will
+        // be relative to the location where the VRDevice was first detected.
         vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
           vrFrameOfRef = frameOfRef;
 
+          // Inform the session that we're ready to begin drawing.
           vrSession.requestFrame(onVRFrame);
         });
       }
@@ -128,6 +127,8 @@ found in the LICENSE file.
         vrSession = null;
         vrButton.setSession(null);
 
+        // In this simple case discard the WebGL context too, since we're not
+        // rendering anything else to the screen with it.
         gl = null;
       }
 
@@ -135,25 +136,48 @@ found in the LICENSE file.
       function onVRFrame(frame) {
         let session = frame.session;
 
+        // Per-frame scene setup. Nothing WebVR specific here.
         scene.startFrame();
 
+        // Inform the session that we're ready for the next frame.
         session.requestFrame(onVRFrame);
 
+        // Bind the WebGL layer's framebuffer, which is where any content to be
+        // displayed on the VRDevice must be rendered.
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+
+        // Clear the framebuffer
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+        // Get the VRDevice pose relative to the Frame of Reference we created
+        // earlier.
         let pose = frame.getDevicePose(vrFrameOfRef);
 
+        // Getting the pose may fail if, for example, tracking is lost. So we
+        // have to check to make sure that we got a valid pose before attempting
+        // to render with it. If not in this case we'll just leave the
+        // framebuffer cleared, so tracking loss means the scene will simply
+        // dissapear.
         if (pose) {
+          // If we do have a valid pose, loop through each of the views reported
+          // by the frame and draw them into the corresponding viewport.
           for (let view of frame.views) {
             let viewport = view.getViewport(session.baseLayer);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 
+            // Draw this view of the scene. What happens in this function really
+            // isn't all that important. What is important is that it renders
+            // into the VRWebGLLayer's framebuffer, using the viewport into that
+            // framebuffer reported by the current view, and using the
+            // projection and view matricies from the current view and pose.
+            // We bound the framebuffer and viewport up above, and are passing
+            // in the appropriate matrices here to be used when rendering.
             scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
           }
         }
 
+        // Per-frame scene teardown. Nothing WebVR specific here.
         scene.endFrame();
       }
 
