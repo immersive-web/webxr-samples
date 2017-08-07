@@ -44,8 +44,8 @@ found in the LICENSE file.
 
       // VR globals.
       let vrButton = null;
-      let vrSession = null;
-      let vrFrameOfRef = null;
+      let vrExclusiveFrameOfRef = null;
+      let vrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -55,7 +55,7 @@ found in the LICENSE file.
       let lastAdjustment = Date.now()-1000;
 
       // Called in the render loop.
-      function adjustViewportScale() {
+      function adjustViewportScale(session) {
         // Update the viewport scale every tenth of a second.
         let t = Date.now();
         if (t - lastAdjustment < 100)
@@ -72,7 +72,7 @@ found in the LICENSE file.
         // each VRView. The UA is allowed to ignore the request or adjust it as
         // needed. If the scaling request is honored it will take effect on the
         // *next* frame, not the current one.
-        vrSession.baseLayer.requestViewportScaling(resolutionMultiplier);
+        session.baseLayer.requestViewportScaling(resolutionMultiplier);
       }
 
       function initVR() {
@@ -87,6 +87,20 @@ found in the LICENSE file.
             for (let device of devices) {
               vrButton.addDevice(device);
             }
+
+            if (!devices.length)
+              return;
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('vrpresent');
+
+            devices[0].requestSession({ exclusive: false, outputContext: ctx })
+                .then((session) => {
+                  // Add the canvas to the document once we know that it will be
+                  // rendered to.
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
           });
         }
       }
@@ -100,23 +114,27 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        vrSession = session;
         vrButton.setSession(session);
 
-        vrSession.addEventListener('end', onSessionEnded);
+        session.addEventListener('end', onSessionEnded);
 
-        gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: vrSession.device
-        });
+        if (!gl) {
+          gl = VRSamplesUtil.initWebGLContext({
+            compatibleVrDevice: session.device
+          });
 
-        scene.setWebGLContext(gl);
+          scene.setWebGLContext(gl);
+        }
 
-        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
+        session.baseLayer = new VRWebGLLayer(session, gl);
 
-        vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-          vrFrameOfRef = frameOfRef;
-
-          vrSession.requestFrame(onVRFrame);
+        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+          if (session.createParameters.exclusive) {
+            vrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            vrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestFrame(onVRFrame);
         });
       }
 
@@ -131,22 +149,24 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        vrSession = null;
-        vrButton.setSession(null);
-
-        gl = null;
+        if (event.session === vrButton.session) {
+          vrButton.setSession(null);
+        }
       }
 
       // Called every time the VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
+        let frameOfRef = session.createParameters.exclusive ?
+                         vrExclusiveFrameOfRef :
+                         vrNonExclusiveFrameOfRef;
 
         scene.startFrame();
 
         // Adjust the viewports if needed.
-        adjustViewportScale();
+        adjustViewportScale(session);
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(frameOfRef);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

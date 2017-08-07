@@ -35,13 +35,15 @@ found in the LICENSE file.
         presentation, nor is it mirrored during presentation.
       </p>
     </header>
+    <main style="text-align: center;">
+      <p>Click "Enter VR" to see content</p> 
+    </main>
     <script>
       (function () {
       "use strict";
 
       // VR globals.
       let vrButton = null;
-      let vrSession = null;
       let vrFrameOfRef = null;
 
       // WebGL scene globals.
@@ -80,18 +82,18 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        // Hold onto the session object for later use
-        vrSession = session;
+        // This informs the "Enter VR" button that the session has started and
+        // that it should display "Exit VR" instead.
         vrButton.setSession(session);
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
-        vrSession.addEventListener('end', onSessionEnded);
+        session.addEventListener('end', onSessionEnded);
 
         // Create a WebGL context to render with, initialized to be compatible
         // with the VRDisplay we're presenting to.
         gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: vrSession.device
+          compatibleVrDevice: session.device
         });
 
         // Initialize the scene's WebGL content
@@ -100,16 +102,16 @@ found in the LICENSE file.
         // Use the new WebGL context to create a VRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
         // be displayed on the VRDevice.
-        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
+        session.baseLayer = new VRWebGLLayer(session, gl);
 
         // Get a frame of reference, which is required for querying poses. In
         // this case an "eyeLevel" frame of reference means that all poses will
         // be relative to the location where the VRDevice was first detected.
-        vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
           vrFrameOfRef = frameOfRef;
 
           // Inform the session that we're ready to begin drawing.
-          vrSession.requestFrame(onVRFrame);
+          session.requestFrame(onVRFrame);
         });
       }
 
@@ -124,7 +126,6 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        vrSession = null;
         vrButton.setSession(null);
 
         // In this simple case discard the WebGL context too, since we're not

@@ -45,6 +45,9 @@ found in the LICENSE file.
         </select>
       </p>
     </header>
+    <main style="text-align: center;">
+      <p>Click "Enter VR" to see content</p> 
+    </main>
     <script>
       (function () {
       "use strict";
@@ -53,7 +56,6 @@ found in the LICENSE file.
 
       // VR globals.
       let vrButton = null;
-      let vrSession = null;
       let vrFrameOfRef = null;
 
       // WebGL scene globals.
@@ -85,13 +87,12 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        vrSession = session;
         vrButton.setSession(session);
 
-        vrSession.addEventListener('end', onSessionEnded);
+        session.addEventListener('end', onSessionEnded);
 
         gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: vrSession.device
+          compatibleVrDevice: session.device
         });
 
         scene.setWebGLContext(gl);
@@ -103,14 +104,14 @@ found in the LICENSE file.
         // layer is created, though the UA is allowed to resize the framebuffer
         // at any time.
         let scale = parseFloat(scaleSelect.value);
-        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl, {
+        session.baseLayer = new VRWebGLLayer(session, gl, {
           framebufferScaleFactor: scale
         });
 
-        vrSession.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
           vrFrameOfRef = frameOfRef;
 
-          vrSession.requestFrame(onVRFrame);
+          session.requestFrame(onVRFrame);
         });
       }
 
@@ -125,7 +126,6 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        vrSession = null;
         vrButton.setSession(null);
 
         gl = null;

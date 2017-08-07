@@ -41,8 +41,8 @@ found in the LICENSE file.
 
       // VR globals.
       let vrButton = null;
-      let vrSession = null;
-      let vrFrameOfRef = null;
+      let vrExclusiveFrameOfRef = null;
+      let vrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -63,6 +63,19 @@ found in the LICENSE file.
             for (let device of devices) {
               vrButton.addDevice(device);
             }
+
+            if (!devices.length)
+              return;
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('vrpresent');
+
+            // Start up a non-exclusive session if possible.
+            devices[0].requestSession({ exclusive: false, outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
           });
         }
       }
@@ -76,18 +89,19 @@ found in the LICENSE file.
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        vrSession = session;
         vrButton.setSession(session);
 
-        vrSession.addEventListener('end', onSessionEnded);
+        session.addEventListener('end', onSessionEnded);
 
-        gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: vrSession.device
-        });
+        if (!gl) {
+          gl = VRSamplesUtil.initWebGLContext({
+            compatibleVrDevice: session.device
+          });
 
-        scene.setWebGLContext(gl);
+          scene.setWebGLContext(gl);
+        }
 
-        vrSession.baseLayer = new VRWebGLLayer(vrSession, gl);
+        session.baseLayer = new VRWebGLLayer(session, gl);
 
         // When rendering 360 photos/videos you want to ensure that the user's
         // head is always at the center of the rendered media. Otherwise users
@@ -98,10 +112,13 @@ found in the LICENSE file.
         // solely on the device orientation. (As an added bonus this mode may
         // be more power efficent on some hardware!)
         // TODO: Don't use eyeLevel
-        vrSession.requestFrameOfReference("headModel").then((frameOfRef) => {
-          vrFrameOfRef = frameOfRef;
-
-          vrSession.requestFrame(onVRFrame);
+        session.requestFrameOfReference("headModel").then((frameOfRef) => {
+          if (session.createParameters.exclusive) {
+            vrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            vrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestFrame(onVRFrame);
         });
       }
 
@@ -116,15 +133,17 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        vrSession = null;
-        vrButton.setSession(null);
-
-        gl = null;
+        if (event.session === vrButton.session) {
+          vrButton.setSession(null); 
+        }
       }
 
       // Called every time the VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
+        let frameOfRef = session.createParameters.exclusive ?
+                         vrExclusiveFrameOfRef :
+                         vrNonExclusiveFrameOfRef;
 
         scene.startFrame();
 
@@ -133,7 +152,7 @@ found in the LICENSE file.
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        let pose = frame.getDevicePose(vrFrameOfRef);
+        let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
           for (let view of frame.views) {
