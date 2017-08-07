@@ -57,13 +57,13 @@ found in the LICENSE file.
 
         if (navigator.vr) {
           navigator.vr.getDevices().then((devices) => {
-            if (!devices.length)
-              return;
-
             for (let device of devices) {
               vrButton.addDevice(device);
             }
             
+            if (!devices.length)
+              return;
+
             // In order for a non-exclusive session to be used we must provide
             // an outputContext, which indicates the canvas that will contain
             // results of the session's rendering.
@@ -130,9 +130,8 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        if (event.session === vrButton.session) {
-          vrButton.setSession(null); 
-        }
+        if (event.session.createParameters.exclusive)
+          vrButton.setSession(null);
       }
 
       // Called every time a VRSession requests that a new frame be drawn.
