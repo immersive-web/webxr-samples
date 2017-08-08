@@ -162,8 +162,8 @@ found in the LICENSE file.
 
             // Passing the view.eye in here allows us to properly render stereo
             // images, if we have them. It indicates which eye the view is
-            // intended for, which in turn helps us decide which half of the
-            // stereo image to draw.
+            // intended for, which in turn determines which half of the stereo
+            // image to draw.
             scene.draw(view.projectionMatrix, pose.getViewMatrix(view), view.eye);
           }
         }
