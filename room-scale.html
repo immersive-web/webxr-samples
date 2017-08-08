@@ -60,8 +60,12 @@ found in the LICENSE file.
 
         if (navigator.vr) {
           navigator.vr.getDevices().then((devices) => {
-            let device = devices[0];
-            vrButton.addDevice(device);
+            for (let device of devices) {
+              vrButton.addDevice(device);
+            }
+
+            if (!devices.length)
+              return;
 
             // In order for a non-exclusive session to be used we must provide
             // an outputContext, which indicates the canvas that will contain
@@ -70,7 +74,7 @@ found in the LICENSE file.
             let ctx = outputCanvas.getContext('vrpresent');
 
             // Start up a non-exclusive session if possible.
-            device.requestSession({ exclusive: false, outputContext: ctx })
+            devices[0].requestSession({ exclusive: false, outputContext: ctx })
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.

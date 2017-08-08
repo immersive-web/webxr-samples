@@ -32,7 +32,8 @@ found in the LICENSE file.
       <h1>Positional Audio</h1>
       <p>
         This sample demonstrates playing audio that sounds as if it originates
-        at a specific point in the space.
+        at a specific point in the space. Audio will begin playing when you
+        enter VR.
       </p>
     </header>
     <script>
@@ -58,31 +59,6 @@ found in the LICENSE file.
       let audioScene = new WebVRAudioScene(audioContext);
       let audioSources = [];
 
-      // Load multiple audio sources and begin playing when they've all
-      // completed.
-      Promise.all([
-        audioScene.createAudioSource({
-          url: 'media/sound/drums.ogg',
-          gain: 0.65,
-          position: [0, DEFAULT_HEIGHT, 1],
-          orientation: [0, 0, 0],
-        }),
-        audioScene.createAudioSource({
-          url: 'media/sound/guitar.ogg',
-          gain: 0.65,
-          position: [-1, DEFAULT_HEIGHT, 0],
-          orientation: [0, 0, 0],
-        }),
-        audioScene.createAudioSource({
-          url: 'media/sound/perc.ogg',
-          gain: 0.65,
-          position: [1, DEFAULT_HEIGHT, 0],
-          orientation: [0, 0, 0]
-        }),
-      ]).then((sources) => {
-        audioSources = sources;
-      });
-
       function initVR() {
         vrButton = new VRDeviceButton({
           onRequestSession: onRequestSession,
@@ -92,8 +68,37 @@ found in the LICENSE file.
 
         if (navigator.vr) {
           navigator.vr.getDevices().then((devices) => {
-            let device = devices[0];
-            vrButton.addDevice(device);
+            // Load multiple audio sources.
+            Promise.all([
+              audioScene.createAudioSource({
+                url: 'media/sound/drums.ogg',
+                gain: 0.65,
+                position: [0, DEFAULT_HEIGHT, 1],
+                orientation: [0, 0, 0],
+              }),
+              audioScene.createAudioSource({
+                url: 'media/sound/guitar.ogg',
+                gain: 0.65,
+                position: [-1, DEFAULT_HEIGHT, 0],
+                orientation: [0, 0, 0],
+              }),
+              audioScene.createAudioSource({
+                url: 'media/sound/perc.ogg',
+                gain: 0.65,
+                position: [1, DEFAULT_HEIGHT, 0],
+                orientation: [0, 0, 0]
+              }),
+            ]).then((sources) => {
+              audioSources = sources;
+              // Wait till the audio is loaded before enabling the VR button.
+              for (let device of devices) {
+                vrButton.addDevice(device);
+              }
+            });
+            vrButton.setTitle("Loading Audio");
+
+            if (!devices.length)
+              return;
 
             // In order for a non-exclusive session to be used we must provide
             // an outputContext, which indicates the canvas that will contain
@@ -102,7 +107,7 @@ found in the LICENSE file.
             let ctx = outputCanvas.getContext('vrpresent');
 
             // Start up a non-exclusive session if possible.
-            device.requestSession({ exclusive: false, outputContext: ctx })
+            devices[0].requestSession({ exclusive: false, outputContext: ctx })
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.
@@ -178,8 +183,14 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        if (event.session.createParameters.exclusive)
+        if (event.session.createParameters.exclusive) {
           vrButton.setSession(null);
+
+          // Stop the audio playback when we exit VR.
+          for (let source of audioSources) {
+            source.stop();
+          }
+        }
       }
 
       // Called every time a VRSession requests that a new frame be drawn.
