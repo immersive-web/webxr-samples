@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <title>Room Scale</title>
+    <title>Positional Audio</title>
 
     <link href="css/common.css" rel="stylesheet"></link>
 
@@ -21,6 +21,7 @@ found in the LICENSE file.
     <script src="js/third-party/wglu/wglu-stats.js"></script>
     <script src="js/third-party/wglu/wglu-texture.js"></script>
 
+    <script src="js/webvr-audio-scene.js"></script>
     <script src="js/webvr-button.js"></script>
     <script src="js/webvr-scene.js"></script>
     <script src="js/webvr-scene-cube-sea.js"></script>
@@ -28,15 +29,17 @@ found in the LICENSE file.
   </head>
   <body>
     <header>
-      <h1>Room Scale</h1>
+      <h1>Positional Audio</h1>
       <p>
-        This sample demonstrates using a "stage" frame of reference to provide
-        room scale tracking.
+        This sample demonstrates playing audio that sounds as if it originates
+        at a specific point in the space.
       </p>
     </header>
     <script>
       (function () {
       "use strict";
+
+      const DEFAULT_HEIGHT = 1.65;
 
       // VR globals.
       let vrButton = null;
@@ -47,9 +50,38 @@ found in the LICENSE file.
       let gl = null;
       let scene = new WebVRSceneCubeSea();
       let translatedViewMat = mat4.create();
+      let translatedPoseMat = mat4.create();
       let adjustHeight = false;
 
-      const DEFAULT_HEIGHT = 1.65;
+      // Audio scene globals
+      let audioContext = new AudioContext();
+      let audioScene = new WebVRAudioScene(audioContext);
+      let audioSources = [];
+
+      // Load multiple audio sources and begin playing when they've all
+      // completed.
+      Promise.all([
+        audioScene.createAudioSource({
+          url: 'media/sound/drums.ogg',
+          gain: 0.65,
+          position: [0, DEFAULT_HEIGHT, 1],
+          orientation: [0, 0, 0],
+        }),
+        audioScene.createAudioSource({
+          url: 'media/sound/guitar.ogg',
+          gain: 0.65,
+          position: [-1, DEFAULT_HEIGHT, 0],
+          orientation: [0, 0, 0],
+        }),
+        audioScene.createAudioSource({
+          url: 'media/sound/perc.ogg',
+          gain: 0.65,
+          position: [1, DEFAULT_HEIGHT, 0],
+          orientation: [0, 0, 0]
+        }),
+      ]).then((sources) => {
+        audioSources = sources;
+      });
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -88,6 +120,10 @@ found in the LICENSE file.
           vrButton.setSession(session);
           onSessionStarted(session);
         });
+
+        for (let source of audioSources) {
+          source.start();
+        }
       }
 
       // Called when we've successfully acquired a VRSession. In response we
@@ -184,6 +220,16 @@ found in the LICENSE file.
             scene.draw(view.projectionMatrix, viewMat);
           }
         }
+
+        let poseMat = pose.poseModelMatrix;
+        if (adjustHeight) {
+          mat4.identity(translatedPoseMat);
+          mat4.translate(translatedPoseMat, translatedPoseMat, [0.0, DEFAULT_HEIGHT, 0.0]);
+          mat4.multiply(translatedPoseMat, translatedPoseMat, poseMat);
+          poseMat = translatedPoseMat;
+        }
+
+        audioScene.setListenerPose(poseMat);
 
         scene.endFrame();
       }
