@@ -166,12 +166,12 @@ found in the LICENSE file.
         // Adjust the viewports if needed.
         adjustViewportScale(session);
 
-        session.requestFrame(frameOfRef);
+        session.requestFrame(onVRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        let pose = frame.getDevicePose(vrFrameOfRef);
+        let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
           for (let view of frame.views) {
