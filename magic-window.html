@@ -72,7 +72,7 @@ found in the LICENSE file.
 
             // Pick an arbitrary device for the magic window content and start
             // up a non-exclusive session if possible.
-            devices[0].requestSession({ exclusive: false, outputContext: ctx })
+            devices[0].requestSession({ outputContext: ctx })
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.
@@ -86,7 +86,7 @@ found in the LICENSE file.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession(device) {
-        device.requestSession().then((session) => {
+        device.requestSession({ exclusive: true }).then((session) => {
           vrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -110,7 +110,7 @@ found in the LICENSE file.
         session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
           // Since we're dealing with multple sessions now we need to track
           // which VRFrameOfReference is associated with which VRSession.
-          if (session.createParameters.exclusive) {
+          if (session.exclusive) {
             vrExclusiveFrameOfRef = frameOfRef;
           } else {
             vrNonExclusiveFrameOfRef = frameOfRef;
@@ -130,7 +130,7 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        if (event.session.createParameters.exclusive)
+        if (event.session.exclusive)
           vrButton.setSession(null);
       }
 
@@ -138,7 +138,7 @@ found in the LICENSE file.
       function onVRFrame(frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
-        let frameOfRef = session.createParameters.exclusive ?
+        let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
 

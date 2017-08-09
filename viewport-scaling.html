@@ -94,7 +94,7 @@ found in the LICENSE file.
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            devices[0].requestSession({ exclusive: false, outputContext: ctx })
+            devices[0].requestSession({ outputContext: ctx })
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.
@@ -108,7 +108,7 @@ found in the LICENSE file.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession(device) {
-        device.requestSession().then((session) => {
+        device.requestSession({ exclusive: true }).then((session) => {
           vrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -130,7 +130,7 @@ found in the LICENSE file.
         session.baseLayer = new VRWebGLLayer(session, gl);
 
         session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-          if (session.createParameters.exclusive) {
+          if (session.exclusive) {
             vrExclusiveFrameOfRef = frameOfRef;
           } else {
             vrNonExclusiveFrameOfRef = frameOfRef;
@@ -150,14 +150,14 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        if (event.session.createParameters.exclusive)
+        if (event.session.exclusive)
           vrButton.setSession(null);
       }
 
       // Called every time the VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
-        let frameOfRef = session.createParameters.exclusive ?
+        let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
 
