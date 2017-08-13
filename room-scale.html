@@ -16,6 +16,7 @@ found in the LICENSE file.
     <link href="css/common.css" rel="stylesheet"></link>
 
     <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src="js/third-party/tiny-gltf2.js"></script>
 
     <script src="js/third-party/wglu/wglu-program.js"></script>
     <script src="js/third-party/wglu/wglu-stats.js"></script>
@@ -23,7 +24,7 @@ found in the LICENSE file.
 
     <script src="js/webvr-button.js"></script>
     <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-cube-sea.js"></script>
+    <script src="js/webvr-scene-gltf.js"></script>
     <script src="js/webvr-samples-util.js"></script>
   </head>
   <body>
@@ -45,7 +46,7 @@ found in the LICENSE file.
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebVRSceneGLTF("media/gltf/Camp/WebVRCampsite.gltf");
       let translatedViewMat = mat4.create();
       let adjustHeight = false;
 
