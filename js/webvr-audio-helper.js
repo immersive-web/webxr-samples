@@ -11,32 +11,24 @@ const CONE_OUTER_ANGLE = 120;
 const CONE_OUTER_GAIN = 0.25;
 
 let tmpVec = vec3.create();
-let tmpUp = vec3.create();
 let tmpQuat = quat.create();
 
-class WebVRAudioScene {
+class AudioPose {
+  constructor(targetTime) {
+    this.targetTime = targetTime;
+    this.position = [0, 0, 0];
+    this.forward = [0, 0, -1];
+    this.up = [0, 1, 0];
+  }
+}
+
+class WebVRAudioHelper {
   constructor(context) {
     // Master audio context.
     this.context = context;
-  }
 
-  /**
-   * Method for updating listener's position.
-   * @param {Array} position Listener position in x, y, z.
-   */
-  setListenerPosition(position) {
-    this.context.listener.setPosition(position[0], position[1], position[2]);
-  }
-
-  /**
-   * Method for updating listener's orientation.
-   * @param {Array} orientation Listener orientation in x, y, z.
-   * @param {Array} orientation Listener's up vector in x, y, z.
-   */
-  setListenerOrientation(orientation, upvector) {
-    this.context.listener.setOrientation(
-        orientation[0], orientation[1], orientation[2],
-        upvector[0], upvector[1], upvector[2]);
+    this.recording = false;
+    this.recordedPoses = [];
   }
 
   // For WebAudio we want to get the position of the listener and a vector
@@ -44,15 +36,49 @@ class WebVRAudioScene {
   // a matrix representing the pose (not inverted) and returns WebAudio
   // compatible vectors.
   setListenerPose(poseMat) {
+    // By having the listener transition between poses we introduce a small
+    // amount of latency, but avoid some potential audio artifacts introduced
+    // but sudden position/orientation jumps in the panner.
+
+    let listener = this.context.listener;
+    let targetTime = this.context.currentTime + 0.1; // 10ms transition time
+
+    let audioPose = new AudioPose(targetTime);
+
     mat4.getTranslation(tmpVec, poseMat);
-    this.context.listener.setPosition(tmpVec[0], tmpVec[1], tmpVec[2]);
+    vec3.copy(audioPose.position, tmpVec);
+    listener.positionX.linearRampToValueAtTime(tmpVec[0], targetTime);
+    listener.positionY.linearRampToValueAtTime(tmpVec[1], targetTime);
+    listener.positionZ.linearRampToValueAtTime(tmpVec[2], targetTime);
 
     mat4.getRotation(tmpQuat, poseMat);
+
     vec3.transformQuat(tmpVec, [0, 0, -1], tmpQuat);
-    vec3.transformQuat(tmpUp, [0, 1, 0], tmpQuat);
     vec3.normalize(tmpVec, tmpVec);
-    this.context.listener.setOrientation(tmpVec[0], tmpVec[1], tmpVec[2],
-                                         tmpUp[0], tmpUp[1], tmpUp[2]);
+    vec3.copy(audioPose.forward, tmpVec);
+    listener.forwardX.linearRampToValueAtTime(tmpVec[0], targetTime);
+    listener.forwardY.linearRampToValueAtTime(tmpVec[1], targetTime);
+    listener.forwardZ.linearRampToValueAtTime(tmpVec[2], targetTime);
+
+    vec3.transformQuat(tmpVec, [0, 1, 0], tmpQuat);
+    vec3.normalize(tmpVec, tmpVec);
+    vec3.copy(audioPose.up, tmpVec);
+    listener.upX.linearRampToValueAtTime(tmpVec[0], targetTime);
+    listener.upY.linearRampToValueAtTime(tmpVec[1], targetTime);
+    listener.upZ.linearRampToValueAtTime(tmpVec[2], targetTime);
+
+    if (this.recording) {
+      this.recordedPoses.push(audioPose);
+    }
+  }
+
+  dumpRecording() {
+    let outputStr = "[";
+    for (let pose of this.recordedPoses) {
+      outputStr += `\n{time:${pose.targetTime}, pos:${pose.position}, fwd:${pose.forward}, up:${pose.up}},`;
+    }
+    outputStr += "\n]";
+    return outputStr;
   }
 
   /**

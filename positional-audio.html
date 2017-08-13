@@ -21,7 +21,7 @@ found in the LICENSE file.
     <script src="js/third-party/wglu/wglu-stats.js"></script>
     <script src="js/third-party/wglu/wglu-texture.js"></script>
 
-    <script src="js/webvr-audio-scene.js"></script>
+    <script src="js/webvr-audio-helper.js"></script>
     <script src="js/webvr-button.js"></script>
     <script src="js/webvr-scene.js"></script>
     <script src="js/webvr-scene-cube-sea.js"></script>
@@ -56,7 +56,7 @@ found in the LICENSE file.
 
       // Audio scene globals
       let audioContext = new AudioContext();
-      let audioScene = new WebVRAudioScene(audioContext);
+      let vrAudioHelper = new WebVRAudioHelper(audioContext);
       let audioSources = [];
 
       function initVR() {
@@ -70,19 +70,19 @@ found in the LICENSE file.
           navigator.vr.getDevices().then((devices) => {
             // Load multiple audio sources.
             Promise.all([
-              audioScene.createAudioSource({
+              vrAudioHelper.createAudioSource({
                 url: 'media/sound/drums.ogg',
                 gain: 0.65,
                 position: [0, DEFAULT_HEIGHT, 1],
                 orientation: [0, 0, 0],
               }),
-              audioScene.createAudioSource({
+              vrAudioHelper.createAudioSource({
                 url: 'media/sound/guitar.ogg',
                 gain: 0.65,
                 position: [-1, DEFAULT_HEIGHT, 0],
                 orientation: [0, 0, 0],
               }),
-              audioScene.createAudioSource({
+              vrAudioHelper.createAudioSource({
                 url: 'media/sound/perc.ogg',
                 gain: 0.65,
                 position: [1, DEFAULT_HEIGHT, 0],
@@ -183,10 +183,15 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
+        console.log("onSessionEnded");
+        console.log("Session: " + event.session);
+        console.log("Exclusive: " + event.session.exclusive);
         if (event.session.exclusive) {
+          console.log("vrButton.setSession(null)");
           vrButton.setSession(null);
 
           // Stop the audio playback when we exit VR.
+          console.log("Stop Audio");
           for (let source of audioSources) {
             source.stop();
           }
@@ -230,17 +235,17 @@ found in the LICENSE file.
 
             scene.draw(view.projectionMatrix, viewMat);
           }
-        }
 
-        let poseMat = pose.poseModelMatrix;
-        if (adjustHeight) {
-          mat4.identity(translatedPoseMat);
-          mat4.translate(translatedPoseMat, translatedPoseMat, [0.0, DEFAULT_HEIGHT, 0.0]);
-          mat4.multiply(translatedPoseMat, translatedPoseMat, poseMat);
-          poseMat = translatedPoseMat;
-        }
+          let poseMat = pose.poseModelMatrix;
+          if (adjustHeight) {
+            mat4.identity(translatedPoseMat);
+            mat4.translate(translatedPoseMat, translatedPoseMat, [0.0, DEFAULT_HEIGHT, 0.0]);
+            mat4.multiply(translatedPoseMat, translatedPoseMat, poseMat);
+            poseMat = translatedPoseMat;
+          }
 
-        audioScene.setListenerPose(poseMat);
+          vrAudioHelper.setListenerPose(poseMat);
+        }
 
         scene.endFrame();
       }
