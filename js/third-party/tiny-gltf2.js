@@ -582,11 +582,7 @@ class GLTF2Scene {
     this.images = [];
     this.meshes = [];
     this.nodes = [];
-    this.lights = [
-      { direction: [-0.1, -1.0, -0.2], color: [2.0, 2.0, 2.0] },
-      /*{ direction: [0.0, 0.2, 0.9], color: [1.0, 0.0, 0.0] },
-      { direction: [0.0, -1.0, 0], color: [0.5, 1.0, 0.6] },*/
-    ]
+    this.light = { direction: [-0.1, -1.0, -0.2], color: [2.0, 2.0, 2.0] };
     this.invViewMat = mat4.create();
     this.cameraPos = vec3.create();
   }
@@ -690,36 +686,14 @@ class GLTF2Scene {
         for (let instanceNode of mesh.instanceNodes) {
           gl.uniformMatrix4fv(program.uniform.model, false, instanceNode.transform);
 
-          let firstLight = true;
-          gl.disable(gl.BLEND);
-          gl.depthFunc(gl.LESS);
-          gl.depthMask(true);
+          gl.uniform3fv(program.uniform.lightDir, this.light.direction);
+          gl.uniform3fv(program.uniform.lightColor, this.light.color);
 
-          for (let light of this.lights) {
-
-            gl.uniform3fv(program.uniform.lightDir, light.direction);
-            gl.uniform3fv(program.uniform.lightColor, light.color);
-
-            if (primitive.indexBuffer) {
-              gl.drawElements(primitive.mode, primitive.elementCount,
-                              primitive.indexType, primitive.indexByteOffset);
-            } else {
-              gl.drawArrays(primitive.mode, 0, primitive.elementCount);
-            }
-
-            if (firstLight) {
-              if (program.defines.USE_EMISSIVE) {
-                gl.uniform3fv(program.uniform.emissiveFactor, [0.0, 0.0, 0.0]);
-              }
-
-              gl.enable(gl.BLEND);
-              gl.blendFunc(gl.ONE, gl.ONE);
-              gl.depthFunc(gl.EQUAL);
-              //gl.disable(gl.DEPTH_TEST);
-              gl.depthMask(false);
-              firstLight = false;
-            }
-            
+          if (primitive.indexBuffer) {
+            gl.drawElements(primitive.mode, primitive.elementCount,
+                            primitive.indexType, primitive.indexByteOffset);
+          } else {
+            gl.drawArrays(primitive.mode, 0, primitive.elementCount);
           }
         }
       }
