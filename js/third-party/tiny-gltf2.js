@@ -1156,12 +1156,14 @@ class Program {
 
 class ProgramCache {
   constructor(gl) {
+    this.gl = gl;
     this.programs = [];
   }
 
   getProgram(material, primitive) {
     let programMask = 0;
     let programDefines = {};
+    let gl = this.gl;
 
     if (primitive.attributeMask & ATTRIB_MASK.COLOR_0) {
       programMask |= PROGRAM_MASK.USE_VERTEX_COLOR;

@@ -8,18 +8,19 @@ class WebVRSceneGLTF extends WebVRScene {
 
     this.url = url;
     this.scene = null;
-    this.loader_ = null;
+    this._loader = null;
+    //this._stats_enabled = false;
   }
 
   onLoadScene(gl) {
-    this.loader_ = new GLTF2SceneLoader(gl);
+    this._loader = new GLTF2SceneLoader(gl);
 
-    this.loader_.loadFromUrl(this.url).then((scene) => {
+    this._loader.loadFromUrl(this.url).then((scene) => {
       this.scene = scene;
-    }).catch((err) => {
+    });/*.catch((err) => {
       console.error(`Failed to load glTF 2.0 scene: ${err}`);
       this.scene = null;
-    });
+    });*/
   }
 
   onDrawView(gl, timestamp, projection_mat, view_mat, eye) {

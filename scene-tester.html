@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+Copyright 2017 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>Scene tester</title>
+
+    <link href="css/common.css" rel="stylesheet"></link>
+
+    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src="js/third-party/tiny-gltf2.js"></script>
+
+    <script src="js/third-party/wglu/wglu-program.js"></script>
+    <script src="js/third-party/wglu/wglu-stats.js"></script>
+    <script src="js/third-party/wglu/wglu-texture.js"></script>
+
+    <script src="js/webvr-button.js"></script>
+    <script src="js/webvr-scene.js"></script>
+    <script src="js/webvr-scene-cube-sea.js"></script>
+    <script src="js/webvr-scene-gltf.js"></script>
+    <script src="js/webvr-samples-util.js"></script>
+
+    <style>
+      #scene-select {
+        position: absolute;
+        z-index: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Scene Tester</h1>
+      <p>
+        Just a simple test page to allow developers to test sample scenes
+        without a headset.<br/>
+        WASD + Mouse Click/Drag to move.
+      </p>
+      <select id="scene-select">
+        <option value="cube-sea" selected>Cube Sea</option>
+        <option value="campsite">Campsite (glTF)</option>
+      </select>
+    </header>
+    
+    <script>
+      (function () {
+      "use strict";
+
+      var projection_mat = mat4.create();
+      var view_mat = mat4.create();
+
+      let scene = null;
+      let gl = VRSamplesUtil.initWebGLContext({ antialias: false });
+      document.body.appendChild(gl.canvas);
+
+      function setScene(new_scene) {
+        scene = new_scene;
+        scene.setWebGLContext(gl);
+      }
+
+      function onResize () {
+        gl.canvas.width = gl.canvas.offsetWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.offsetHeight * window.devicePixelRatio;
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        mat4.perspective(projection_mat, Math.PI*0.4,
+                         gl.canvas.width/gl.canvas.height,
+                         0.1, 1024.0);
+      }
+      window.addEventListener("resize", onResize);
+      onResize();
+
+      // Simple flight controls
+      let pressed_keys = new Array(256);
+      let look_yaw = 0;
+      let look_pitch = 0;
+      let look_pos = [0, -1.75, 0];
+      const look_speed = 0.0025;
+      const move_speed = 0.00025;
+      window.addEventListener("keydown", (ev) => pressed_keys[ev.keyCode] = true);
+      window.addEventListener("keyup", (ev) => pressed_keys[ev.keyCode] = false);
+      window.addEventListener("mousemove", (ev) => {
+        // Only rotate when the left button is pressed
+        if (ev.buttons && 1) {
+          look_yaw += ev.movementX * look_speed;
+
+          look_pitch += ev.movementY * look_speed;
+          if (look_pitch < -Math.PI*0.5)
+              look_pitch = -Math.PI*0.5;
+          if (look_pitch > Math.PI*0.5)
+              look_pitch = Math.PI*0.5;
+        }
+      });
+
+      function updateView(delta) {
+        let move_dir = [0, 0, 0];
+
+        if(pressed_keys['W'.charCodeAt(0)]) {
+            move_dir[2] += 1;
+        }
+        if(pressed_keys['S'.charCodeAt(0)]) {
+            move_dir[2] -= 1;
+        }
+        if(pressed_keys['A'.charCodeAt(0)]) {
+            move_dir[0] += 1;
+        }
+        if(pressed_keys['D'.charCodeAt(0)]) {
+            move_dir[0] -= 1;
+        }
+
+        vec3.normalize(move_dir, move_dir);
+        vec3.scale(move_dir, move_dir, delta * move_speed);
+
+        mat4.identity(view_mat);
+        mat4.rotateY(view_mat, view_mat, -look_yaw);
+        mat4.rotateX(view_mat, view_mat, -look_pitch);
+
+        vec3.transformMat4(move_dir, move_dir, view_mat);
+        vec3.add(look_pos, look_pos, move_dir);
+
+        mat4.identity(view_mat);
+        mat4.rotateX(view_mat, view_mat, look_pitch);
+        mat4.rotateY(view_mat, view_mat, look_yaw);
+        mat4.translate(view_mat, view_mat, look_pos);
+      };
+
+      function onGLFrame() {
+        window.requestAnimationFrame(onGLFrame);
+
+        if (!scene)
+          return;
+
+        let frame_delta = scene.startFrame();
+        updateView(frame_delta);
+
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        scene.draw(projection_mat, view_mat);
+
+        scene.endFrame();
+      }
+      window.requestAnimationFrame(onGLFrame);
+
+      let sceneSelect = document.getElementById("scene-select");
+      function onSceneSelected() {
+        switch(sceneSelect.value) {
+          case 'cube-sea':
+            setScene(new WebVRSceneCubeSea());
+            return;
+          case 'campsite':
+            setScene(new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf'));
+            return;
+          default:
+            console.error(`Unknown Scene: ${sceneSelect.value}`);
+        }
+      }
+      sceneSelect.addEventListener("change", onSceneSelected);
+      onSceneSelected();
+
+      })();
+    </script>
+  </body>
+</html>
