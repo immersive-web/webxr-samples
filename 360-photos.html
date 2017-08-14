@@ -155,17 +155,19 @@ found in the LICENSE file.
         let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
-          for (let view of frame.views) {
-            let viewport = view.getViewport(session.baseLayer);
-            gl.viewport(viewport.x, viewport.y,
-                        viewport.width, viewport.height);
+          let projectionMats = [];
+          let viewMats = [];
+          let viewports = [];
+          let eyes = [];
 
-            // Passing the view.eye in here allows us to properly render stereo
-            // images, if we have them. It indicates which eye the view is
-            // intended for, which in turn determines which half of the stereo
-            // image to draw.
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view), view.eye);
+          for (let view of frame.views) {
+            projectionMats.push(view.projectionMatrix);
+            viewports.push(view.getViewport(session.baseLayer));
+            viewMats.push(pose.getViewMatrix(view));
+            eyes.push(view.eye);
           }
+
+          scene.drawViewportArray(projectionMats, viewMats, viewports, eyes);
         }
 
         scene.endFrame();

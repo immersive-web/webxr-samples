@@ -55,21 +55,31 @@ class WebVRScene {
   }
 
   draw(projection_mat, view_mat, eye) {
+    // If an eye wasn't given just assume the left eye.
+    if (!eye) {
+      eye = "left";
+    }
+
+    this.drawViewportArray([projection_mat], [view_mat], null, [eye]);
+  }
+
+  drawViewportArray(projection_mats, view_mats, viewports, eyes) {
     if (!this._gl) {
       // Don't draw when we don't have a valid context
       return;
     }
 
     // If an eye wasn't given just assume the left eye.
-    if (!eye) {
-      eye = "left";
+    if (!eyes) {
+      eyes = new Array(view_mats.length);
+      eyes.fill("left");
     }
-
-    this.onDrawView(this._gl, this._timestamp, projection_mat, view_mat, eye);
 
     if (this._stats_enabled) {
-      this._onDrawStats(projection_mat, view_mat);
+      this._onDrawStats(projection_mats, view_mats, viewports);
     }
+
+    this.onDrawViews(this._gl, this._timestamp, projection_mats, view_mats, viewports, eyes);
   }
 
   startFrame() {
@@ -98,19 +108,29 @@ class WebVRScene {
   onLoadScene(gl) {}
 
   // Override with custom scene rendering.
-  onDrawView(gl, timestamp, projection_mat, view_mat, eye) {}
+  onDrawViews(gl, timestamp, projection_mat, view_mat, viewports, eye) {}
 
-  _onDrawStats(projection_mat, view_mat) {
-    // To ensure that the FPS counter is visible in VR mode we have to
-    // render it as part of the scene.
-    if (this._stats_standing) {
-      mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);
-    } else {
-      mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
+  _onDrawStats(projection_mats, view_mats, viewports) {
+    for (let i = 0; i < view_mats.length; ++i) {
+      if (viewports) {
+        let vp = viewports[i];
+        this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      }
+      let projection_mat = projection_mats[i];
+      let view_mat = view_mats[i];
+
+      // To ensure that the FPS counter is visible in VR mode we have to
+      // render it as part of the scene.
+      if (this._stats_standing) {
+        mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);
+      } else {
+        mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
+      }
+      mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
+      mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
+      mat4.multiply(this._stats_mat, view_mat, this._stats_mat);
+
+      this._stats.render(projection_mat, this._stats_mat);
     }
-    mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
-    mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
-    mat4.multiply(this._stats_mat, view_mat, this._stats_mat);
-    this._stats.render(projection_mat, this._stats_mat);
   }
 }

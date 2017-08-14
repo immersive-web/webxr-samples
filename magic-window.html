@@ -152,13 +152,31 @@ found in the LICENSE file.
         let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
-          for (let view of frame.views) {
-            let viewport = view.getViewport(session.baseLayer);
-            gl.viewport(viewport.x, viewport.y,
-                        viewport.width, viewport.height);
+          let projectionMats = [];
+          let viewMats = [];
+          let viewports = [];
 
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+          // This is a different rendering pattern than the previous samples
+          // used, but it should be more efficent. By providing the matrices and
+          // viewports as an array to the drawing function it can do all the
+          // necessary binding once and then call the actual draw commands in
+          // a tighter loop, only changing the matrices and viewport each time.
+          // This does mean that the viewport is changed much more frequently
+          // (N times per object instead of N times per scene) but it's
+          // typically a pretty cheap thing to change and will almost always be
+          // easily outweighed by the savings from not redundantly binding
+          // everything else.
+
+          // Note that for the complexity of the scenes in these samples this
+          // won't make much visible performance difference, but we're using the
+          // more efficient pattern anyway as a way of promoting best practices.
+          for (let view of frame.views) {
+            projectionMats.push(view.projectionMatrix);
+            viewports.push(view.getViewport(session.baseLayer));
+            viewMats.push(pose.getViewMatrix(view));
           }
+
+          scene.drawViewportArray(projectionMats, viewMats, viewports);
         }
 
         scene.endFrame();

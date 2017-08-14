@@ -218,25 +218,23 @@ found in the LICENSE file.
         let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
+          let projectionMats = [];
+          let viewMats = [];
+          let viewports = [];
+
           for (let view of frame.views) {
-            let viewport = view.getViewport(session.baseLayer);
-            gl.viewport(viewport.x, viewport.y,
-                        viewport.width, viewport.height);
-
+            projectionMats.push(view.projectionMatrix);
+            viewports.push(view.getViewport(session.baseLayer));
+            
             let viewMat = pose.getViewMatrix(view);
-
-            // If we're using an eye-level frameOfReference translate the
-            // view up by a default player height to give the impression that
-            // Y=0 is at the floor level.
             if (adjustHeight) {
-              // Translate by negative height since this is a view matrix,
-              // which is inverted by nature.
               mat4.translate(translatedViewMat, viewMat, [0.0, -DEFAULT_HEIGHT, 0.0]);
               viewMat = translatedViewMat;
             }
-
-            scene.draw(view.projectionMatrix, viewMat);
+            viewMats.push(viewMat);
           }
+
+          scene.drawViewportArray(projectionMats, viewMats, viewports);
 
           let poseMat = pose.poseModelMatrix;
           if (adjustHeight) {

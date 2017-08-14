@@ -99,13 +99,10 @@ class WebVRScenePanorama extends WebVRScene {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(panoIndices), gl.STATIC_DRAW);
   }
 
-  onDrawView(gl, timestamp, projection_mat, view_mat, eye) {
+  onDrawViews(gl, timestamp, projection_mats, view_mats, viewports, eyes) {
     let program = this.program;
 
     program.use();
-
-    gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
-    gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view_mat);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -120,16 +117,28 @@ class WebVRScenePanorama extends WebVRScene {
     gl.uniform1i(this.program.uniform.diffuse, 0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-    if (this.topBottomStereo) {
-      if (eye == "left") {
-        gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.0);
-      } else {
-        gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.5);
+    for (let i = 0; i < view_mats.length; ++i) {
+      if (viewports) {
+        let vp = viewports[i];
+        gl.viewport(vp.x, vp.y, vp.width, vp.height);
       }
-    } else {
-      gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 1.0, 0.0, 0.0);
-    }
+      let projection_mat = projection_mats[i];
+      let view_mat = view_mats[i];
 
-    gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0);
+      if (this.topBottomStereo) {
+        if (eyes[i] == "left") {
+          gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.0);
+        } else {
+          gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.5);
+        }
+      } else {
+        gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 1.0, 0.0, 0.0);
+      }
+
+      gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
+      gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view_mat);
+
+      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0);
+    }
   }
 }

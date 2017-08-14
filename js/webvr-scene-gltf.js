@@ -22,9 +22,10 @@ class WebVRSceneGLTF extends WebVRScene {
     });*/
   }
 
-  onDrawView(gl, timestamp, projection_mat, view_mat, eye) {
-    if (this.scene) {
-      this.scene.draw(projection_mat, view_mat);
-    }
+  onDrawViews(gl, timestamp, projection_mats, view_mats, viewports, eyes) {
+    if (!this.scene)
+      return;
+
+    this.scene.drawViewports(projection_mats, view_mats, viewports);
   }
 }

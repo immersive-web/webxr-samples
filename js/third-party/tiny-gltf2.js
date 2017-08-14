@@ -584,7 +584,7 @@ class GLTF2Scene {
     this.nodes = [];
     this.light = { direction: [-0.1, -1.0, -0.2], color: [2.0, 2.0, 2.0] };
     this.invViewMat = mat4.create();
-    this.cameraPos = vec3.create();
+    this.cameraPositions = [vec3.create()];
   }
 
   computeBoundingSphere() {
@@ -601,12 +601,29 @@ class GLTF2Scene {
   }
 
   draw(projectionMat, viewMat) {
+    this.drawViewports([projectionMat], [viewMat], null);
+  }
+
+  drawViewports(projectionMats, viewMats, viewports) {
     let gl = this.gl;
 
-    mat4.invert(this.invViewMat, viewMat);
-    vec3.set(this.cameraPos, 0, 0, 0);
-    vec3.transformMat4(this.cameraPos, this.cameraPos, this.invViewMat);
+    // Compute the necessary inverse view matrices
+    for (let i = 0; i < viewMats.length; ++i) {
+      mat4.invert(this.invViewMat, viewMats[i]);
 
+      if (this.cameraPositions.length <= i) {
+        this.cameraPositions.push(vec3.create());
+      }
+      let cameraPos = this.cameraPositions[i];
+      vec3.set(cameraPos, 0, 0, 0);
+      vec3.transformMat4(cameraPos, cameraPos, this.invViewMat);
+    }
+
+    if (viewports && viewports.length == 1) {
+      let vp = viewports[0];
+      gl.viewport(vp.x, vp.y, vp.width, vp.height);
+    }
+    
     let program = null;
 
     for (let mesh of this.meshes) {
@@ -616,9 +633,15 @@ class GLTF2Scene {
         if (program != primitive.program) {
           program = primitive.program;
           program.use();
-          gl.uniformMatrix4fv(program.uniform.proj, false, projectionMat);
-          gl.uniformMatrix4fv(program.uniform.view, false, viewMat);
-          gl.uniform3fv(program.uniform.cameraPos, this.cameraPos);
+
+          if (viewMats.length == 1) {
+            gl.uniformMatrix4fv(program.uniform.proj, false, projectionMats[0]);
+            gl.uniformMatrix4fv(program.uniform.view, false, viewMats[0]);
+            gl.uniform3fv(program.uniform.cameraPos, this.cameraPositions[0]);
+          }
+
+          gl.uniform3fv(program.uniform.lightDir, this.light.direction);
+          gl.uniform3fv(program.uniform.lightColor, this.light.color);
         }
 
         let material = primitive.material;
@@ -686,14 +709,30 @@ class GLTF2Scene {
         for (let instanceNode of mesh.instanceNodes) {
           gl.uniformMatrix4fv(program.uniform.model, false, instanceNode.transform);
 
-          gl.uniform3fv(program.uniform.lightDir, this.light.direction);
-          gl.uniform3fv(program.uniform.lightColor, this.light.color);
-
-          if (primitive.indexBuffer) {
-            gl.drawElements(primitive.mode, primitive.elementCount,
-                            primitive.indexType, primitive.indexByteOffset);
+          if (viewMats.length == 1) {
+            if (primitive.indexBuffer) {
+              gl.drawElements(primitive.mode, primitive.elementCount,
+                              primitive.indexType, primitive.indexByteOffset);
+            } else {
+              gl.drawArrays(primitive.mode, 0, primitive.elementCount);
+            }
           } else {
-            gl.drawArrays(primitive.mode, 0, primitive.elementCount);
+            for (let i = 0; i < viewMats.length; ++i) {
+              if (viewports) {
+                let vp = viewports[i];
+                gl.viewport(vp.x, vp.y, vp.width, vp.height);
+              }
+              gl.uniformMatrix4fv(program.uniform.proj, false, projectionMats[i]);
+              gl.uniformMatrix4fv(program.uniform.view, false, viewMats[i]);
+              gl.uniform3fv(program.uniform.cameraPos, this.cameraPositions[i]);
+
+              if (primitive.indexBuffer) {
+                gl.drawElements(primitive.mode, primitive.elementCount,
+                                primitive.indexType, primitive.indexByteOffset);
+              } else {
+                gl.drawArrays(primitive.mode, 0, primitive.elementCount);
+              }
+            }
           }
         }
       }

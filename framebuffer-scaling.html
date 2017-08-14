@@ -145,13 +145,17 @@ found in the LICENSE file.
         let pose = frame.getDevicePose(vrFrameOfRef);
 
         if (pose) {
-          for (let view of frame.views) {
-            let viewport = view.getViewport(session.baseLayer);
-            gl.viewport(viewport.x, viewport.y,
-                        viewport.width, viewport.height);
+          let projectionMats = [];
+          let viewMats = [];
+          let viewports = [];
 
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+          for (let view of frame.views) {
+            projectionMats.push(view.projectionMatrix);
+            viewports.push(view.getViewport(session.baseLayer));
+            viewMats.push(pose.getViewMatrix(view));
           }
+
+          scene.drawViewportArray(projectionMats, viewMats, viewports);
         }
 
         scene.endFrame();

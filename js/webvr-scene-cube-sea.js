@@ -166,15 +166,10 @@ class WebVRSceneCubeSea extends WebVRScene {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
   }
 
-  onDrawView(gl, timestamp, projection_mat, view_mat, eye) {
+  onDrawViews(gl, timestamp, projection_mats, view_mats, viewports, eyes) {
     let program = this.program;
 
     program.use();
-
-    gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
-    gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view_mat);
-    mat3.identity(this.normalMat);
-    gl.uniformMatrix3fv(program.uniform.normalMat, false, this.normalMat);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -191,9 +186,21 @@ class WebVRSceneCubeSea extends WebVRScene {
     gl.uniform1i(this.program.uniform.diffuse, 0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-    gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0);
+    for (let i = 0; i < view_mats.length; ++i) {
+      if (viewports) {
+        let vp = viewports[i];
+        gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      }
+      let projection_mat = projection_mats[i];
+      let view_mat = view_mats[i];
 
-    if (timestamp) {
+      gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
+      gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view_mat);
+      mat3.identity(this.normalMat);
+      gl.uniformMatrix3fv(program.uniform.normalMat, false, this.normalMat);
+
+      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0);
+
       mat4.fromRotation(this.heroRotationMat, timestamp / 2000, [0, 1, 0]);
       mat4.multiply(this.heroModelViewMat, view_mat, this.heroRotationMat);
       gl.uniformMatrix4fv(program.uniform.modelViewMat, false, this.heroModelViewMat);
