@@ -9,7 +9,6 @@ class WebVRSceneGLTF extends WebVRScene {
     this.url = url;
     this.scene = null;
     this._loader = null;
-    //this._stats_enabled = false;
   }
 
   onLoadScene(gl) {

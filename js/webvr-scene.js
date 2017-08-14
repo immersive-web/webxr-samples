@@ -9,6 +9,7 @@ class WebVRScene {
     this._timestamp = -1;
     this._frame_delta = 0;
     this._stats_enabled = true;
+    this._stats_standing = false;
     this._stats = null;
     this._stats_mat = mat4.create();
 
@@ -47,6 +48,10 @@ class WebVRScene {
     } else if (!enable) {
       this._stats = null;
     }
+  }
+
+  standingStats(enable) {
+    this._stats_standing = enable;
   }
 
   draw(projection_mat, view_mat, eye) {
@@ -98,7 +103,11 @@ class WebVRScene {
   _onDrawStats(projection_mat, view_mat) {
     // To ensure that the FPS counter is visible in VR mode we have to
     // render it as part of the scene.
-    mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
+    if (this._stats_standing) {
+      mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);
+    } else {
+      mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
+    }
     mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
     mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
     mat4.multiply(this._stats_mat, view_mat, this._stats_mat);
