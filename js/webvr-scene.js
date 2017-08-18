@@ -103,7 +103,7 @@ class WebVRScene {
       this._onDrawStats(projection_mats, view_mats, viewports);
     }
 
-    if (!this._debug_geometries.length) {
+    if (this._debug_geometries.length) {
       this._onDrawDebugGeometry(projection_mats, view_mats, viewports);
     }
 
@@ -163,7 +163,7 @@ class WebVRScene {
   }
 
   _onDrawDebugGeometry(projection_mats, view_mats, viewports) {
-    if (!this._debug_renderer) {
+    if (this._debug_renderer) {
       for (let i = 0; i < view_mats.length; ++i) {
         if (viewports) {
           let vp = viewports[i];
