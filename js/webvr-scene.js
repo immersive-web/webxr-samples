@@ -14,6 +14,9 @@ class WebVRScene {
     this._stats_mat = mat4.create();
 
     this.texture_loader = null;
+
+    this._debug_geometries = [];
+    this._debug_renderer = null;
   }
 
   setWebGLContext(gl) {
@@ -24,6 +27,10 @@ class WebVRScene {
         this._stats = new WGLUStats(gl);
       }
       this.texture_loader = new WGLUTextureLoader(gl);
+
+      if (this._debug_geometries.length) {
+        this._debug_renderer = new WGLUDebugGeometry(gl);
+      }
 
       this.onLoadScene(gl);
     }
@@ -54,6 +61,23 @@ class WebVRScene {
     this._stats_standing = enable;
   }
 
+  createDebugGeometry(type) {
+    let geometry = {
+      type: type,
+      transform: mat4.create(),
+      color: [1.0, 1.0, 1.0, 1.0],
+      visible: true
+    };
+    this._debug_geometries.push(geometry);
+
+    // Create the debug geometry renderer if needed.
+    if (!this._debug_renderer && this._gl) {
+      this._debug_renderer = new WGLUDebugGeometry(this._gl);
+    }
+
+    return geometry;
+  }
+
   draw(projection_mat, view_mat, eye) {
     // If an eye wasn't given just assume the left eye.
     if (!eye) {
@@ -77,6 +101,10 @@ class WebVRScene {
 
     if (this._stats_enabled) {
       this._onDrawStats(projection_mats, view_mats, viewports);
+    }
+
+    if (!this._debug_geometries.length) {
+      this._onDrawDebugGeometry(projection_mats, view_mats, viewports);
     }
 
     this.onDrawViews(this._gl, this._timestamp, projection_mats, view_mats, viewports, eyes);
@@ -131,6 +159,40 @@ class WebVRScene {
       mat4.multiply(this._stats_mat, view_mat, this._stats_mat);
 
       this._stats.render(projection_mat, this._stats_mat);
+    }
+  }
+
+  _onDrawDebugGeometry(projection_mats, view_mats, viewports) {
+    if (!this._debug_renderer) {
+      for (let i = 0; i < view_mats.length; ++i) {
+        if (viewports) {
+          let vp = viewports[i];
+          this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
+        }
+        let projection_mat = projection_mats[i];
+        let view_mat = view_mats[i];
+
+        this._debug_renderer.bind(projection_mat, view_mat);
+
+        for (let geom of this._debug_geometries) {
+          if (!geom.visible)
+            continue;
+
+          switch(geom.type) {
+            case "cube":
+              this._debug_renderer.drawBoxWithMatrix(geom.transform, geom.color);
+              break;
+            case "cone":
+              this._debug_renderer.drawConeWithMatrix(geom.transform, geom.color);
+              break;
+            case "axes":
+              this._debug_renderer.drawCoordinateAxes(geom.transform);
+              break;
+            default:
+              break;
+          }
+        }
+      }
     }
   }
 }

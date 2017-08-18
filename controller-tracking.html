@@ -1,0 +1,262 @@
+<!doctype html>
+<!--
+Copyright 2017 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>Room Scale</title>
+
+    <link href="css/common.css" rel="stylesheet"></link>
+
+    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src="js/third-party/tiny-gltf2.js"></script>
+
+    <script src="js/third-party/wglu/wglu-debug-geometry.js"></script>
+    <script src="js/third-party/wglu/wglu-program.js"></script>
+    <script src="js/third-party/wglu/wglu-stats.js"></script>
+    <script src="js/third-party/wglu/wglu-texture.js"></script>
+
+    <script src="js/webvr-button.js"></script>
+    <script src="js/webvr-scene.js"></script>
+    <script src="js/webvr-scene-gltf.js"></script>
+    <script src="js/webvr-samples-util.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Controller Tracking</h1>
+      <p>
+        This sample demonstrates basic tracking of VR controllers. It does not
+        respond to button presses or other controller interactions.
+      </p>
+    </header>
+    <script>
+      (function () {
+      "use strict";
+
+      // VR globals.
+      let vrButton = null;
+      let vrExclusiveFrameOfRef = null;
+      let vrNonExclusiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let scene = new WebVRSceneGLTF("media/gltf/Camp/WebVRCampsite.gltf");
+      scene.standingStats(true); // Position the stats at standing height.
+      let translatedViewMat = mat4.create();
+      let translatedPoseMat = mat4.create();
+      let adjustHeight = false;
+      let controllerGeometries = [];
+
+      const DEFAULT_HEIGHT = 1.65;
+
+      function initVR() {
+        vrButton = new VRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(vrButton.domElement);
+
+        if (navigator.vr) {
+          navigator.vr.getDevices().then((devices) => {
+            for (let device of devices) {
+              vrButton.addDevice(device);
+            }
+
+            if (!devices.length)
+              return;
+
+            // In order for a non-exclusive session to be used we must provide
+            // an outputContext, which indicates the canvas that will contain
+            // results of the session's rendering.
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('vrpresent');
+
+            // Start up a non-exclusive session if possible.
+            devices[0].requestSession({ outputContext: ctx })
+                .then((session) => {
+                  // Add the canvas to the document once we know that it will be
+                  // rendered to.
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      // Called when the user selects a device to present to. In response we
+      // will request an exclusive session from that device.
+      function onRequestSession(device) {
+        device.requestSession({ exclusive: true }).then((session) => {
+          vrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      // Called when we've successfully acquired a VRSession. In response we
+      // will set up the necessary session state and kick off the frame loop.
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+        //session.addEventListener('controlleradded', onControllerAdded);
+
+        if (!gl) {
+          gl = VRSamplesUtil.initWebGLContext({
+            compatibleVrDevice: session.device
+          });
+
+          scene.setWebGLContext(gl);
+        }
+
+        session.baseLayer = new VRWebGLLayer(session, gl);
+
+        // First try to get a stage frame of reference, which will align the
+        // user's physical floor with Y=0 and can provide boundaries that
+        // indicate where the user can safely walk.
+        session.requestFrameOfReference("stage").then((frameOfRef) => {
+          if (session.exclusive) {
+            vrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            vrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestFrame(onVRFrame);
+        }).catch(() => {
+          // If requesting the stage frame of reference fails get an
+          // eye level frame of reference instead and indicate that
+          // the view height needs to be adjusted manually.
+          session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+            if (session.exclusive) {
+              vrExclusiveFrameOfRef = frameOfRef;
+            } else {
+              vrNonExclusiveFrameOfRef = frameOfRef;
+            }
+            adjustHeight = true;
+            session.requestFrame(onVRFrame);
+          });
+        });
+      }
+
+      // Called when the user clicks the "Exit VR" button. In response we end
+      // the session.
+      function onEndSession(session) {
+        session.end();
+      }
+
+      // Called either when the user has explicitly ended the session (like in
+      // onEndSession()) or when the UA has ended the session for any reason.
+      // At this point the session object is no longer usable and should be
+      // discarded.
+      function onSessionEnded(event) {
+        if (event.session.exclusive)
+          vrButton.setSession(null);
+      }
+
+      function onControllerAdded(event) {
+        console.log("Controller Added!");
+      }
+
+      // Called every time a VRSession requests that a new frame be drawn.
+      function onVRFrame(frame) {
+        let session = frame.session;
+        // Ensure that we're using the right frame of reference for the session.
+        let frameOfRef = session.exclusive ?
+                         vrExclusiveFrameOfRef :
+                         vrNonExclusiveFrameOfRef;
+
+        scene.startFrame();
+
+        session.requestFrame(onVRFrame);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let pose = frame.getDevicePose(frameOfRef);
+
+        if (pose) {
+          let controllers = session.getControllers();
+
+          let i = 0;
+          for (let controller of controllers) {
+            if (controllerGeometries.length < i+1) {
+              controllerGeometries.push(scene.createDebugGeometry("axes"));
+            }
+
+            let geom = controllerGeometries[i];
+            ++i;
+
+            let inputPose = frame.getInputPose(controller, frameOfRef);
+
+            if (inputPose && inputPose.gripPoseMatrix) {
+              let poseMat = inputPose.gripPoseMatrix;
+              geom.visible = true;
+
+              if (adjustHeight) {
+                // Translate by negative height since this is a view matrix,
+                // which is inverted by nature.
+                mat4.identity(geom.transform);
+                mat4.translate(geom.transform, geom.transform, [0.0, DEFAULT_HEIGHT, 0.0]);
+                mat4.multiply(geom.transform, geom.transform, poseMat);
+              } else {
+                mat4.copy(geom.transform, poseMat);
+              }
+            } else {
+              geom.visible = false;
+            }
+
+            /*for (let name in controller.elements) {
+              let element = controller.elements[name];
+              console.log("  * " + name);
+              console.log("    .value: " + element.value);
+              console.log("    .pressed: " + element.pressed);
+              console.log("    .touched: " + element.touched);
+              if (element.xAxis)
+                console.log("    .xAxis: " + element.xAxis);
+              if (element.yAxis)
+                console.log("    .yAxis: " + element.yAxis);
+            }*/
+          }
+
+          // Turn off visualizations of controllers that aren't present any more.
+          for (; i < controllerGeometries.length; ++i) {
+            controllerGeometries[i].visible = false;
+          }
+
+          let projectionMats = [];
+          let viewMats = [];
+          let viewports = [];
+
+          for (let view of frame.views) {
+            projectionMats.push(view.projectionMatrix);
+            viewports.push(view.getViewport(session.baseLayer));
+            
+            let viewMat = pose.getViewMatrix(view);
+
+            // If we're using an eye-level frameOfReference translate the
+            // view up by a default player height to give the impression that
+            // Y=0 is at the floor level.
+            if (adjustHeight) {
+              // Translate by negative height since this is a view matrix,
+              // which is inverted by nature.
+              mat4.translate(translatedViewMat, viewMat, [0.0, -DEFAULT_HEIGHT, 0.0]);
+              viewMat = translatedViewMat;
+            }
+            viewMats.push(viewMat);
+          }
+
+          scene.drawViewportArray(projectionMats, viewMats, viewports);
+        }
+
+        scene.endFrame();
+      }
+
+      // Start the VR application.
+      initVR();
+      })();
+    </script>
+  </body>
+</html>
