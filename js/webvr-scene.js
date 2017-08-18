@@ -169,10 +169,7 @@ class WebVRScene {
           let vp = viewports[i];
           this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
         }
-        let projection_mat = projection_mats[i];
-        let view_mat = view_mats[i];
-
-        /*this._debug_renderer.bind(projection_mat, view_mat);
+        this._debug_renderer.bind(projection_mats[i], view_mats[i]);
 
         for (let geom of this._debug_geometries) {
           if (!geom.visible)
@@ -191,7 +188,7 @@ class WebVRScene {
             default:
               break;
           }
-        }*/
+        }
       }
     }
   }
