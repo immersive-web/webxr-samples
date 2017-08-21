@@ -228,11 +228,11 @@ class WebVRScene {
           this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
         }
 
-        for (let geom of this._debug_geometries) {
-          if (!geom.visible)
+        for (let laser of this._laser_geometries) {
+          if (!laser.visible)
             continue;
 
-          this._laser_renderer.draw(projection_mats[i], view_mats[i], geom.transform, geom.color);
+          this._laser_renderer.draw(projection_mats[i], view_mats[i], laser.transform, laser.color);
         }
       }
     }
