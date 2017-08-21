@@ -205,9 +205,6 @@ found in the LICENSE file.
               let poseMat = inputPose.gripPoseMatrix;
               geom.visible = true;
 
-              // TODO(bajones): Needed temporarily. Fix this in native.
-              mat4.transpose(poseMat, poseMat);
-
               if (adjustHeight) {
                 // Translate by negative height since this is a view matrix,
                 // which is inverted by nature.
@@ -224,9 +221,6 @@ found in the LICENSE file.
             let pointerMat = inputPose.pointerPoseMatrix;
             if (inputPose.gripPoseMatrix) {
               laser.visible = true;
-
-              // TODO(bajones): Needed temporarily. Fix this in native.
-              mat4.transpose(pointerMat, pointerMat);
 
               if (adjustHeight) {
                 // Translate by negative height since this is a view matrix,
