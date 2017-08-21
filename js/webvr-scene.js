@@ -17,6 +17,9 @@ class WebVRScene {
 
     this._debug_geometries = [];
     this._debug_renderer = null;
+
+    this._laser_geometries = [];
+    this._laser_renderer = null;
   }
 
   setWebGLContext(gl) {
@@ -30,6 +33,10 @@ class WebVRScene {
 
       if (this._debug_geometries.length) {
         this._debug_renderer = new WGLUDebugGeometry(gl);
+      }
+
+      if (this._laser_geometries.length) {
+        this._laser_renderer = new WebVRLaserRenderer(gl);
       }
 
       this.onLoadScene(gl);
@@ -78,6 +85,22 @@ class WebVRScene {
     return geometry;
   }
 
+  createLaserPointer() {
+    let geometry = {
+      transform: mat4.create(),
+      color: [1.0, 1.0, 1.0, 1.0],
+      visible: true
+    };
+    this._laser_geometries.push(geometry);
+
+    // Create the laser renderer if needed.
+    if (!this._laser_renderer && this._gl) {
+      this._laser_renderer = new WebVRLaserRenderer(this._gl);
+    }
+
+    return geometry;
+  }
+
   draw(projection_mat, view_mat, eye) {
     // If an eye wasn't given just assume the left eye.
     if (!eye) {
@@ -108,6 +131,10 @@ class WebVRScene {
     }
 
     this.onDrawViews(this._gl, this._timestamp, projection_mats, view_mats, viewports, eyes);
+
+    if (this._laser_geometries.length) {
+      this._onDrawLaserGeometry(projection_mats, view_mats, viewports);
+    }
   }
 
   startFrame() {
@@ -188,6 +215,24 @@ class WebVRScene {
             default:
               break;
           }
+        }
+      }
+    }
+  }
+
+  _onDrawLaserGeometry(projection_mats, view_mats, viewports) {
+    if (this._laser_renderer) {
+      for (let i = 0; i < view_mats.length; ++i) {
+        if (viewports) {
+          let vp = viewports[i];
+          this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
+        }
+
+        for (let geom of this._debug_geometries) {
+          if (!geom.visible)
+            continue;
+
+          this._laser_renderer.draw(projection_mats[i], view_mats[i], geom.transform, geom.color);
         }
       }
     }

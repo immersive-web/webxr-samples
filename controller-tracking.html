@@ -27,6 +27,7 @@ found in the LICENSE file.
     <script src="js/webvr-scene.js"></script>
     <script src="js/webvr-scene-gltf.js"></script>
     <script src="js/webvr-samples-util.js"></script>
+    <script src="js/webvr-laser-renderer.js"></script>
   </head>
   <body>
     <header>
@@ -53,6 +54,7 @@ found in the LICENSE file.
       let translatedPoseMat = mat4.create();
       let adjustHeight = false;
       let controllerGeometries = [];
+      let controllerLasers = [];
 
       const DEFAULT_HEIGHT = 1.65;
 
@@ -184,14 +186,22 @@ found in the LICENSE file.
           for (let controller of controllers) {
             if (controllerGeometries.length < i+1) {
               controllerGeometries.push(scene.createDebugGeometry("axes"));
+              controllerLasers.push(scene.createLaserPointer());
             }
 
             let geom = controllerGeometries[i];
+            let laser = controllerLasers[i];
             ++i;
 
             let inputPose = frame.getInputPose(controller, frameOfRef);
 
-            if (inputPose && inputPose.gripPoseMatrix) {
+            if (!inputPose) {
+              geom.visible = false;
+              laser.visible = false;
+              continue;
+            }
+
+            if (inputPose.gripPoseMatrix) {
               let poseMat = inputPose.gripPoseMatrix;
               geom.visible = true;
 
@@ -209,6 +219,26 @@ found in the LICENSE file.
               }
             } else {
               geom.visible = false;
+            }
+
+            let pointerMat = inputPose.pointerPoseMatrix;
+            if (inputPose.gripPoseMatrix) {
+              laser.visible = true;
+
+              // TODO(bajones): Needed temporarily. Fix this in native.
+              mat4.transpose(pointerMat, pointerMat);
+
+              if (adjustHeight) {
+                // Translate by negative height since this is a view matrix,
+                // which is inverted by nature.
+                mat4.identity(laser.transform);
+                mat4.translate(laser.transform, laser.transform, [0.0, DEFAULT_HEIGHT, 0.0]);
+                mat4.multiply(laser.transform, laser.transform, pointerMat);
+              } else {
+                mat4.copy(laser.transform, pointerMat);
+              }
+            } else {
+              laser.visible = false;
             }
 
             /*for (let name in controller.elements) {
