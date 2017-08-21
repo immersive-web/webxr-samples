@@ -201,8 +201,8 @@ found in the LICENSE file.
               continue;
             }
 
-            if (inputPose.gripPoseMatrix) {
-              let poseMat = inputPose.gripPoseMatrix;
+            let poseMat = inputPose.gripPoseMatrix;
+            if (poseMat) {
               geom.visible = true;
 
               if (adjustHeight) {
@@ -219,7 +219,7 @@ found in the LICENSE file.
             }
 
             let pointerMat = inputPose.pointerPoseMatrix;
-            if (inputPose.gripPoseMatrix) {
+            if (pointerMat) {
               laser.visible = true;
 
               if (adjustHeight) {
