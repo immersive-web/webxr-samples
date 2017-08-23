@@ -254,7 +254,7 @@ class WebVRLaserRenderer {
     program.use();
 
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFunc(gl.ONE, gl.ONE);
 
     gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
     gl.uniformMatrix4fv(program.uniform.viewMat, false, view_mat);
