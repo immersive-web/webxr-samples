@@ -59,6 +59,7 @@ const LASER_SHADER_FRAGMENT = `
 
 const CURSOR_RADIUS = 0.01;
 const CURSOR_SHADOW_RADIUS = 0.02;
+const CURSOR_SHADOW_INNER_OPACITY = 0.25;
 const CURSOR_SEGMENTS = 16;
 const CURSOR_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 1.0]);
 
@@ -194,7 +195,7 @@ class WebVRLaserRenderer {
       let rad = i * segRad;
       let x = Math.cos(rad);
       let y = Math.sin(rad);
-      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS, 0.0, 0.4);
+      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS, 0.0, CURSOR_SHADOW_INNER_OPACITY);
       cursorVerts.push(x * CURSOR_SHADOW_RADIUS, y * CURSOR_SHADOW_RADIUS, 0.0, 0.0);
 
       if (i > 0) {
@@ -265,6 +266,9 @@ class WebVRLaserRenderer {
 
     program.use();
 
+    // Generally you don't want the cursor ever occluded, so we're turning off
+    // depth testing when rendering cursors.
+    gl.disable(gl.DEPTH_TEST); 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -283,5 +287,6 @@ class WebVRLaserRenderer {
     gl.drawElements(gl.TRIANGLES, this._cursorIndexCount, gl.UNSIGNED_SHORT, 0);
 
     gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
   }
 }
