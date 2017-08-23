@@ -19,7 +19,7 @@ const LASER_TEXTURE_DATA = new Uint8Array([
 0xcc,0xcc,0xcc,0x05,0xbf,0xbf,0xbf,0x04,0xff,0xff,0xff,0x02,0xff,0xff,0xff,0x01,
 ]);
 
-const LASER_DIAMETER = 0.002;
+const LASER_DIAMETER = 0.01;
 const LASER_FADE_END = 0.535;
 const LASER_FADE_POINT = 0.5335;
 const LASER_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 0.5]);
@@ -51,13 +51,14 @@ const LASER_SHADER_FRAGMENT = `
     vec2 uv = vTexCoord;
     float front_fade_factor = 1.0 - clamp(1.0 - (uv.y - fade_point) / (1.0 - fade_point), 0.0, 1.0);
     float back_fade_factor = clamp((uv.y - fade_point) / (fade_end - fade_point), 0.0, 1.0);
-    float opacity = front_fade_factor * back_fade_factor;
     vec4 color = laserColor * texture2D(diffuse, vTexCoord);
+    float opacity = color.a * front_fade_factor * back_fade_factor;
     gl_FragColor = vec4(color.rgb * opacity, opacity);
   }
 `;
 
 const CURSOR_RADIUS = 0.01;
+const CURSOR_OPACITY = 0.9;
 const CURSOR_SHADOW_RADIUS = 0.02;
 const CURSOR_SHADOW_INNER_OPACITY = 0.25;
 const CURSOR_SEGMENTS = 16;
@@ -107,7 +108,7 @@ class WebVRLaserRenderer {
 
     this._laserTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this._laserTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 48, 0, gl.RGBA,
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 48, 1, 0, gl.RGBA,
                   gl.UNSIGNED_BYTE, LASER_TEXTURE_DATA);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -117,7 +118,7 @@ class WebVRLaserRenderer {
     let lr = LASER_DIAMETER * 0.5;
 
     // Laser is rendered as a diamond shaped tube
-    let laserVerts = [
+    /*let laserVerts = [
     //X    Y     Z     U    V
       0.0,  lr,  0.0,  0.0, 1.0,
       0.0,  lr, -1.0,  0.0, 0.0,
@@ -138,6 +139,28 @@ class WebVRLaserRenderer {
       -lr, 0.0, -1.0,  0.0, 0.0,
       0.0, -lr,  0.0,  1.0, 1.0,
       0.0, -lr, -1.0,  1.0, 0.0,
+    ];*/
+    let laserVerts = [
+    //X    Y     Z     U    V
+      0.0,  lr,  0.0,  0.0, 1.0,
+      0.0,  lr, -1.0,  0.0, 0.0,
+      0.0, -lr,  0.0,  1.0, 1.0,
+      0.0, -lr, -1.0,  1.0, 0.0,
+
+       lr, 0.0,  0.0,  0.0, 1.0,
+       lr, 0.0, -1.0,  0.0, 0.0,
+      -lr, 0.0,  0.0,  1.0, 1.0,
+      -lr, 0.0, -1.0,  1.0, 0.0,
+
+      0.0, -lr,  0.0,  0.0, 1.0,
+      0.0, -lr, -1.0,  0.0, 0.0,
+      0.0,  lr,  0.0,  1.0, 1.0,
+      0.0,  lr, -1.0,  1.0, 0.0,
+
+      -lr, 0.0,  0.0,  0.0, 1.0,
+      -lr, 0.0, -1.0,  0.0, 0.0,
+       lr, 0.0,  0.0,  1.0, 1.0,
+       lr, 0.0, -1.0,  1.0, 0.0,
     ];
     let laserIndices = [
       0, 1, 2, 1, 3, 2,
@@ -181,7 +204,7 @@ class WebVRLaserRenderer {
       let rad = i * segRad;
       let x = Math.cos(rad);
       let y = Math.sin(rad);
-      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS, 1.0, 1.0);
+      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS, 1.0, CURSOR_OPACITY);
 
       if (i > 1) {
         cursorIndices.push(0, i-1, i);
