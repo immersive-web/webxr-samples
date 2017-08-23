@@ -46,7 +46,7 @@ found in the LICENSE file.
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF("media/gltf/Camp/WebVRCampsite.gltf");
+      let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
       scene.standingStats(true); // Position the stats at standing height.
       let translatedViewMat = mat4.create();
       let adjustHeight = false;
@@ -114,27 +114,34 @@ found in the LICENSE file.
         // First try to get a stage frame of reference, which will align the
         // user's physical floor with Y=0 and can provide boundaries that
         // indicate where the user can safely walk.
-        session.requestFrameOfReference("stage").then((frameOfRef) => {
-          if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
-          } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
-          }
-          session.requestFrame(onVRFrame);
-        }).catch(() => {
-          // If requesting the stage frame of reference fails get an
-          // eye level frame of reference instead and indicate that
-          // the view height needs to be adjusted manually.
-          session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-            if (session.exclusive) {
-              vrExclusiveFrameOfRef = frameOfRef;
-            } else {
-              vrNonExclusiveFrameOfRef = frameOfRef;
-            }
-            adjustHeight = true;
-            session.requestFrame(onVRFrame);
-          });
-        });
+        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
+            .then((frameOfRef) => {
+              if (frameOfRef.emulatedHeight != 0) {
+                console.log('Using an emulated stage w/ height: ' + frameOfRef.emulatedHeight);
+              } else {
+                console.log('Using a non-emulated stage');
+              }
+              if (session.exclusive) {
+                vrExclusiveFrameOfRef = frameOfRef;
+              } else {
+                vrNonExclusiveFrameOfRef = frameOfRef;
+              }
+              session.requestFrame(onVRFrame);
+            }).catch(() => {
+              // If requesting the stage frame of reference fails get an
+              // eye level frame of reference instead and indicate that
+              // the view height needs to be adjusted manually.
+              session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+                console.log('Using an eyeLevel frame of reference');
+                if (session.exclusive) {
+                  vrExclusiveFrameOfRef = frameOfRef;
+                } else {
+                  vrNonExclusiveFrameOfRef = frameOfRef;
+                }
+                adjustHeight = true;
+                session.requestFrame(onVRFrame);
+              });
+            });
       }
 
       // Called when the user clicks the "Exit VR" button. In response we end
