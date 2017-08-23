@@ -232,7 +232,8 @@ class WebVRScene {
           if (!laser.visible)
             continue;
 
-          this._laser_renderer.draw(projection_mats[i], view_mats[i], laser.transform, laser.color);
+          this._laser_renderer.drawCursor(projection_mats[i], view_mats[i], laser.transform, laser.color);
+          this._laser_renderer.drawRay(projection_mats[i], view_mats[i], laser.transform, laser.color);
         }
       }
     }

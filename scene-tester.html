@@ -27,6 +27,7 @@ found in the LICENSE file.
     <script src='js/webvr-scene-cube-sea.js'></script>
     <script src='js/webvr-scene-gltf.js'></script>
     <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webvr-laser-renderer.js'></script>
 
     <style>
       #scene-select {
@@ -63,6 +64,7 @@ found in the LICENSE file.
       function setScene(new_scene) {
         scene = new_scene;
         scene.setWebGLContext(gl);
+        scene.createLaserPointer();
       }
 
       function onResize () {
