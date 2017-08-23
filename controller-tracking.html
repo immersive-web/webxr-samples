@@ -127,7 +127,7 @@ found in the LICENSE file.
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
-        //session.addEventListener('controlleradded', onControllerAdded);
+        session.addEventListener('select', onSelectGesture);
 
         if (!gl) {
           gl = VRSamplesUtil.initWebGLContext({
@@ -167,6 +167,14 @@ found in the LICENSE file.
 
       function onControllerAdded(event) {
         console.log('Controller Added!');
+      }
+
+      function onSelectGesture(event) {
+        // Reset the background color to a random value
+        gl.clearColor(
+            Math.random() * 0.5,
+            Math.random() * 0.5,
+            Math.random() * 0.5, 1.0);
       }
 
       // Called every time a VRSession requests that a new frame be drawn.

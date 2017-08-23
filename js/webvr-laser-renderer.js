@@ -22,7 +22,7 @@ const LASER_TEXTURE_DATA = new Uint8Array([
 const LASER_DIAMETER = 0.01;
 const LASER_FADE_END = 0.535;
 const LASER_FADE_POINT = 0.5335;
-const LASER_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 0.5]);
+const LASER_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 0.25]);
 
 const LASER_SHADER_VERTEX = `
   uniform mat4 projectionMat;
@@ -117,29 +117,7 @@ class WebVRLaserRenderer {
 
     let lr = LASER_DIAMETER * 0.5;
 
-    // Laser is rendered as a diamond shaped tube
-    /*let laserVerts = [
-    //X    Y     Z     U    V
-      0.0,  lr,  0.0,  0.0, 1.0,
-      0.0,  lr, -1.0,  0.0, 0.0,
-      -lr, 0.0,  0.0,  1.0, 1.0,
-      -lr, 0.0, -1.0,  1.0, 0.0,
-
-      lr,  0.0,  0.0,  0.0, 1.0,
-      lr,  0.0, -1.0,  0.0, 0.0,
-      0.0,  lr,  0.0,  1.0, 1.0,
-      0.0,  lr, -1.0,  1.0, 0.0,
-
-      0.0, -lr,  0.0,  0.0, 1.0,
-      0.0, -lr, -1.0,  0.0, 0.0,
-       lr, 0.0,  0.0,  1.0, 1.0,
-       lr, 0.0, -1.0,  1.0, 0.0,
-
-      -lr, 0.0,  0.0,  0.0, 1.0,
-      -lr, 0.0, -1.0,  0.0, 0.0,
-      0.0, -lr,  0.0,  1.0, 1.0,
-      0.0, -lr, -1.0,  1.0, 0.0,
-    ];*/
+    // Laser is rendered as cross-shaped beam
     let laserVerts = [
     //X    Y     Z     U    V
       0.0,  lr,  0.0,  0.0, 1.0,

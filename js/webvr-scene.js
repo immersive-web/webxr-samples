@@ -132,6 +132,8 @@ class WebVRScene {
 
     this.onDrawViews(this._gl, this._timestamp, projection_mats, view_mats, viewports, eyes);
 
+    // Because of the blending used when drawing the lasers/cursors they should
+    // always be drawn last.
     if (this._laser_geometries.length) {
       this._onDrawLaserGeometry(projection_mats, view_mats, viewports);
     }
