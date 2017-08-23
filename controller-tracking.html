@@ -6,28 +6,28 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Controller Tracking</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
-    <script src="js/third-party/tiny-gltf2.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/tiny-gltf2.js'></script>
 
-    <script src="js/third-party/wglu/wglu-debug-geometry.js"></script>
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-debug-geometry.js'></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-gltf.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
-    <script src="js/webvr-laser-renderer.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webvr-laser-renderer.js'></script>
   </head>
   <body>
     <header>
@@ -39,7 +39,7 @@ found in the LICENSE file.
     </header>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       // VR globals.
       let vrButton = null;
@@ -48,15 +48,37 @@ found in the LICENSE file.
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF("media/gltf/Camp/WebVRCampsite.gltf");
+      let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
       scene.standingStats(true); // Position the stats at standing height.
       let translatedViewMat = mat4.create();
       let translatedPoseMat = mat4.create();
-      let adjustHeight = false;
       let controllerGeometries = [];
       let controllerLasers = [];
 
       const DEFAULT_HEIGHT = 1.65;
+
+      // Utility function to determine if a ray and a sphere intersect.
+      // Returns a positive value upon intersection.
+      function raySphereIntersect(ray, sphere) {
+        let L = vec3.create();
+
+        let r2 = sphere.radius * sphere.radius;
+
+        vec3.sub(L, sphere.center, ray.origin); 
+        let tca = vec3.dot(L, ray.direction); 
+        // if (tca < 0) return false;
+        let d2 = vec3.dot(L, L) - tca * tca; 
+        if (d2 > r2) return -1; 
+        let thc = Math.sqrt(r2 - d2); 
+        let t0 = tca - thc;
+        let t1 = tca + thc;
+
+        if (t0 > t1) {
+          return t1 < 0 ? t0 : t1; 
+        }
+ 
+        return t0 < 0 ? t1 : t0;
+      } 
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -117,33 +139,18 @@ found in the LICENSE file.
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        // First try to get a stage frame of reference, which will align the
-        // user's physical floor with Y=0 and can provide boundaries that
-        // indicate where the user can safely walk.
-        session.requestFrameOfReference("stage").then((frameOfRef) => {
-          if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
-          } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
-          }
-          session.requestFrame(onVRFrame);
-        }).catch(() => {
-          // If requesting the stage frame of reference fails get an
-          // eye level frame of reference instead and indicate that
-          // the view height needs to be adjusted manually.
-          session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-            if (session.exclusive) {
-              vrExclusiveFrameOfRef = frameOfRef;
-            } else {
-              vrNonExclusiveFrameOfRef = frameOfRef;
-            }
-            adjustHeight = true;
-            session.requestFrame(onVRFrame);
-          });
-        });
+        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
+            .then((frameOfRef) => {
+              if (session.exclusive) {
+                vrExclusiveFrameOfRef = frameOfRef;
+              } else {
+                vrNonExclusiveFrameOfRef = frameOfRef;
+              }
+              session.requestFrame(onVRFrame);
+            });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();
@@ -159,7 +166,7 @@ found in the LICENSE file.
       }
 
       function onControllerAdded(event) {
-        console.log("Controller Added!");
+        console.log('Controller Added!');
       }
 
       // Called every time a VRSession requests that a new frame be drawn.
@@ -185,7 +192,7 @@ found in the LICENSE file.
           let i = 0;
           for (let controller of controllers) {
             if (controllerGeometries.length < i+1) {
-              controllerGeometries.push(scene.createDebugGeometry("axes"));
+              controllerGeometries.push(scene.createDebugGeometry('axes'));
               controllerLasers.push(scene.createLaserPointer());
             }
 
@@ -204,16 +211,7 @@ found in the LICENSE file.
             let poseMat = inputPose.gripPoseMatrix;
             if (poseMat) {
               geom.visible = true;
-
-              if (adjustHeight) {
-                // Translate by negative height since this is a view matrix,
-                // which is inverted by nature.
-                mat4.identity(geom.transform);
-                mat4.translate(geom.transform, geom.transform, [0.0, DEFAULT_HEIGHT, 0.0]);
-                mat4.multiply(geom.transform, geom.transform, poseMat);
-              } else {
-                mat4.copy(geom.transform, poseMat);
-              }
+              mat4.copy(geom.transform, poseMat);
             } else {
               geom.visible = false;
             }
@@ -221,30 +219,21 @@ found in the LICENSE file.
             let pointerMat = inputPose.pointerPoseMatrix;
             if (pointerMat) {
               laser.visible = true;
-
-              if (adjustHeight) {
-                // Translate by negative height since this is a view matrix,
-                // which is inverted by nature.
-                mat4.identity(laser.transform);
-                mat4.translate(laser.transform, laser.transform, [0.0, DEFAULT_HEIGHT, 0.0]);
-                mat4.multiply(laser.transform, laser.transform, pointerMat);
-              } else {
-                mat4.copy(laser.transform, pointerMat);
-              }
+              mat4.copy(laser.transform, pointerMat);
             } else {
               laser.visible = false;
             }
 
             /*for (let name in controller.elements) {
               let element = controller.elements[name];
-              console.log("  * " + name);
-              console.log("    .value: " + element.value);
-              console.log("    .pressed: " + element.pressed);
-              console.log("    .touched: " + element.touched);
+              console.log('  * ' + name);
+              console.log('    .value: ' + element.value);
+              console.log('    .pressed: ' + element.pressed);
+              console.log('    .touched: ' + element.touched);
               if (element.xAxis)
-                console.log("    .xAxis: " + element.xAxis);
+                console.log('    .xAxis: ' + element.xAxis);
               if (element.yAxis)
-                console.log("    .yAxis: " + element.yAxis);
+                console.log('    .yAxis: ' + element.yAxis);
             }*/
           }
 
@@ -261,19 +250,7 @@ found in the LICENSE file.
           for (let view of frame.views) {
             projectionMats.push(view.projectionMatrix);
             viewports.push(view.getViewport(session.baseLayer));
-            
-            let viewMat = pose.getViewMatrix(view);
-
-            // If we're using an eye-level frameOfReference translate the
-            // view up by a default player height to give the impression that
-            // Y=0 is at the floor level.
-            if (adjustHeight) {
-              // Translate by negative height since this is a view matrix,
-              // which is inverted by nature.
-              mat4.translate(translatedViewMat, viewMat, [0.0, -DEFAULT_HEIGHT, 0.0]);
-              viewMat = translatedViewMat;
-            }
-            viewMats.push(viewMat);
+            viewMats.push(pose.getViewMatrix(view));
           }
 
           scene.drawViewportArray(projectionMats, viewMats, viewports);
