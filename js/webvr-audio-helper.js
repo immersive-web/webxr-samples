@@ -33,8 +33,6 @@ class WebVRAudioHelper {
     let listener = this.context.listener;
     let targetTime = this.context.currentTime + 0.1; // 10ms transition time
 
-    let audioPose = new AudioPose(targetTime);
-
     mat4.getTranslation(tmpVec, poseMat);
     listener.positionX.linearRampToValueAtTime(tmpVec[0], targetTime);
     listener.positionY.linearRampToValueAtTime(tmpVec[1], targetTime);

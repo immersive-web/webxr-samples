@@ -203,7 +203,7 @@ class WebVRScene {
             continue;
 
           switch(geom.type) {
-            case "cube":
+            case "box":
               this._debug_renderer.drawBoxWithMatrix(geom.transform, geom.color);
               break;
             case "cone":
