@@ -6,38 +6,38 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Magic Window</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-cube-sea.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-cube-sea.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <h1>Magic Window</h1>
       <p>
         This sample demonstrates use of a non-exclusive VRSession to present
-        "Magic Window" content prior to entering VR presentation with an
+        'Magic Window' content prior to entering VR presentation with an
         exclusive.
       </p>
     </header>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       // VR globals.
       let vrButton = null;
@@ -107,7 +107,7 @@ found in the LICENSE file.
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           // Since we're dealing with multple sessions now we need to track
           // which VRFrameOfReference is associated with which VRSession.
           if (session.exclusive) {
@@ -119,7 +119,7 @@ found in the LICENSE file.
         });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();

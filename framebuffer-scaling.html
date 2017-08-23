@@ -6,25 +6,25 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Framebuffer Scaling</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-cube-sea.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-cube-sea.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
@@ -37,22 +37,22 @@ found in the LICENSE file.
         Framebuffer scaling should be used to make a performance/memory/quality
         tradeoff for the lifetime of the session. <br/>
 
-        <select id="framebufferScaleSelect">
-          <option value="0.0" selected>Default - Allow the system to decide</option>
-          <option value="1.2">1.2 - "Superscaling" for extreme quality</option>
-          <option value="1.0">1.0 - 1:1 pixel utilization</option>
-          <option value="0.5">0.5 - Low res for high performance</option>
+        <select id='framebufferScaleSelect'>
+          <option value='0.0' selected>Default - Allow the system to decide</option>
+          <option value='1.2'>1.2 - 'Superscaling' for extreme quality</option>
+          <option value='1.0'>1.0 - 1:1 pixel utilization</option>
+          <option value='0.5'>0.5 - Low res for high performance</option>
         </select>
       </p>
     </header>
-    <main style="text-align: center;">
-      <p>Click "Enter VR" to see content</p> 
+    <main style='text-align: center;'>
+      <p>Click 'Enter VR' to see content</p> 
     </main>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
-      let scaleSelect = document.getElementById("framebufferScaleSelect");
+      let scaleSelect = document.getElementById('framebufferScaleSelect');
 
       // VR globals.
       let vrButton = null;
@@ -108,14 +108,14 @@ found in the LICENSE file.
           framebufferScaleFactor: scale
         });
 
-        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           vrFrameOfRef = frameOfRef;
 
           session.requestFrame(onVRFrame);
         });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();

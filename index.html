@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='chrome=1'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
 
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="WebVR 2 Samples">
-    <meta name="twitter:description" content="Sample WebVR 2 pages for testing and reference">
-    <meta name="twitter:image" content="https://webvr.info/images/webvr-logo-square.png">
+    <meta name='twitter:card' content='summary'>
+    <meta name='twitter:title' content='WebVR 2 Samples'>
+    <meta name='twitter:description' content='Sample WebVR 2 pages for testing and reference'>
+    <meta name='twitter:image' content='https://webvr.info/images/webvr-logo-square.png'>
 
-    <link rel="stylesheet" href="css/stylesheet.css">
-    <link rel="stylesheet" href="css/pygment_trac.css">
+    <link rel='stylesheet' href='css/stylesheet.css'>
+    <link rel='stylesheet' href='css/pygment_trac.css'>
 
     <style>
       h3 {
@@ -38,7 +38,7 @@
 
       ul.sample-list li::before {
         display: table-cell;
-        content: attr(data-index) " - ";
+        content: attr(data-index) ' - ';
         font-weight: bold;
         white-space: nowrap;
       }
@@ -50,56 +50,56 @@
     </style>
 
     <!--[if lt IE 9]>
-    <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <script src='https://html5shiv.googlecode.com/svn/trunk/html5.js'></script>
     <![endif]-->
     <title>WebVR 2 - Samples</title>
   </head>
   <body>
 
-    <div class="container" id="container">
-      <header class="header">
-        <div id="nav">
-            <a href="./" class="selected">Samples</a>
+    <div class='container' id='container'>
+      <header class='header'>
+        <div id='nav'>
+            <a href='./' class='selected'>Samples</a>
         </div>
 
-        <h1><a href="" class="wordmark"><span>WebVR 2</span></a></h1>
-        <h2 class="tagline">Sample Pages</h2>
+        <h1><a href='' class='wordmark'><span>WebVR 2</span></a></h1>
+        <h2 class='tagline'>Sample Pages</h2>
       </header>
 
-      <main class="main" id="main">
+      <main class='main' id='main'>
         <p>Sample pages demonstrating how to use various aspects of the WebVR API.</p>
 
         <h3>WebVR Basics</h3>
         <p>These samples demonstrate use of the core WebVR API.</p>
-        <ul id="basics" class="sample-list"></ul>
+        <ul id='basics' class='sample-list'></ul>
 
         <h3>Input</h3>
         <p>These samples demonstrate use of WebVR's input APIs.</p>
-        <ul id="input" class="sample-list"></ul>
+        <ul id='input' class='sample-list'></ul>
 
         <h3>Performance</h3>
         <p>These samples demonstrate techniques to improve WebVR application performance.</p>
-        <ul id="performance" class="sample-list"></ul>
+        <ul id='performance' class='sample-list'></ul>
 
         <h3>Content</h3>
         <p>These samples demonstrate best practices for various types of content.</p>
-        <ul id="content" class="sample-list"></ul>
+        <ul id='content' class='sample-list'></ul>
 
         <br/>
 
-        <h3><a class="github-link" href="https://github.com/toji/webvr2-samples">View samples on GitHub</a></h3>
+        <h3><a class='github-link' href='https://github.com/toji/webvr2-samples'>View samples on GitHub</a></h3>
 
         <script>
           var pages = [
-            { category: "basics", path: "vr-device-enumeration.html", title: "VR Device Enumeration" },
-            { category: "basics", path: "vr-presentation.html", title: "VR Presentation" },
-            { category: "basics", path: "magic-window.html", title: "Magic Window" },
-            { category: "basics", path: "room-scale.html", title: "Room Scale" },
-            { category: "input", path: "controller-tracking.html", title: "Controller Tracking" },
-            { category: "performance", path: "framebuffer-scaling.html", title: "Framebuffer Scaling" },
-            { category: "performance", path: "viewport-scaling.html", title: "Viewport Scaling" },
-            { category: "content", path: "360-photos.html", title: "360 Photos" },
-            { category: "content", path: "positional-audio.html", title: "Positional Audio" },
+            { category: 'basics', path: 'vr-device-enumeration.html', title: 'VR Device Enumeration' },
+            { category: 'basics', path: 'vr-presentation.html', title: 'VR Presentation' },
+            { category: 'basics', path: 'magic-window.html', title: 'Magic Window' },
+            { category: 'basics', path: 'room-scale.html', title: 'Room Scale' },
+            { category: 'input', path: 'controller-tracking.html', title: 'Controller Tracking' },
+            { category: 'performance', path: 'framebuffer-scaling.html', title: 'Framebuffer Scaling' },
+            { category: 'performance', path: 'viewport-scaling.html', title: 'Viewport Scaling' },
+            { category: 'content', path: '360-photos.html', title: '360 Photos' },
+            { category: 'content', path: 'positional-audio.html', title: 'Positional Audio' },
           ];
 
           // Append an element for every item in the pages list.
@@ -108,17 +108,17 @@
 
             var category = document.getElementById(page.category);
 
-            var li = document.createElement("li");
-            li.setAttribute("data-index", category.children.length + 1);
+            var li = document.createElement('li');
+            li.setAttribute('data-index', category.children.length + 1);
 
-            var sampleLink = document.createElement("a");
+            var sampleLink = document.createElement('a');
             sampleLink.href = page.path;
             sampleLink.innerHTML = page.title;
             li.appendChild(sampleLink);
 
-            var sourceLink = document.createElement("a");
-            sourceLink.href = "https://github.com/toji/webvr2-samples/blob/master/" + page.path;
-            sourceLink.innerHTML = "(Source)";
+            var sourceLink = document.createElement('a');
+            sourceLink.href = 'https://github.com/toji/webvr2-samples/blob/master/' + page.path;
+            sourceLink.innerHTML = '(Source)';
             li.appendChild(sourceLink);
 
             category.appendChild(li);
@@ -126,7 +126,7 @@
         </script>
       </main>
 
-      <footer class="footer">
+      <footer class='footer'>
       </footer>
     </div>
   </body>

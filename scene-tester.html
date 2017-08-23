@@ -6,27 +6,27 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Scene tester</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
-    <script src="js/third-party/tiny-gltf2.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/tiny-gltf2.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-cube-sea.js"></script>
-    <script src="js/webvr-scene-gltf.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-cube-sea.js'></script>
+    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
 
     <style>
       #scene-select {
@@ -43,21 +43,21 @@ found in the LICENSE file.
         without a headset.<br/>
         WASD + Mouse Click/Drag to move.
       </p>
-      <select id="scene-select">
-        <option value="cube-sea">Cube Sea</option>
-        <option value="campsite" selected>Campsite (glTF)</option>
+      <select id='scene-select'>
+        <option value='cube-sea'>Cube Sea</option>
+        <option value='campsite' selected>Campsite (glTF)</option>
       </select>
     </header>
     
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       var projection_mat = mat4.create();
       var view_mat = mat4.create();
 
       let scene = null;
-      let gl = VRSamplesUtil.initWebGLContext({ antialias: false });
+      let gl = VRSamplesUtil.initWebGLContext({antialias: false});
       document.body.appendChild(gl.canvas);
 
       function setScene(new_scene) {
@@ -74,7 +74,7 @@ found in the LICENSE file.
                          gl.canvas.width/gl.canvas.height,
                          0.1, 1000.0);
       }
-      window.addEventListener("resize", onResize);
+      window.addEventListener('resize', onResize);
       onResize();
 
       // Simple flight controls
@@ -84,9 +84,9 @@ found in the LICENSE file.
       let look_pos = [0, -1.75, 0];
       const look_speed = 0.0025;
       const move_speed = 0.0025;
-      window.addEventListener("keydown", (ev) => pressed_keys[ev.keyCode] = true);
-      window.addEventListener("keyup", (ev) => pressed_keys[ev.keyCode] = false);
-      window.addEventListener("mousemove", (ev) => {
+      window.addEventListener('keydown', (ev) => pressed_keys[ev.keyCode] = true);
+      window.addEventListener('keyup', (ev) => pressed_keys[ev.keyCode] = false);
+      window.addEventListener('mousemove', (ev) => {
         // Only rotate when the left button is pressed
         if (ev.buttons && 1) {
           look_yaw += ev.movementX * look_speed;
@@ -148,7 +148,7 @@ found in the LICENSE file.
       }
       window.requestAnimationFrame(onGLFrame);
 
-      let sceneSelect = document.getElementById("scene-select");
+      let sceneSelect = document.getElementById('scene-select');
       function onSceneSelected() {
         switch(sceneSelect.value) {
           case 'cube-sea':
@@ -161,7 +161,7 @@ found in the LICENSE file.
             console.error(`Unknown Scene: ${sceneSelect.value}`);
         }
       }
-      sceneSelect.addEventListener("change", onSceneSelected);
+      sceneSelect.addEventListener('change', onSceneSelected);
       onSceneSelected();
 
       })();

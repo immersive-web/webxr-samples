@@ -6,25 +6,25 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>VR Presentation</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-cube-sea.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-cube-sea.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
@@ -35,12 +35,12 @@ found in the LICENSE file.
         presentation, nor is it mirrored during presentation.
       </p>
     </header>
-    <main style="text-align: center;">
-      <p>Click "Enter VR" to see content</p> 
+    <main style='text-align: center;'>
+      <p>Click 'Enter VR' to see content</p> 
     </main>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       // VR globals.
       let vrButton = null;
@@ -65,7 +65,7 @@ found in the LICENSE file.
         if (navigator.vr) {
           // Request a list of all the VR Devices connected to the system.
           navigator.vr.getDevices().then((devices) => {
-            // Add each device to the "Enter VR" button.
+            // Add each device to the 'Enter VR' button.
             for (let device of devices) {
               vrButton.addDevice(device);
             }
@@ -76,14 +76,14 @@ found in the LICENSE file.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession(device) {
-        device.requestSession({ exclusive: true }).then(onSessionStarted);
+        device.requestSession({exclusive: true}).then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a VRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        // This informs the "Enter VR" button that the session has started and
-        // that it should display "Exit VR" instead.
+        // This informs the 'Enter VR' button that the session has started and
+        // that it should display 'Exit VR' instead.
         vrButton.setSession(session);
 
         // Listen for the sessions 'end' event so we can respond if the user
@@ -105,9 +105,9 @@ found in the LICENSE file.
         session.baseLayer = new VRWebGLLayer(session, gl);
 
         // Get a frame of reference, which is required for querying poses. In
-        // this case an "eyeLevel" frame of reference means that all poses will
+        // this case an 'eyeLevel' frame of reference means that all poses will
         // be relative to the location where the VRDevice was first detected.
-        session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           vrFrameOfRef = frameOfRef;
 
           // Inform the session that we're ready to begin drawing.
@@ -115,7 +115,7 @@ found in the LICENSE file.
         });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();

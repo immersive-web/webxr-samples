@@ -6,27 +6,27 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Positional Audio</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
-    <script src="js/third-party/tiny-gltf2.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/tiny-gltf2.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-audio-helper.js"></script>
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-gltf.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-audio-helper.js'></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
@@ -39,9 +39,9 @@ found in the LICENSE file.
     </header>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
-      const DEFAULT_HEIGHT = 1.65;
+      const DEFAULT_HEIGHT = 1.6;
 
       // VR globals.
       let vrButton = null;
@@ -50,11 +50,10 @@ found in the LICENSE file.
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF("media/gltf/Camp/WebVRCampsite.gltf");
+      let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
       scene.standingStats(true); // Position the stats at standing height.
       let translatedViewMat = mat4.create();
       let translatedPoseMat = mat4.create();
-      let adjustHeight = false;
 
       // Audio scene globals
       let audioContext = new AudioContext();
@@ -97,7 +96,7 @@ found in the LICENSE file.
                 vrButton.addDevice(device);
               }
             });
-            vrButton.setTitle("Loading Audio");
+            vrButton.setTitle('Loading Audio');
 
             if (!devices.length)
               return;
@@ -148,33 +147,18 @@ found in the LICENSE file.
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        // First try to get a stage frame of reference, which will align the
-        // user's physical floor with Y=0 and can provide boundaries that
-        // indicate where the user can safely walk.
-        session.requestFrameOfReference("stage").then((frameOfRef) => {
-          if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
-          } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
-          }
-          session.requestFrame(onVRFrame);
-        }).catch(() => {
-          // If requesting the stage frame of reference fails get an
-          // eye level frame of reference instead and indicate that
-          // the view height needs to be adjusted manually.
-          session.requestFrameOfReference("eyeLevel").then((frameOfRef) => {
-            if (session.exclusive) {
-              vrExclusiveFrameOfRef = frameOfRef;
-            } else {
-              vrNonExclusiveFrameOfRef = frameOfRef;
-            }
-            adjustHeight = true;
-            session.requestFrame(onVRFrame);
-          });
-        });
+        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
+            .then((frameOfRef) => {
+              if (session.exclusive) {
+                vrExclusiveFrameOfRef = frameOfRef;
+              } else {
+                vrNonExclusiveFrameOfRef = frameOfRef;
+              }
+              session.requestFrame(onVRFrame);
+            });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();
@@ -185,15 +169,15 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        console.log("onSessionEnded");
-        console.log("Session: " + event.session);
-        console.log("Exclusive: " + event.session.exclusive);
+        console.log('onSessionEnded');
+        console.log('Session: ' + event.session);
+        console.log('Exclusive: ' + event.session.exclusive);
         if (event.session.exclusive) {
-          console.log("vrButton.setSession(null)");
+          console.log('vrButton.setSession(null)');
           vrButton.setSession(null);
 
           // Stop the audio playback when we exit VR.
-          console.log("Stop Audio");
+          console.log('Stop Audio');
           for (let source of audioSources) {
             source.stop();
           }
@@ -225,26 +209,12 @@ found in the LICENSE file.
           for (let view of frame.views) {
             projectionMats.push(view.projectionMatrix);
             viewports.push(view.getViewport(session.baseLayer));
-            
-            let viewMat = pose.getViewMatrix(view);
-            if (adjustHeight) {
-              mat4.translate(translatedViewMat, viewMat, [0.0, -DEFAULT_HEIGHT, 0.0]);
-              viewMat = translatedViewMat;
-            }
-            viewMats.push(viewMat);
+            viewMats.push(pose.getViewMatrix(view));
           }
 
           scene.drawViewportArray(projectionMats, viewMats, viewports);
 
-          let poseMat = pose.poseModelMatrix;
-          if (adjustHeight) {
-            mat4.identity(translatedPoseMat);
-            mat4.translate(translatedPoseMat, translatedPoseMat, [0.0, DEFAULT_HEIGHT, 0.0]);
-            mat4.multiply(translatedPoseMat, translatedPoseMat, poseMat);
-            poseMat = translatedPoseMat;
-          }
-
-          vrAudioHelper.setListenerPose(poseMat);
+          vrAudioHelper.setListenerPose(pose.poseModelMatrix);
         }
 
         scene.endFrame();

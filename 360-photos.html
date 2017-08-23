@@ -6,25 +6,25 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>360 Photos</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-panorama.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-panorama.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
@@ -37,7 +37,7 @@ found in the LICENSE file.
     </header>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       // VR globals.
       let vrButton = null;
@@ -47,7 +47,7 @@ found in the LICENSE file.
       // WebGL scene globals.
       let gl = null;
       let scene = new WebVRScenePanorama({
-        url: "media/textures/chess_pano_4k.jpg",
+        url: 'media/textures/chess_pano_4k.jpg',
         topBottomStereo: true
       });
 
@@ -108,12 +108,12 @@ found in the LICENSE file.
         // head is always at the center of the rendered media. Otherwise users
         // with 6DoF hardware could walk towards the edges and see a very skewed
         // or outright broken view of the image. To prevent that, we request a
-        // "headModel" frame of reference, which suppresses any positional
+        // 'headModel' frame of reference, which suppresses any positional
         // information from the headset in favor of a head and neck model based
         // solely on the device orientation. (As an added bonus this mode may
         // be more power efficent on some hardware!)
         // TODO: Don't use eyeLevel
-        session.requestFrameOfReference("headModel").then((frameOfRef) => {
+        session.requestFrameOfReference('headModel').then((frameOfRef) => {
           if (session.exclusive) {
             vrExclusiveFrameOfRef = frameOfRef;
           } else {
@@ -123,7 +123,7 @@ found in the LICENSE file.
         });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();

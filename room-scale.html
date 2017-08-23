@@ -6,38 +6,38 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>Room Scale</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
-    <script src="js/third-party/gl-matrix-min.js"></script>
-    <script src="js/third-party/tiny-gltf2.js"></script>
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/tiny-gltf2.js'></script>
 
-    <script src="js/third-party/wglu/wglu-program.js"></script>
-    <script src="js/third-party/wglu/wglu-stats.js"></script>
-    <script src="js/third-party/wglu/wglu-texture.js"></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src="js/webvr-button.js"></script>
-    <script src="js/webvr-scene.js"></script>
-    <script src="js/webvr-scene-gltf.js"></script>
-    <script src="js/webvr-samples-util.js"></script>
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <h1>Room Scale</h1>
       <p>
-        This sample demonstrates using a "stage" frame of reference to provide
+        This sample demonstrates using a 'stage' frame of reference to provide
         room scale tracking.
       </p>
     </header>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
       // VR globals.
       let vrButton = null;
@@ -49,7 +49,6 @@ found in the LICENSE file.
       let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
       scene.standingStats(true); // Position the stats at standing height.
       let translatedViewMat = mat4.create();
-      let adjustHeight = false;
 
       const DEFAULT_HEIGHT = 1.65;
 
@@ -76,7 +75,7 @@ found in the LICENSE file.
             let ctx = outputCanvas.getContext('vrpresent');
 
             // Start up a non-exclusive session if possible.
-            devices[0].requestSession({ outputContext: ctx })
+            devices[0].requestSession({outputContext: ctx})
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.
@@ -90,7 +89,7 @@ found in the LICENSE file.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession(device) {
-        device.requestSession({ exclusive: true }).then((session) => {
+        device.requestSession({exclusive: true}).then((session) => {
           vrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -111,40 +110,25 @@ found in the LICENSE file.
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        // First try to get a stage frame of reference, which will align the
-        // user's physical floor with Y=0 and can provide boundaries that
-        // indicate where the user can safely walk.
+        // Get a stage frame of reference, which will align the user's physical
+        // floor with Y=0 and can provide boundaries that indicate where the
+        // user can safely walk. In this case if the system can't natively
+        // provide stage coordinates (for example, with a 3DoF device) then we
+        // indicate that we are OK allowing an emulated stage, where the view
+        // is translated up by a static height so that the scene still renders
+        // in approximately the right place.
         session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
             .then((frameOfRef) => {
-              if (frameOfRef.emulatedHeight != 0) {
-                console.log('Using an emulated stage w/ height: ' + frameOfRef.emulatedHeight);
-              } else {
-                console.log('Using a non-emulated stage');
-              }
               if (session.exclusive) {
                 vrExclusiveFrameOfRef = frameOfRef;
               } else {
                 vrNonExclusiveFrameOfRef = frameOfRef;
               }
               session.requestFrame(onVRFrame);
-            }).catch(() => {
-              // If requesting the stage frame of reference fails get an
-              // eye level frame of reference instead and indicate that
-              // the view height needs to be adjusted manually.
-              session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
-                console.log('Using an eyeLevel frame of reference');
-                if (session.exclusive) {
-                  vrExclusiveFrameOfRef = frameOfRef;
-                } else {
-                  vrNonExclusiveFrameOfRef = frameOfRef;
-                }
-                adjustHeight = true;
-                session.requestFrame(onVRFrame);
-              });
             });
       }
 
-      // Called when the user clicks the "Exit VR" button. In response we end
+      // Called when the user clicks the 'Exit VR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();
@@ -184,19 +168,7 @@ found in the LICENSE file.
           for (let view of frame.views) {
             projectionMats.push(view.projectionMatrix);
             viewports.push(view.getViewport(session.baseLayer));
-            
-            let viewMat = pose.getViewMatrix(view);
-
-            // If we're using an eye-level frameOfReference translate the
-            // view up by a default player height to give the impression that
-            // Y=0 is at the floor level.
-            if (adjustHeight) {
-              // Translate by negative height since this is a view matrix,
-              // which is inverted by nature.
-              mat4.translate(translatedViewMat, viewMat, [0.0, -DEFAULT_HEIGHT, 0.0]);
-              viewMat = translatedViewMat;
-            }
-            viewMats.push(viewMat);
+            viewMats.push(pose.getViewMatrix(view));
           }
 
           scene.drawViewportArray(projectionMats, viewMats, viewports);

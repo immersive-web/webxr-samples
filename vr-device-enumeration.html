@@ -6,14 +6,14 @@ found in the LICENSE file.
 -->
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
 
     <title>VR Device Enumeration</title>
 
-    <link href="css/common.css" rel="stylesheet"></link>
+    <link href='css/common.css' rel='stylesheet'></link>
 
     <style>
       main {
@@ -38,48 +38,48 @@ found in the LICENSE file.
         summary of each. This sample does not render anything to the VRDevice.
       </p>
     </header>
-    <main id="results">
+    <main id='results'>
 
     </main>
     <script>
       (function () {
-      "use strict";
+      'use strict';
 
-      let results = document.getElementById("results");
+      let results = document.getElementById('results');
 
       // Is WebVR available on this UA?
       if (navigator.vr) {
         // Request a list of all the VRDevices connected to the system.
         navigator.vr.getDevices().then((devices) => {
           if (devices.length == 0) {
-            results.innerHTML = "WebVR supported, but no VRDevices found.";
+            results.innerHTML = 'WebVR supported, but no VRDevices found.';
             return;
           }
 
           // Add an element for the page for each device.
           for (let device of devices) {
-            let deviceElement = document.createElement("article");
+            let deviceElement = document.createElement('article');
 
-            let deviceName = document.createElement("h1");
+            let deviceName = document.createElement('h1');
             deviceName.innerHTML = device.deviceName;
             deviceElement.appendChild(deviceName);
 
-            let ul = document.createElement("ul");
+            let ul = document.createElement('ul');
 
             function addAttributeLabel(name, value) {
-              let li = document.createElement("li");
+              let li = document.createElement('li');
               li.innerHTML = `<b>${name}:</b> <span>${value}</span>`;
               ul.appendChild(li);
             }
 
-            addAttributeLabel("isExternal", device.isExternal);
+            addAttributeLabel('isExternal', device.isExternal);
 
             deviceElement.appendChild(ul);
             results.appendChild(deviceElement);
           }
         });
       } else {
-        results.innerHTML = "WebVR not supported.";
+        results.innerHTML = 'WebVR not supported.';
       }
 
       })();
