@@ -144,6 +144,7 @@ found in the LICENSE file.
         let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
@@ -151,8 +152,6 @@ found in the LICENSE file.
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
           let projectionMats = [];
@@ -164,6 +163,10 @@ found in the LICENSE file.
             projectionMats.push(view.projectionMatrix);
             viewports.push(view.getViewport(session.baseLayer));
             viewMats.push(pose.getViewMatrix(view));
+
+            // It's important to take into account which eye the view is
+            // associated with in cases like this, since it informs which half
+            // of the stereo image should be used when rendering the view.
             eyes.push(view.eye);
           }
 

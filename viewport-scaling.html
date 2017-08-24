@@ -160,6 +160,7 @@ found in the LICENSE file.
         let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
@@ -170,8 +171,6 @@ found in the LICENSE file.
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        let pose = frame.getDevicePose(frameOfRef);
 
         if (pose) {
           let projectionMats = [];

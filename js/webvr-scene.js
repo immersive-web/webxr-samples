@@ -110,6 +110,39 @@ class WebVRScene {
     this.drawViewportArray([projection_mat], [view_mat], null, [eye]);
   }
 
+  /** Draws the scene into the base layer of the VRFrame's session */
+  drawVRFrame(vr_frame, pose) {
+    let gl = this._gl;
+    let session = vr_frame.session;
+    // Assumed to be a VRWebGLLayer for now.
+    let layer = session.baseLayer;
+
+    if(!gl) {
+      return;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    if (!pose) {
+      return;
+    }
+
+    let projection_mats = [];
+    let view_mats = [];
+    let viewports = [];
+    let eyes = [];
+
+    for (let view of vr_frame.views) {
+      projection_mats.push(view.projectionMatrix);
+      view_mats.push(pose.getViewMatrix(view));
+      viewports.push(view.getViewport(layer));
+      eyes.push(view.eye);
+    }
+
+    this.drawViewportArray(projection_mats, view_mats, viewports);
+  }
+
   drawViewportArray(projection_mats, view_mats, viewports, eyes) {
     if (!this._gl) {
       // Don't draw when we don't have a valid context

@@ -184,20 +184,16 @@ found in the LICENSE file.
         let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
         session.requestFrame(onVRFrame);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        let pose = frame.getDevicePose(frameOfRef);
-
+        let i = 0;
         if (pose) {
           let controllers = session.getControllers();
 
-          let i = 0;
           for (let controller of controllers) {
             if (controllerGeometries.length < i+1) {
               controllerGeometries.push(scene.createDebugGeometry('axes'));
@@ -244,25 +240,15 @@ found in the LICENSE file.
                 console.log('    .yAxis: ' + element.yAxis);
             }*/
           }
-
-          // Turn off visualizations of controllers that aren't present any more.
-          for (; i < controllerGeometries.length; ++i) {
-            controllerGeometries[i].visible = false;
-            controllerLasers[i].visible = false;
-          }
-
-          let projectionMats = [];
-          let viewMats = [];
-          let viewports = [];
-
-          for (let view of frame.views) {
-            projectionMats.push(view.projectionMatrix);
-            viewports.push(view.getViewport(session.baseLayer));
-            viewMats.push(pose.getViewMatrix(view));
-          }
-
-          scene.drawViewportArray(projectionMats, viewMats, viewports);
         }
+
+        // Turn off visualizations of controllers that aren't present any more.
+        for (; i < controllerGeometries.length; ++i) {
+          controllerGeometries[i].visible = false;
+          controllerLasers[i].visible = false;
+        }
+
+        scene.drawVRFrame(frame, pose);
 
         scene.endFrame();
       }

@@ -14,38 +14,60 @@
     <link rel='stylesheet' href='css/pygment_trac.css'>
 
     <style>
-      h3 {
+      article {
+        position: relative;
+        padding: 0.5em;
+        background-color: rgba(255, 255, 255, 0.90);
+        margin-bottom: 1em;
+        border-radius: 3px;
+      }
+
+      article h3 {
         font-size: 1.0em;
-        margin-top: 2em;
+        margin-top: 0px;
+        margin-bottom: 0px;
+      }
+
+      article h3::before {
+        display: inline-block;
+        content: attr(data-index) ' - ';
+        font-weight: bold;
+        white-space: nowrap;
+        margin-right: 0.2em;
+      }
+
+      article h4 {
+        position: absolute;
+        right: 0.5em;
+        top: 0.5em;
+        margin-top: 0px;
+        margin-bottom: 0px;
+      }
+
+      article p {
+        margin: 0.5em;
+      }
+
+      article .links {
+        margin-left: 0.5em;
+        margin-right: 0.5em;
+      }
+
+      article a {
+        display: inline-block;
+      }
+
+      article a:not(:first-child)::before {
+        display: inline-block;
+        content: '•';
+        font-weight: bold;
+        white-space: nowrap;
+        margin-left: 0.5em;
+        margin-right: 0.5em;
       }
 
       .github-link {
         font-size: 0.8em;
-      }
-
-      ul.sample-list {
-        list-style: none;
-        padding-left: 0.0em;
-        margin-left: 0.0em;
-        display: table;
-      }
-
-      ul.sample-list li {
-        display: table-row;
-        list-style: none;
-        padding-left: 0.5em;
-      }
-
-      ul.sample-list li::before {
-        display: table-cell;
-        content: attr(data-index) ' - ';
-        font-weight: bold;
-        white-space: nowrap;
-      }
-
-      ul.sample-list a {
-        display: table-cell;
-        padding-right: 0.5em;
       }
     </style>
 
@@ -67,64 +89,96 @@
       </header>
 
       <main class='main' id='main'>
-        <p>Sample pages demonstrating how to use various aspects of the WebVR API.</p>
-
-        <h3>WebVR Basics</h3>
-        <p>These samples demonstrate use of the core WebVR API.</p>
-        <ul id='basics' class='sample-list'></ul>
-
-        <h3>Input</h3>
-        <p>These samples demonstrate use of WebVR's input APIs.</p>
-        <ul id='input' class='sample-list'></ul>
-
-        <h3>Performance</h3>
-        <p>These samples demonstrate techniques to improve WebVR application performance.</p>
-        <ul id='performance' class='sample-list'></ul>
-
-        <h3>Content</h3>
-        <p>These samples demonstrate best practices for various types of content.</p>
-        <ul id='content' class='sample-list'></ul>
-
-        <br/>
-
-        <h3><a class='github-link' href='https://github.com/toji/webvr2-samples'>View samples on GitHub</a></h3>
+        <p>Sample pages demonstrating how to use various aspects of the WebVR API.<br/>
+        <a href="explainer.html">Learn More</a></p>
 
         <script>
-          var pages = [
-            { category: 'basics', path: 'vr-device-enumeration.html', title: 'VR Device Enumeration' },
-            { category: 'basics', path: 'vr-presentation.html', title: 'VR Presentation' },
-            { category: 'basics', path: 'magic-window.html', title: 'Magic Window' },
-            { category: 'basics', path: 'room-scale.html', title: 'Room Scale' },
-            { category: 'input', path: 'controller-tracking.html', title: 'Controller Tracking' },
-            { category: 'performance', path: 'framebuffer-scaling.html', title: 'Framebuffer Scaling' },
-            { category: 'performance', path: 'viewport-scaling.html', title: 'Viewport Scaling' },
-            { category: 'content', path: '360-photos.html', title: '360 Photos' },
-            { category: 'content', path: 'positional-audio.html', title: 'Positional Audio' },
+          let pages = [
+            { title: 'VR Device Enumeration', category: 'Basics',
+              path: 'vr-device-enumeration.html',
+              description: 'Queries available VRDevices and prints out a brief summary of each.' },
+
+            { title: 'VR Presentation', category: 'Basics',
+              path: 'vr-presentation.html',
+              description: 'Demonstrates how to present a simple WebGL scene to a VRDevice.' },
+
+            { title: 'Magic Window', category: 'Basics',
+              path: 'magic-window.html',
+              description: 'Demonstrates use of a non-exclusive VRSession to present "Magic Window" content.' },
+
+            { title: 'Room Scale', category: 'Basics',
+              path: 'room-scale.html',
+              description: 'Demonstrates using a "stage" frame of reference to provide room scale tracking.' },
+
+            { title: 'Controller Tracking', category: 'Input',
+              path: 'controller-tracking.html',
+              description: 'Demonstrates basic tracking of VR controllers.' },
+
+            { title: 'Framebuffer Scaling', category: 'Performance',
+              path: 'framebuffer-scaling.html',
+              description: 'Demonstrates scaling a layer\'s framebuffer to statically control performance or quality.' },
+
+            { title: 'Viewport Scaling', category: 'Performance',
+              path: 'viewport-scaling.html',
+              description: 'Demonstrates scaling a layer\'s viewports to dynamically control performance or quality.' },
+
+            { title: '360 Stereo Photos', category: 'Content',
+              path: '360-photos.html',
+              description: 'Demonstrates displaying a 360 degree equirectangular stereo photo.' },
+
+            { title: 'Positional Audio', category: 'Content',
+              path: 'positional-audio.html',
+              description: 'Demonstrates playing audio that sounds as if it originates at a specific point in the space.' },
           ];
+
+          let main = document.getElementById("main");
 
           // Append an element for every item in the pages list.
           for (var i = 0; i < pages.length; ++i) {
             var page = pages[i];
 
-            var category = document.getElementById(page.category);
+            let article = document.createElement('article');
 
-            var li = document.createElement('li');
-            li.setAttribute('data-index', category.children.length + 1);
+            let title = document.createElement('h3');
+            title.setAttribute('data-index', i + 1);
 
-            var sampleLink = document.createElement('a');
-            sampleLink.href = page.path;
-            sampleLink.innerHTML = page.title;
-            li.appendChild(sampleLink);
+            let titleLink = document.createElement('a');
+            titleLink.href = page.path;
+            titleLink.innerHTML = page.title;
+            title.appendChild(titleLink);
+            article.appendChild(title);
 
-            var sourceLink = document.createElement('a');
+            let category = document.createElement('h4');
+            category.innerHTML = page.category;
+            article.appendChild(category);
+
+            let description = document.createElement('p');
+            description.innerHTML = page.description;
+            article.appendChild(description);
+
+            let links = document.createElement('div');
+            links.classList.add('links');
+
+            let liveLink = document.createElement('a');
+            liveLink.href = page.path;
+            liveLink.innerHTML = 'Live Demo';
+            links.appendChild(liveLink);
+
+            let sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/toji/webvr2-samples/blob/master/' + page.path;
-            sourceLink.innerHTML = '(Source)';
-            li.appendChild(sourceLink);
+            sourceLink.innerHTML = 'Source';
+            links.appendChild(sourceLink);
 
-            category.appendChild(li);
+            article.appendChild(links);
+
+            main.appendChild(article);
           }
         </script>
       </main>
+
+      <br/>
+
+      <h3><a class='github-link' href='https://github.com/toji/webvr2-samples'>View samples source on GitHub</a></h3>
 
       <footer class='footer'>
       </footer>
