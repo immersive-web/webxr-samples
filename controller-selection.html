@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>Controller Tracking</title>
+    <title>Controller Selection</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
@@ -31,15 +31,17 @@ found in the LICENSE file.
   </head>
   <body>
     <header>
-      <h1>Controller Tracking</h1>
+      <h1>Controller Selection</h1>
       <p>
-        This sample demonstrates basic tracking of VR controllers. It does not
-        respond to button presses or other controller interactions.
+        This sample demonstrates handling select gesture events from VR
+        controllers.
       </p>
     </header>
     <script>
       (function () {
       'use strict';
+
+      const DEFAULT_HEIGHT = 1.6;
 
       // VR globals.
       let vrButton = null;
@@ -49,11 +51,53 @@ found in the LICENSE file.
       // WebGL scene globals.
       let gl = null;
       let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
-      scene.standingStats(true); // Position the stats at standing height.
+      scene.enableStats(false); // No stats counter for this one.
       let translatedViewMat = mat4.create();
       let translatedPoseMat = mat4.create();
       let controllerGeometries = [];
       let controllerLasers = [];
+
+      let interactiveGeometry = [];
+
+      let box0 = scene.createDebugGeometry("box");
+      interactiveGeometry.push(box0);
+      box0.center = [-3.0, DEFAULT_HEIGHT, -2.5];
+      box0.radius = 0.8;
+      box0.color = [1.0, 0.0, 0.0, 1.0];
+
+      let box1 = scene.createDebugGeometry("box");
+      interactiveGeometry.push(box1);
+      box1.center = [0.0, DEFAULT_HEIGHT, -3.0];
+      box1.radius = 0.8;
+      box1.color = [0.0, 1.0, 0.0, 1.0];
+
+      let box2 = scene.createDebugGeometry("box");
+      interactiveGeometry.push(box2);
+      box2.center = [3.0, DEFAULT_HEIGHT, -2.5];
+      box2.radius = 0.8;
+      box2.color = [0.0, 0.0, 1.0, 1.0];
+
+      // Utility function to determine if a ray and a sphere intersect.
+      // Returns a positive value upon intersection.
+      let L = vec3.create();
+      function raySphereIntersect(ray, sphere) {
+        let r2 = sphere.radius * sphere.radius;
+
+        vec3.sub(L, sphere.center, ray.origin); 
+        let tca = vec3.dot(L, ray.direction); 
+        // if (tca < 0) return false;
+        let d2 = vec3.dot(L, L) - tca * tca; 
+        if (d2 > r2) return -1; 
+        let thc = Math.sqrt(r2 - d2); 
+        let t0 = tca - thc;
+        let t1 = tca + thc;
+
+        if (t0 > t1) {
+          return t1 < 0 ? t0 : t1; 
+        }
+ 
+        return t0 < 0 ? t1 : t0;
+      } 
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -102,6 +146,7 @@ found in the LICENSE file.
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelectGesture);
 
         if (!gl) {
           gl = VRSamplesUtil.initWebGLContext({
@@ -139,6 +184,52 @@ found in the LICENSE file.
           vrButton.setSession(null);
       }
 
+      function findPickedBox(inputPose) {
+        if (!inputPose.pointerPoseMatrix) {
+          return null;
+        }
+
+        let ray = {
+          origin: [0, 0, 0],
+          direction: [0, 0, -1, 0]
+        };
+
+        // Update the pick ray origin and direction from the pointer pose matrix
+        vec3.transformMat4(ray.origin, ray.origin, inputPose.pointerPoseMatrix);
+        vec4.transformMat4(ray.direction, ray.direction, inputPose.pointerPoseMatrix);
+        vec3.normalize(ray.direction, ray.direction);
+
+        let nearestT = -1;
+        let nearestBox = null;
+        for (let box of interactiveGeometry) {
+          let t = raySphereIntersect(ray, box);
+          if (t > 0 && (t < nearestT || nearestT < 0)) {
+            nearestBox = box;
+          }
+        }
+
+        return nearestBox;
+      }
+
+      function onSelectGesture(event) {
+        let session = event.frame.session;
+        let frameOfRef = session.exclusive ?
+                         vrExclusiveFrameOfRef :
+                         vrNonExclusiveFrameOfRef;
+        // Get the pose associated with the event's input source.
+        let inputPose = event.frame.getInputPose(event.inputSource, frameOfRef);
+
+        // Use the pointer matrix from the pose to find which box the input 
+        // source was pointing at, if any.
+        let pickedBox = findPickedBox(inputPose);
+
+        // If the pointer intersected with a box, change it's color randomly to
+        // show the user some response to their input.
+        if (pickedBox) {
+          pickedBox.color = [Math.random(), Math.random(), Math.random(), 1.0];
+        }
+      }
+
       // Called every time a VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
@@ -153,6 +244,7 @@ found in the LICENSE file.
         session.requestFrame(onVRFrame);
 
         let i = 0;
+        let hoverBox = null;
         if (pose) {
           let controllers = session.getControllers();
 
@@ -189,8 +281,39 @@ found in the LICENSE file.
             } else {
               laser.visible = false;
             }
+
+            hoverBox = findPickedBox(inputPose) || hoverBox;
+
+            /*for (let name in controller.elements) {
+              let element = controller.elements[name];
+              console.log('  * ' + name);
+              console.log('    .value: ' + element.value);
+              console.log('    .pressed: ' + element.pressed);
+              console.log('    .touched: ' + element.touched);
+              if (element.xAxis)
+                console.log('    .xAxis: ' + element.xAxis);
+              if (element.yAxis)
+                console.log('    .yAxis: ' + element.yAxis);
+            }*/
           }
         }
+
+        let t = performance.now();
+        for (let box of interactiveGeometry) {
+          // Give all the boxes a slow spin.
+          mat4.identity(box.transform);
+          mat4.translate(box.transform, box.transform, box.center);
+          mat4.rotateX(box.transform, box.transform, t * 0.0002);
+          mat4.rotateY(box.transform, box.transform, t * 0.0005);
+
+          let scale = box.radius / 0.8;
+          if (box == hoverBox) {
+            // If the box is currently being pointed at, scale it up slightly.
+            scale *= 1.2;
+          }
+          mat4.scale(box.transform, box.transform, [scale, scale, scale]);
+        }
+        
 
         // Turn off visualizations of controllers that aren't present any more.
         for (; i < controllerGeometries.length; ++i) {

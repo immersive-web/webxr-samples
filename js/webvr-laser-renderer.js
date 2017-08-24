@@ -75,7 +75,7 @@ const CURSOR_SHADER_VERTEX = `
   void main() {
     vLuminance = position.z;
     vOpacity = position.w;
-    gl_Position = projectionMat * viewMat * modelMat * vec4(position.xy, -1.0, 1.0);
+    gl_Position = projectionMat * viewMat * modelMat * vec4(position.xy, -3.0, 1.0);
   }
 `;
 
