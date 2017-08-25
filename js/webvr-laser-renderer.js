@@ -60,9 +60,12 @@ const LASER_SHADER_FRAGMENT = `
 `;
 
 const CURSOR_RADIUS = 0.005;
+const CURSOR_SHADOW_RADIUS = 0.008;
+const CURSOR_SHADOW_INNER_LUMINANCE = 0.5;
+const CURSOR_SHADOW_OUTER_LUMINANCE = 0.0;
+const CURSOR_SHADOW_INNER_OPACITY = 0.75;
+const CURSOR_SHADOW_OUTER_OPACITY = 0.0;
 const CURSOR_OPACITY = 0.9;
-const CURSOR_SHADOW_RADIUS = 0.009;
-const CURSOR_SHADOW_INNER_OPACITY = 0.25;
 const CURSOR_SEGMENTS = 16;
 const CURSOR_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 1.0]);
 
@@ -206,8 +209,10 @@ class WebVRLaserRenderer {
       let rad = i * segRad;
       let x = Math.cos(rad);
       let y = Math.sin(rad);
-      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS, 0.0, CURSOR_SHADOW_INNER_OPACITY);
-      cursorVerts.push(x * CURSOR_SHADOW_RADIUS, y * CURSOR_SHADOW_RADIUS, 0.0, 0.0);
+      cursorVerts.push(x * CURSOR_RADIUS, y * CURSOR_RADIUS,
+          CURSOR_SHADOW_INNER_LUMINANCE, CURSOR_SHADOW_INNER_OPACITY);
+      cursorVerts.push(x * CURSOR_SHADOW_RADIUS, y * CURSOR_SHADOW_RADIUS,
+          CURSOR_SHADOW_OUTER_LUMINANCE, CURSOR_SHADOW_OUTER_OPACITY);
 
       if (i > 0) {
         let idx = indexOffset + (i * 2);

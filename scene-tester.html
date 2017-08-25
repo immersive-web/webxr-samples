@@ -64,7 +64,6 @@ found in the LICENSE file.
       function setScene(new_scene) {
         scene = new_scene;
         scene.setWebGLContext(gl);
-        scene.createLaserPointer();
       }
 
       function onResize () {
@@ -141,6 +140,10 @@ found in the LICENSE file.
 
         let frame_delta = scene.startFrame();
         updateView(frame_delta);
+
+        scene.pushCursor([0, 1.6, -1.0]);
+        scene.pushCursor([-0.2, 1.6, -1.0]);
+        scene.pushCursor([0.2, 1.6, -1.0]);
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
