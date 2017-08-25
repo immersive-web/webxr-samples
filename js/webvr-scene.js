@@ -2,6 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+class WebVRView {
+  constructor(view, pose, layer) {
+    this.projection_mat = view ? view.projectionMatrix : null;
+    this.view_mat = (pose && view) ? pose.getViewMatrix(view) : null;
+    this.viewport = (layer && view) ? view.getViewport(layer) : null;
+    // If an eye isn't given just assume the left eye.
+    this.eye = view ? view.eye : "left";
+  }
+}
+
 class WebVRScene {
   constructor() {
     this._gl = null;
@@ -102,12 +112,14 @@ class WebVRScene {
   }
 
   draw(projection_mat, view_mat, eye) {
-    // If an eye wasn't given just assume the left eye.
-    if (!eye) {
-      eye = "left";
+    let view = new WebVRView();
+    view.projection_mat = projection_mat;
+    view.view_mat = view_mat;
+    if (eye) {
+      view.eye = eye;
     }
 
-    this.drawViewportArray([projection_mat], [view_mat], null, [eye]);
+    this.drawViewArray([view]);
   }
 
   /** Draws the scene into the base layer of the VRFrame's session */
@@ -128,47 +140,34 @@ class WebVRScene {
       return;
     }
 
-    let projection_mats = [];
-    let view_mats = [];
-    let viewports = [];
-    let eyes = [];
-
+    let views = [];
     for (let view of vr_frame.views) {
-      projection_mats.push(view.projectionMatrix);
-      view_mats.push(pose.getViewMatrix(view));
-      viewports.push(view.getViewport(layer));
-      eyes.push(view.eye);
+      views.push(new WebVRView(view, pose, layer));
     }
 
-    this.drawViewportArray(projection_mats, view_mats, viewports);
+    this.drawViewArray(views);
   }
 
-  drawViewportArray(projection_mats, view_mats, viewports, eyes) {
+  drawViewArray(views) {
     if (!this._gl) {
       // Don't draw when we don't have a valid context
       return;
     }
 
-    // If an eye wasn't given just assume the left eye.
-    if (!eyes) {
-      eyes = new Array(view_mats.length);
-      eyes.fill("left");
-    }
-
     if (this._stats_enabled) {
-      this._onDrawStats(projection_mats, view_mats, viewports);
+      this._onDrawStats(views);
     }
 
     if (this._debug_geometries.length) {
-      this._onDrawDebugGeometry(projection_mats, view_mats, viewports);
+      this._onDrawDebugGeometry(views);
     }
 
-    this.onDrawViews(this._gl, this._timestamp, projection_mats, view_mats, viewports, eyes);
+    this.onDrawViews(this._gl, this._timestamp, views);
 
     // Because of the blending used when drawing the lasers/cursors they should
     // always be drawn last.
     if (this._laser_geometries.length) {
-      this._onDrawLaserGeometry(projection_mats, view_mats, viewports);
+      this._onDrawLaserGeometry(views);
     }
   }
 
@@ -198,16 +197,15 @@ class WebVRScene {
   onLoadScene(gl) {}
 
   // Override with custom scene rendering.
-  onDrawViews(gl, timestamp, projection_mat, view_mat, viewports, eye) {}
+  onDrawViews(gl, timestamp, views) {}
 
-  _onDrawStats(projection_mats, view_mats, viewports) {
-    for (let i = 0; i < view_mats.length; ++i) {
-      if (viewports) {
-        let vp = viewports[i];
-        this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
+  _onDrawStats(views) {
+    let gl = this._gl;
+    for (let view of views) {
+      if (view.viewport) {
+        let vp = view.viewport;
+        gl.viewport(vp.x, vp.y, vp.width, vp.height);
       }
-      let projection_mat = projection_mats[i];
-      let view_mat = view_mats[i];
 
       // To ensure that the FPS counter is visible in VR mode we have to
       // render it as part of the scene.
@@ -218,20 +216,21 @@ class WebVRScene {
       }
       mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
       mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
-      mat4.multiply(this._stats_mat, view_mat, this._stats_mat);
+      mat4.multiply(this._stats_mat, view.view_mat, this._stats_mat);
 
-      this._stats.render(projection_mat, this._stats_mat);
+      this._stats.render(view.projection_mat, this._stats_mat);
     }
   }
 
-  _onDrawDebugGeometry(projection_mats, view_mats, viewports) {
+  _onDrawDebugGeometry(views) {
+    let gl = this._gl;
     if (this._debug_renderer) {
-      for (let i = 0; i < view_mats.length; ++i) {
-        if (viewports) {
-          let vp = viewports[i];
-          this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      for (let view of views) {
+        if (view.viewport) {
+          let vp = view.viewport;
+          gl.viewport(vp.x, vp.y, vp.width, vp.height);
         }
-        this._debug_renderer.bind(projection_mats[i], view_mats[i]);
+        this._debug_renderer.bind(view.projection_mat, view.view_mat);
 
         for (let geom of this._debug_geometries) {
           if (!geom.visible)
@@ -255,21 +254,14 @@ class WebVRScene {
     }
   }
 
-  _onDrawLaserGeometry(projection_mats, view_mats, viewports) {
+  _onDrawLaserGeometry(views) {
     if (this._laser_renderer) {
-      for (let i = 0; i < view_mats.length; ++i) {
-        if (viewports) {
-          let vp = viewports[i];
-          this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
-        }
+      for (let laser of this._laser_geometries) {
+        if (!laser.visible)
+          continue;
 
-        for (let laser of this._laser_geometries) {
-          if (!laser.visible)
-            continue;
-
-          this._laser_renderer.drawCursor(projection_mats[i], view_mats[i], laser.transform, laser.color);
-          this._laser_renderer.drawRay(projection_mats[i], view_mats[i], laser.transform, laser.color);
-        }
+        //this._laser_renderer.drawCursor(views, laser.transform, laser.color);
+        this._laser_renderer.drawRay(views, laser.transform, laser.color);
       }
     }
   }

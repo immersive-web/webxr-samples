@@ -83,8 +83,6 @@ found in the LICENSE file.
         }
       }
 
-      // Called when the user selects a device to present to. In response we
-      // will request an exclusive session from that device.
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
           vrButton.setSession(session);
@@ -92,8 +90,6 @@ found in the LICENSE file.
         });
       }
 
-      // Called when we've successfully acquired a VRSession. In response we
-      // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
@@ -119,17 +115,12 @@ found in the LICENSE file.
         });
       }
 
-      // Called when the user clicks the 'Exit VR' button. In response we end
-      // the session.
       function onEndSession(session) {
         session.end();
       }
 
-      // Called either when the user has explicitly ended the session (like in
-      // onEndSession()) or when the UA has ended the session for any reason.
-      // At this point the session object is no longer usable and should be
-      // discarded.
       function onSessionEnded(event) {
+        // Only reset the button when the exclusive session ends.
         if (event.session.exclusive)
           vrButton.setSession(null);
       }
@@ -151,31 +142,13 @@ found in the LICENSE file.
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         if (pose) {
-          let projectionMats = [];
-          let viewMats = [];
-          let viewports = [];
-
-          // This is a different rendering pattern than the previous samples
-          // used, but it should be more efficent. By providing the matrices and
-          // viewports as an array to the drawing function it can do all the
-          // necessary binding once and then call the actual draw commands in
-          // a tighter loop, only changing the matrices and viewport each time.
-          // This does mean that the viewport is changed much more frequently
-          // (N times per object instead of N times per scene) but it's
-          // typically a pretty cheap thing to change and will almost always be
-          // easily outweighed by the savings from not redundantly binding
-          // everything else.
-
-          // Note that for the complexity of the scenes in these samples this
-          // won't make much visible performance difference, but we're using the
-          // more efficient pattern anyway as a way of promoting best practices.
           for (let view of frame.views) {
-            projectionMats.push(view.projectionMatrix);
-            viewports.push(view.getViewport(session.baseLayer));
-            viewMats.push(pose.getViewMatrix(view));
-          }
+            let viewport = view.getViewport(session.baseLayer);
+            gl.viewport(viewport.x, viewport.y,
+                        viewport.width, viewport.height);
 
-          scene.drawViewportArray(projectionMats, viewMats, viewports);
+            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+          }
         }
 
         scene.endFrame();

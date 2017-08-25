@@ -67,9 +67,9 @@ found in the LICENSE file.
         // Oscillates between 1.0 to 0.5.
         resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
 
-        // This is the only new VRSession call in this sample from sample 01.
-        // It sets a requested scale to be applied to the viewports reported for
-        // each VRView. The UA is allowed to ignore the request or adjust it as
+        // This is the only new VRSession call in this sample. It sets a
+        // requested scale to be applied to the viewports reported for each
+        // VRView. The UA is allowed to ignore the request or adjust it as
         // needed. If the scaling request is honored it will take effect on the
         // *next* frame, not the current one.
         session.baseLayer.requestViewportScaling(resolutionMultiplier);
@@ -96,8 +96,6 @@ found in the LICENSE file.
 
             devices[0].requestSession({outputContext: ctx})
                 .then((session) => {
-                  // Add the canvas to the document once we know that it will be
-                  // rendered to.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
@@ -105,8 +103,6 @@ found in the LICENSE file.
         }
       }
 
-      // Called when the user selects a device to present to. In response we
-      // will request an exclusive session from that device.
       function onRequestSession(device) {
         device.requestSession({exclusive: true}).then((session) => {
           vrButton.setSession(session);
@@ -114,8 +110,6 @@ found in the LICENSE file.
         });
       }
 
-      // Called when we've successfully acquired a VRSession. In response we
-      // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
@@ -139,22 +133,15 @@ found in the LICENSE file.
         });
       }
 
-      // Called when the user clicks the 'Exit VR' button. In response we end
-      // the session.
       function onEndSession(session) {
         session.end();
       }
 
-      // Called either when the user has explicitly ended the session (like in
-      // onEndSession()) or when the UA has ended the session for any reason.
-      // At this point the session object is no longer usable and should be
-      // discarded.
       function onSessionEnded(event) {
         if (event.session.exclusive)
           vrButton.setSession(null);
       }
 
-      // Called every time the VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
@@ -169,22 +156,7 @@ found in the LICENSE file.
 
         session.requestFrame(onVRFrame);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        if (pose) {
-          let projectionMats = [];
-          let viewMats = [];
-          let viewports = [];
-
-          for (let view of frame.views) {
-            projectionMats.push(view.projectionMatrix);
-            viewports.push(view.getViewport(session.baseLayer));
-            viewMats.push(pose.getViewMatrix(view));
-          }
-
-          scene.drawViewportArray(projectionMats, viewMats, viewports);
-        }
+        scene.drawVRFrame(frame, pose);
 
         scene.endFrame();
       }

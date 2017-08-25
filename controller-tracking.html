@@ -49,7 +49,7 @@ found in the LICENSE file.
       // WebGL scene globals.
       let gl = null;
       let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
-      scene.standingStats(true); // Position the stats at standing height.
+      scene.standingStats(true);
       let translatedViewMat = mat4.create();
       let translatedPoseMat = mat4.create();
       let controllerGeometries = [];
@@ -71,17 +71,11 @@ found in the LICENSE file.
             if (!devices.length)
               return;
 
-            // In order for a non-exclusive session to be used we must provide
-            // an outputContext, which indicates the canvas that will contain
-            // results of the session's rendering.
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            // Start up a non-exclusive session if possible.
             devices[0].requestSession({ outputContext: ctx })
                 .then((session) => {
-                  // Add the canvas to the document once we know that it will be
-                  // rendered to.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
@@ -89,8 +83,6 @@ found in the LICENSE file.
         }
       }
 
-      // Called when the user selects a device to present to. In response we
-      // will request an exclusive session from that device.
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
           vrButton.setSession(session);
@@ -98,8 +90,6 @@ found in the LICENSE file.
         });
       }
 
-      // Called when we've successfully acquired a VRSession. In response we
-      // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
@@ -124,25 +114,17 @@ found in the LICENSE file.
             });
       }
 
-      // Called when the user clicks the 'Exit VR' button. In response we end
-      // the session.
       function onEndSession(session) {
         session.end();
       }
 
-      // Called either when the user has explicitly ended the session (like in
-      // onEndSession()) or when the UA has ended the session for any reason.
-      // At this point the session object is no longer usable and should be
-      // discarded.
       function onSessionEnded(event) {
         if (event.session.exclusive)
           vrButton.setSession(null);
       }
 
-      // Called every time a VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
-        // Ensure that we're using the right frame of reference for the session.
         let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;

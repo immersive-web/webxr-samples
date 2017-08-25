@@ -99,7 +99,7 @@ class WebVRScenePanorama extends WebVRScene {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(panoIndices), gl.STATIC_DRAW);
   }
 
-  onDrawViews(gl, timestamp, projection_mats, view_mats, viewports, eyes) {
+  onDrawViews(gl, timestamp, views) {
     let program = this.program;
 
     program.use();
@@ -117,16 +117,14 @@ class WebVRScenePanorama extends WebVRScene {
     gl.uniform1i(this.program.uniform.diffuse, 0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-    for (let i = 0; i < view_mats.length; ++i) {
-      if (viewports) {
-        let vp = viewports[i];
+    for (let view of views) {
+      if (view.viewport) {
+        let vp = view.viewport;
         gl.viewport(vp.x, vp.y, vp.width, vp.height);
       }
-      let projection_mat = projection_mats[i];
-      let view_mat = view_mats[i];
 
       if (this.topBottomStereo) {
-        if (eyes[i] == "left") {
+        if (view.eye == "left") {
           gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.0);
         } else {
           gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 0.5, 0.0, 0.5);
@@ -135,8 +133,8 @@ class WebVRScenePanorama extends WebVRScene {
         gl.uniform4f(program.uniform.texCoordScaleOffset, 1.0, 1.0, 0.0, 0.0);
       }
 
-      gl.uniformMatrix4fv(program.uniform.projectionMat, false, projection_mat);
-      gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view_mat);
+      gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
+      gl.uniformMatrix4fv(program.uniform.modelViewMat, false, view.view_mat);
 
       gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0);
     }
