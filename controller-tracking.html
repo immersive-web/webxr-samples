@@ -50,10 +50,16 @@ found in the LICENSE file.
       let gl = null;
       let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
       scene.standingStats(true);
-      let translatedViewMat = mat4.create();
-      let translatedPoseMat = mat4.create();
       let controllerGeometries = [];
-      let controllerLasers = [];
+
+      scene._cursorPositions = [];
+      for (let i = 0; i < 100; ++i) {
+        scene._cursorPositions.push(vec3.fromValues(
+          (Math.random() * 6.0) - 3.0,
+          (Math.random() * 6.0) - 3.0,
+          ((Math.random() * 6.0) - 3.0) + 1.6
+        ));
+      }
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -141,35 +147,51 @@ found in the LICENSE file.
           for (let controller of controllers) {
             if (controllerGeometries.length < i+1) {
               controllerGeometries.push(scene.createDebugGeometry('axes'));
-              controllerLasers.push(scene.createLaserPointer());
             }
 
             let geom = controllerGeometries[i];
-            let laser = controllerLasers[i];
+            geom.visible = false;
             ++i;
 
             let inputPose = frame.getInputPose(controller, frameOfRef);
 
             if (!inputPose) {
-              geom.visible = false;
-              laser.visible = false;
               continue;
             }
 
             let poseMat = inputPose.gripPoseMatrix;
+            let pointerMat = inputPose.pointerPoseMatrix;
             if (poseMat) {
+              // If we have a grip matrix use it to render a mesh showing the
+              // position of the controller.
               geom.visible = true;
               mat4.copy(geom.transform, poseMat);
-            } else {
-              geom.visible = false;
+
+              // If we have a pointer matrix use it to render a ray coming out
+              // of the controller to indicate the pointer direction.
+              if (pointerMat) {
+                // This is a utility function that will add a ray with the given
+                // matrix to be drawn the next time the scene is rendered. The
+                // lasers are cleared each frame, so a new one needs to be
+                // pushed each frame.
+                scene.pushLaserPointer(pointerMat);
+              }
             }
 
-            let pointerMat = inputPose.pointerPoseMatrix;
             if (pointerMat) {
-              laser.visible = true;
-              mat4.copy(laser.transform, pointerMat);
-            } else {
-              laser.visible = false;
+              // If we have a pointer matrix use it to render a cursor in the
+              // scene.
+
+              // Statically render the cursor 2 meters down the ray since we're
+              // not calculating any intersections in this sample.
+              let cursorPos = vec3.fromValues(0, 0, -2.0); 
+              vec3.transformMat4(cursorPos, cursorPos, pointerMat);
+
+              // This is a utility function that will add a cursor at the given
+              // point to be drawn the next time the scene is rendered. The
+              // cursors are cleared each frame, so a new one needs to be
+              // pushed each frame.
+              scene.pushCursor(cursorPos);
             }
           }
         }

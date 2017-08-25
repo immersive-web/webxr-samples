@@ -19,6 +19,8 @@ const LASER_TEXTURE_DATA = new Uint8Array([
 0xcc,0xcc,0xcc,0x05,0xbf,0xbf,0xbf,0x04,0xff,0xff,0xff,0x02,0xff,0xff,0xff,0x01,
 ]);
 
+
+const LASER_LENGTH = 1.0;
 const LASER_DIAMETER = 0.01;
 const LASER_FADE_END = 0.535;
 const LASER_FADE_POINT = 0.5335;
@@ -57,17 +59,19 @@ const LASER_SHADER_FRAGMENT = `
   }
 `;
 
-const CURSOR_RADIUS = 0.01;
+const CURSOR_RADIUS = 0.005;
 const CURSOR_OPACITY = 0.9;
-const CURSOR_SHADOW_RADIUS = 0.017;
+const CURSOR_SHADOW_RADIUS = 0.009;
 const CURSOR_SHADOW_INNER_OPACITY = 0.25;
 const CURSOR_SEGMENTS = 16;
 const CURSOR_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 1.0]);
 
+// Cursors are drawn as billboards that always face the camera and are rendered
+// as a fixed size no matter how far away they are.
 const CURSOR_SHADER_VERTEX = `
   uniform mat4 projectionMat;
   uniform mat4 viewMat;
-  uniform mat4 modelMat;
+  uniform vec3 cursorPos;
   attribute vec4 position;
   varying float vLuminance;
   varying float vOpacity;
@@ -75,7 +79,12 @@ const CURSOR_SHADER_VERTEX = `
   void main() {
     vLuminance = position.z;
     vOpacity = position.w;
-    gl_Position = projectionMat * viewMat * modelMat * vec4(position.xy, 0.0, 1.0);
+
+    // Billboarded, constant size vertex transform.
+    vec4 screenPos = projectionMat * viewMat * vec4(cursorPos, 1.0);
+    screenPos /= screenPos.w;
+    screenPos.xy += position.xy;
+    gl_Position = screenPos;
   }
 `;
 
@@ -116,29 +125,30 @@ class WebVRLaserRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     let lr = LASER_DIAMETER * 0.5;
+    let ll = LASER_LENGTH;
 
     // Laser is rendered as cross-shaped beam
     let laserVerts = [
     //X    Y     Z     U    V
-      0.0,  lr,  0.0,  0.0, 1.0,
-      0.0,  lr, -1.0,  0.0, 0.0,
-      0.0, -lr,  0.0,  1.0, 1.0,
-      0.0, -lr, -1.0,  1.0, 0.0,
+      0.0,  lr, 0.0,  0.0, 1.0,
+      0.0,  lr, -ll,  0.0, 0.0,
+      0.0, -lr, 0.0,  1.0, 1.0,
+      0.0, -lr, -ll,  1.0, 0.0,
 
-       lr, 0.0,  0.0,  0.0, 1.0,
-       lr, 0.0, -1.0,  0.0, 0.0,
-      -lr, 0.0,  0.0,  1.0, 1.0,
-      -lr, 0.0, -1.0,  1.0, 0.0,
+       lr, 0.0, 0.0,  0.0, 1.0,
+       lr, 0.0, -ll,  0.0, 0.0,
+      -lr, 0.0, 0.0,  1.0, 1.0,
+      -lr, 0.0, -ll,  1.0, 0.0,
 
-      0.0, -lr,  0.0,  0.0, 1.0,
-      0.0, -lr, -1.0,  0.0, 0.0,
-      0.0,  lr,  0.0,  1.0, 1.0,
-      0.0,  lr, -1.0,  1.0, 0.0,
+      0.0, -lr, 0.0,  0.0, 1.0,
+      0.0, -lr, -ll,  0.0, 0.0,
+      0.0,  lr, 0.0,  1.0, 1.0,
+      0.0,  lr, -ll,  1.0, 0.0,
 
-      -lr, 0.0,  0.0,  0.0, 1.0,
-      -lr, 0.0, -1.0,  0.0, 0.0,
-       lr, 0.0,  0.0,  1.0, 1.0,
-       lr, 0.0, -1.0,  1.0, 0.0,
+      -lr, 0.0, 0.0,  0.0, 1.0,
+      -lr, 0.0, -ll,  0.0, 0.0,
+       lr, 0.0, 0.0,  1.0, 1.0,
+       lr, 0.0, -ll,  1.0, 0.0,
     ];
     let laserIndices = [
       0, 1, 2, 1, 3, 2,
@@ -221,12 +231,12 @@ class WebVRLaserRenderer {
     this._cursorIndexCount = cursorIndices.length;
   }
 
-  drawRay(views, model_mat, color) {
+  drawRays(views, pointer_mats) {
     let gl = this._gl;
     let program = this._laserProgram;
 
-    if (!color) {
-      color = LASER_DEFAULT_COLOR;
+    if (!pointer_mats.length) {
+      return;
     }
 
     program.use();
@@ -235,8 +245,7 @@ class WebVRLaserRenderer {
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.depthMask(false);
 
-    gl.uniformMatrix4fv(program.uniform.modelMat, false, model_mat);
-    gl.uniform4fv(program.uniform.laserColor, color);
+    gl.uniform4fv(program.uniform.laserColor, LASER_DEFAULT_COLOR);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._laserVertexBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._laserIndexBuffer);
@@ -259,19 +268,25 @@ class WebVRLaserRenderer {
       gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
       gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
 
-      gl.drawElements(gl.TRIANGLES, this._laserIndexCount, gl.UNSIGNED_SHORT, 0);
+      for (let mat of pointer_mats) {
+        gl.uniformMatrix4fv(program.uniform.modelMat, false, mat);
+        gl.drawElements(gl.TRIANGLES, this._laserIndexCount, gl.UNSIGNED_SHORT, 0);
+      }
     }
 
     gl.depthMask(true);
     gl.disable(gl.BLEND);
   }
 
-  drawCursor(views, model_mat, color) {
+  /**
+   * Draws cursors at the given positions in space. 
+   */
+  drawCursors(views, cursorPositions) {
     let gl = this._gl;
     let program = this._cursorProgram;
 
-    if (!color) {
-      color = CURSOR_DEFAULT_COLOR;
+    if (!cursorPositions.length) {
+      return;
     }
 
     program.use();
@@ -282,8 +297,7 @@ class WebVRLaserRenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    gl.uniformMatrix4fv(program.uniform.modelMat, false, model_mat);
-    gl.uniform4fv(program.uniform.cursorColor, color);
+    gl.uniform4fv(program.uniform.cursorColor, CURSOR_DEFAULT_COLOR);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._cursorVertexBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._cursorIndexBuffer);
@@ -300,8 +314,11 @@ class WebVRLaserRenderer {
 
       gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
       gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
-    
-      gl.drawElements(gl.TRIANGLES, this._cursorIndexCount, gl.UNSIGNED_SHORT, 0);
+      
+      for (let pos of cursorPositions) {
+        gl.uniform3fv(program.uniform.cursorPos, pos);
+        gl.drawElements(gl.TRIANGLES, this._cursorIndexCount, gl.UNSIGNED_SHORT, 0);
+      }
     }
 
     gl.disable(gl.BLEND);

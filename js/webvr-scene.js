@@ -25,11 +25,12 @@ class WebVRScene {
 
     this.texture_loader = null;
 
-    this._debug_geometries = [];
     this._debug_renderer = null;
+    this._debug_geometries = [];
 
-    this._laser_geometries = [];
-    this._laser_renderer = null;
+    this._pointer_renderer = null;
+    this._lasers = [];
+    this._cursors = [];
   }
 
   setWebGLContext(gl) {
@@ -45,8 +46,8 @@ class WebVRScene {
         this._debug_renderer = new WGLUDebugGeometry(gl);
       }
 
-      if (this._laser_geometries.length) {
-        this._laser_renderer = new WebVRLaserRenderer(gl);
+      if (this._lasers.length || this._cursors.length) {
+        this._pointer_renderer = new WebVRLaserRenderer(gl);
       }
 
       this.onLoadScene(gl);
@@ -95,20 +96,22 @@ class WebVRScene {
     return geometry;
   }
 
-  createLaserPointer() {
-    let geometry = {
-      transform: mat4.create(),
-      color: [1.0, 1.0, 1.0, 1.0],
-      visible: true
-    };
-    this._laser_geometries.push(geometry);
+  pushLaserPointer(pointer_mat) {
+    this._lasers.push(pointer_mat);
 
-    // Create the laser renderer if needed.
-    if (!this._laser_renderer && this._gl) {
-      this._laser_renderer = new WebVRLaserRenderer(this._gl);
+    // Create the pointer renderer if needed.
+    if (!this._pointer_renderer && this._gl) {
+      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
     }
+  }
 
-    return geometry;
+  pushCursor(cursor_pos) {
+    this._cursors.push(cursor_pos);
+
+    // Create the pointer renderer if needed.
+    if (!this._pointer_renderer && this._gl) {
+      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
+    }
   }
 
   draw(projection_mat, view_mat, eye) {
@@ -158,17 +161,13 @@ class WebVRScene {
       this._onDrawStats(views);
     }
 
-    if (this._debug_geometries.length) {
-      this._onDrawDebugGeometry(views);
-    }
+    this._onDrawDebugGeometry(views);
 
     this.onDrawViews(this._gl, this._timestamp, views);
 
     // Because of the blending used when drawing the lasers/cursors they should
     // always be drawn last.
-    if (this._laser_geometries.length) {
-      this._onDrawLaserGeometry(views);
-    }
+    this._onDrawPointers(views);
   }
 
   startFrame() {
@@ -188,6 +187,9 @@ class WebVRScene {
   }
 
   endFrame() {
+    this._lasers.length = 0;
+    this._cursors.length = 0;
+
     if (this._stats) {
       this._stats.end();
     }
@@ -224,7 +226,7 @@ class WebVRScene {
 
   _onDrawDebugGeometry(views) {
     let gl = this._gl;
-    if (this._debug_renderer) {
+    if (this._debug_renderer && this._debug_geometries.length) {
       for (let view of views) {
         if (view.viewport) {
           let vp = view.viewport;
@@ -254,15 +256,10 @@ class WebVRScene {
     }
   }
 
-  _onDrawLaserGeometry(views) {
-    if (this._laser_renderer) {
-      for (let laser of this._laser_geometries) {
-        if (!laser.visible)
-          continue;
-
-        //this._laser_renderer.drawCursor(views, laser.transform, laser.color);
-        this._laser_renderer.drawRay(views, laser.transform, laser.color);
-      }
+  _onDrawPointers(views) {
+    if (this._pointer_renderer && (this._lasers.length || this._cursors.length)) {
+      this._pointer_renderer.drawRays(views, this._lasers);
+      this._pointer_renderer.drawCursors(views, this._cursors);
     }
   }
 }

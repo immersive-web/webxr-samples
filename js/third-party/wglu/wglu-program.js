@@ -140,11 +140,11 @@ var WGLUProgram = (function() {
     if (this._firstUse) {
       if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
         if (this._vertexShader && !gl.getShaderParameter(this._vertexShader, gl.COMPILE_STATUS)) {
-          console.error("Vertex shader compile error:", gl.getShaderInfoLog(this._vertexShader));
+          console.error("Vertex shader compile error: " + gl.getShaderInfoLog(this._vertexShader));
         } else if (this._fragmentShader && !gl.getShaderParameter(this._fragmentShader, gl.COMPILE_STATUS)) {
-          console.error("Fragment shader compile error:", gl.getShaderInfoLog(this._fragmentShader));
+          console.error("Fragment shader compile error: " + gl.getShaderInfoLog(this._fragmentShader));
         } else {
-          console.error("Program link error:", gl.getProgramInfoLog(this.program));
+          console.error("Program link error: " + gl.getProgramInfoLog(this.program));
         }
         gl.deleteProgram(this.program);
         this.program = null;
