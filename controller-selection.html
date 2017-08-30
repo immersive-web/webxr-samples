@@ -217,11 +217,11 @@ found in the LICENSE file.
           pickedBox.box.color = [
               Math.random(), Math.random(), Math.random(), 1.0];
         } else {
-          // If there was no picked box, stick a cursor 2 meters out for testing
-          let cursor = vec3.fromValues(0, 0, 2.0);
-          vec3.transformMat4(cursor, cursor, inputPose.pointerPoseMatrix);
+          // If there was no picked box, stick a cursor 3 meters out for testing
+          let cursorPos = vec3.fromValues(0, 0, -3.0);
+          vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerPoseMatrix);
 
-          paintedCursors.push(cursor);
+          paintedCursors.push(cursorPos);
         }
       }
 
