@@ -222,6 +222,7 @@ found in the LICENSE file.
           vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerPoseMatrix);
 
           paintedCursors.push(cursorPos);
+          console.log("Placed a cursor at [" + cursorPos[0] + ", " + cursorPos[1] + ", " + cursorPos[2] + "]");
         }
       }
 
@@ -244,7 +245,6 @@ found in the LICENSE file.
           for (let controller of controllers) {
             if (controllerGeometries.length < i+1) {
               controllerGeometries.push(scene.createDebugGeometry('axes'));
-              controllerLasers.push(scene.createLaserPointer());
             }
 
             let geom = controllerGeometries[i];
