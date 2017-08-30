@@ -74,6 +74,8 @@ found in the LICENSE file.
       box2.radius = 0.8;
       box2.color = [0.0, 0.0, 1.0, 1.0];
 
+      let paintedCursors = [];
+
       // Utility function to determine if a ray and a sphere intersect.
       // Returns a positive value upon intersection.
       let L = vec3.create();
@@ -214,6 +216,12 @@ found in the LICENSE file.
         if (pickedBox) {
           pickedBox.box.color = [
               Math.random(), Math.random(), Math.random(), 1.0];
+        } else {
+          // If there was no picked box, stick a cursor 2 meters out for testing
+          let cursor = vec3.fromValues(0, 0, 2.0);
+          vec3.transformMat4(cursor, cursor, inputPose.pointerPoseMatrix);
+
+          paintedCursors.push(cursor);
         }
       }
 
@@ -289,6 +297,10 @@ found in the LICENSE file.
                 console.log('    .yAxis: ' + element.yAxis);
             }*/
           }
+        }
+
+        for (let cursor of paintedCursors) {
+          scene.pushCursor(cursor);
         }
 
         let t = performance.now();
