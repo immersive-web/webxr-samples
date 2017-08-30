@@ -1,0 +1,137 @@
+<!doctype html>
+<!--
+Copyright 2017 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <title>Select 2D Tester</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/tiny-gltf2.js'></script>
+
+    <script src='js/third-party/wglu/wglu-debug-geometry.js'></script>
+    <script src='js/third-party/wglu/wglu-program.js'></script>
+    <script src='js/third-party/wglu/wglu-stats.js'></script>
+    <script src='js/third-party/wglu/wglu-texture.js'></script>
+
+    <script src='js/webvr-button.js'></script>
+    <script src='js/webvr-scene.js'></script>
+    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webvr-laser-renderer.js'></script>
+  </head>
+  <body>
+    <header>
+      <details>
+        <summary>Select 2D Tester</summary>
+        <p>
+          Simple app for testing the accuracy of select gestures generated from
+          tapping on a 2D canvas. Produces a cursor slightly down-ray from the
+          select ray's origin and places a laser behind it. If everything is
+          working correctly the ray should be effectively invisible since it
+          will point directly away from the camera at the time it's created.
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // VR globals.
+      let vrFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let scene = new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf');
+
+      let selectPointers = [];
+
+      function initVR() {
+        if (navigator.vr) {
+          navigator.vr.getDevices().then((devices) => {
+            if (!devices.length)
+              return;
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('vrpresent');
+
+            devices[0].requestSession({ outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelectGesture);
+
+        if (!gl) {
+          gl = VRSamplesUtil.initWebGLContext({
+            compatibleVrDevice: session.device
+          });
+
+          scene.setWebGLContext(gl);
+        }
+
+        session.baseLayer = new VRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
+            .then((frameOfRef) => {
+              vrFrameOfRef = frameOfRef;
+              session.requestFrame(onVRFrame);
+            });
+      }
+
+      function onSelectGesture(event) {
+        let session = event.frame.session;
+        // Get the pose associated with the event's input source.
+        let inputPose = event.frame.getInputPose(event.inputSource, vrFrameOfRef);
+
+        // Stick a cursor 1 centimeter along the ray and remember the ray matrix.
+        let cursorPos = vec3.fromValues(0, 0, -0.01);
+        vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerPoseMatrix);
+
+        selectPointers.push({
+          cursorPosition: cursorPos,
+          pointerMatrix: inputPose.pointerPoseMatrix
+        });
+        console.log("Placed a cursor at [" + cursorPos[0] + ", " + cursorPos[1] + ", " + cursorPos[2] + "]");
+      }
+
+      function onVRFrame(frame) {
+        let session = frame.session;
+        let pose = frame.getDevicePose(vrFrameOfRef);
+
+        scene.startFrame();
+
+        session.requestFrame(onVRFrame);
+
+        // Render all of the cursors/rays we've cached so far.
+        for (let pointer of selectPointers) {
+          scene.pushCursor(pointer.cursorPosition);
+          scene.pushLaserPointer(pointer.pointerMatrix);
+        }
+
+        scene.drawVRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the VR application.
+      initVR();
+      })();
+    </script>
+  </body>
+</html>
