@@ -28,22 +28,24 @@ found in the LICENSE file.
   </head>
   <body>
     <header>
-      <h1>Framebuffer Scaling</h1>
-      <p>
-        This sample demonstrates scaling the framebuffer used for a WebVR layer
-        at creation time to control the memory and fillrate required and improve
-        performance or quality as needed.
+      <details open>
+        <summary>Framebuffer Scaling</summary>
+        <p>
+          This sample demonstrates scaling the framebuffer used for a WebVR layer
+          at creation time to control the memory and fillrate required and improve
+          performance or quality as needed.
 
-        Framebuffer scaling should be used to make a performance/memory/quality
-        tradeoff for the lifetime of the session. <br/>
+          Framebuffer scaling should be used to make a performance/memory/quality
+          tradeoff for the lifetime of the session. <br/>
 
-        <select id='framebufferScaleSelect'>
-          <option value='0.0' selected>Default - Allow the system to decide</option>
-          <option value='1.2'>1.2 - 'Superscaling' for extreme quality</option>
-          <option value='1.0'>1.0 - 1:1 pixel utilization</option>
-          <option value='0.5'>0.5 - Low res for high performance</option>
-        </select>
-      </p>
+          <select id='framebufferScaleSelect'>
+            <option value='0.0' selected>Default - Allow the system to decide</option>
+            <option value='1.2'>1.2 - 'Superscaling' for extreme quality</option>
+            <option value='1.0'>1.0 - 1:1 pixel utilization</option>
+            <option value='0.5'>0.5 - Low res for high performance</option>
+          </select>
+        </p>
+      </details>
     </header>
     <main style='text-align: center;'>
       <p>Click 'Enter VR' to see content</p> 

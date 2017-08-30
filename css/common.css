@@ -18,6 +18,11 @@ header {
   border-radius: 2px;
 }
 
+details summary {
+  font-size: 1.4em;
+  font-weight: bold;
+}
+
 header h1 {
   margin-top: 0px;
 }
