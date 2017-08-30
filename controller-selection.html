@@ -220,7 +220,7 @@ found in the LICENSE file.
               Math.random(), Math.random(), Math.random(), 1.0];
         } else {
           // If there was no picked box, stick a cursor 3 meters out for testing
-          let cursorPos = vec3.fromValues(0, 0, -3.0);
+          let cursorPos = vec3.fromValues(0, 0, 0.0);
           vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerPoseMatrix);
 
           paintedCursors.push(cursorPos);
