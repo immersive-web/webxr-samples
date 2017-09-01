@@ -268,14 +268,29 @@ found in the LICENSE file.
             // Dump controller element state to the console.
             for (let name in controller.elements) {
               let element = controller.elements[name];
-              console.log('  * ' + name);
-              console.log('    .value: ' + element.value);
-              console.log('    .pressed: ' + element.pressed);
-              console.log('    .touched: ' + element.touched);
-              if (element.xAxis)
-                console.log('    .xAxis: ' + element.xAxis);
-              if (element.yAxis)
-                console.log('    .yAxis: ' + element.yAxis);
+              if (element.value) {
+                console.log('  * ' + name);
+                console.log('    .value: ' + element.value);
+                console.log('    .pressed: ' + element.pressed);
+                console.log('    .touched: ' + element.touched);
+                if (element.xAxis)
+                  console.log('    .xAxis: ' + element.xAxis);
+                if (element.yAxis)
+                  console.log('    .yAxis: ' + element.yAxis);
+              }
+            }
+
+            for (let element of controller.elements) {
+              if (element.value) {
+                console.log('  > ???');
+                console.log('    .value: ' + element.value);
+                console.log('    .pressed: ' + element.pressed);
+                console.log('    .touched: ' + element.touched);
+                if (element.xAxis)
+                  console.log('    .xAxis: ' + element.xAxis);
+                if (element.yAxis)
+                  console.log('    .yAxis: ' + element.yAxis);
+              }
             }
 
             // Test for specific elements
