@@ -104,20 +104,18 @@ found in the LICENSE file.
 
         // Get a stage frame of reference, which will align the user's physical
         // floor with Y=0 and can provide boundaries that indicate where the
-        // user can safely walk. In this case if the system can't natively
-        // provide stage coordinates (for example, with a 3DoF device) then we
-        // indicate that we are OK allowing an emulated stage, where the view
-        // is translated up by a static height so that the scene still renders
-        // in approximately the right place.
-        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
-            .then((frameOfRef) => {
-              if (session.exclusive) {
-                vrExclusiveFrameOfRef = frameOfRef;
-              } else {
-                vrNonExclusiveFrameOfRef = frameOfRef;
-              }
-              session.requestFrame(onVRFrame);
-            });
+        // user can safely walk. If the system can't natively provide stage
+        // coordinates (for example, with a 3DoF device) then it will return an
+        // emulated stage, where the view is translated up by a static height so
+        // that the scene still renders in approximately the right place.
+        session.requestFrameOfReference('stage').then((frameOfRef) => {
+          if (session.exclusive) {
+            vrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            vrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestFrame(onVRFrame);
+        });
       }
 
       function onEndSession(session) {

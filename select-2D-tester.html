@@ -86,11 +86,10 @@ found in the LICENSE file.
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference('stage', {stageEmulationAllowed: true})
-            .then((frameOfRef) => {
-              vrFrameOfRef = frameOfRef;
-              session.requestFrame(onVRFrame);
-            });
+        session.requestFrameOfReference('stage').then((frameOfRef) => {
+          vrFrameOfRef = frameOfRef;
+          session.requestFrame(onVRFrame);
+        });
       }
 
       function onSelectGesture(event) {
