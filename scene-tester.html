@@ -47,7 +47,8 @@ found in the LICENSE file.
         </p>
         <select id='scene-select'>
           <option value='cube-sea'>Cube Sea</option>
-          <option value='campsite' selected>Campsite (glTF)</option>
+          <option value='campsite'>Campsite (glTF)</option>
+          <option value='garage' selected>Garage (glTF)</option>
         </select>
       </details>
     </header>
@@ -163,6 +164,9 @@ found in the LICENSE file.
             return;
           case 'campsite':
             setScene(new WebVRSceneGLTF('media/gltf/Camp/WebVRCampsite.gltf'));
+            return;
+          case 'garage':
+            setScene(new WebVRSceneGLTF('media/gltf/garage/garage.gltf'));
             return;
           default:
             console.error(`Unknown Scene: ${sceneSelect.value}`);

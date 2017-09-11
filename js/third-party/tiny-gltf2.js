@@ -137,6 +137,10 @@ uniform vec3 emissiveFactor;
 uniform vec3 lightColor;
 const vec3 ambientColor = vec3(0.1, 0.1, 0.1);
 
+const vec3 hemiLightDir = vec3(0.0, 1.0, 0.0);
+const vec3 skyColor = vec3(0.4, 0.4, 0.6);
+const vec3 groundColor = vec3(0.3, 0.3, 0.1);
+
 const vec3 dielectricSpec = vec3(0.04);
 const vec3 black = vec3(0.0);
 
@@ -191,7 +195,12 @@ void main() {
   vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);
 #endif
 
-  vec3 color = ambientColor + (nDotL * lightColor * lambertDiffuse(cDiff)) + specular;
+  // Hemisphere lighting for better ambient
+  float nDotHL = dot(n, hemiLightDir);
+  float hemiDiffuseWeight = 0.5 * nDotHL + 0.5;
+  vec3 hemiIrradiance = mix(groundColor, skyColor, hemiDiffuseWeight) / M_PI;
+
+  vec3 color = hemiIrradiance + (nDotL * lightColor * lambertDiffuse(cDiff)) + specular;
 
 #ifdef USE_OCCLUSION
   float occlusion = texture2D(occlusionTex, vTex).r;
