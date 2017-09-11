@@ -15,15 +15,16 @@ found in the LICENSE file.
 
     <link href='css/common.css' rel='stylesheet'></link>
 
+    <script src="https://cdn.rawgit.com/google/songbird/master/build/songbird.min.js"></script>
+
     <script src='js/third-party/gl-matrix-min.js'></script>
     <script src='js/third-party/tiny-gltf2.js'></script>
-    <script src='js/third-party/songbird.min.js'></script>
 
     <script src='js/third-party/wglu/wglu-program.js'></script>
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-audio-helper.js'></script>
+    <!--script src='js/webvr-audio-helper.js'></script-->
     <script src='js/webvr-button.js'></script>
     <script src='js/webvr-scene.js'></script>
     <script src='js/webvr-scene-gltf.js'></script>
@@ -60,7 +61,54 @@ found in the LICENSE file.
 
       // Audio scene globals
       let audioContext = new AudioContext();
-      let vrAudioHelper = new WebVRAudioHelper(audioContext);
+      let songbird = new Songbird(audioContext);
+      songbird.output.connect(audioContext.destination);
+
+      // Rough room dimensions in meters (estimated from model in Blender.)
+      let roomDimensions = {
+        width : 6,
+        height : 3,
+        depth : 6
+      };
+
+      // Simplified view of the materials that make up the scene.
+      let roomMaterials = {
+        left : 'plywood-panel', // Garage walls
+        right : 'plywood-panel',
+        front : 'plywood-panel',
+        back : 'metal', // To account for the garage door
+        down : 'polished-concrete-or-tile', // garage floor
+        up : 'wood-ceiling'
+      };
+      songbird.setRoomProperties(roomDimensions, roomMaterials);
+
+      function createAudioSource(options) {
+        let audioElement = document.createElement('audio');
+        audioElement.src = options.url;
+        audioElement.loop = true;
+
+        // Create an AudioNode from the audio element.
+        let audioElementSource = audioContext.createMediaElementSource(audioElement);
+
+        // Create a Source, connect desired audio input to it.
+        let source = songbird.createSource();
+        audioElementSource.connect(source.input);
+
+        let pos = options.position;
+        source.setPosition(pos[0], pos[1], pos[2]);
+
+        return new Promise((resolve, reject) => {
+          audioElement.addEventListener('canplay', () => {
+            resolve(audioElement);
+          });
+
+          audioElement.addEventListener('error', (err) => {
+            reject(err);
+          });
+        });
+      }
+
+      //let vrAudioHelper = new WebVRAudioHelper(audioContext);
       let audioSources = [];
 
       function initVR() {
@@ -74,23 +122,17 @@ found in the LICENSE file.
           navigator.vr.getDevices().then((devices) => {
             // Load multiple audio sources.
             Promise.all([
-              vrAudioHelper.createAudioSource({
+              createAudioSource({
                 url: 'media/sound/drums.ogg',
-                gain: 0.65,
                 position: [0, DEFAULT_HEIGHT, 1],
-                orientation: [0, 0, 0],
               }),
-              vrAudioHelper.createAudioSource({
+              createAudioSource({
                 url: 'media/sound/guitar.ogg',
-                gain: 0.65,
                 position: [-1, DEFAULT_HEIGHT, 0],
-                orientation: [0, 0, 0],
               }),
-              vrAudioHelper.createAudioSource({
+              createAudioSource({
                 url: 'media/sound/perc.ogg',
-                gain: 0.65,
                 position: [1, DEFAULT_HEIGHT, 0],
-                orientation: [0, 0, 0]
               }),
             ]).then((sources) => {
               audioSources = sources;
@@ -123,7 +165,7 @@ found in the LICENSE file.
         });
 
         for (let source of audioSources) {
-          source.start();
+          source.play();
         }
       }
 
@@ -165,7 +207,7 @@ found in the LICENSE file.
           // Stop the audio playback when we exit VR.
           console.log('Stop Audio');
           for (let source of audioSources) {
-            source.stop();
+            source.pause();
           }
         }
       }
@@ -184,7 +226,7 @@ found in the LICENSE file.
         scene.drawVRFrame(frame, pose);
 
         if (pose) {
-          vrAudioHelper.setListenerPose(pose.poseModelMatrix);
+          songbird.setListenerFromMatrix({ elements: pose.poseModelMatrix });
         }
 
         scene.endFrame();
