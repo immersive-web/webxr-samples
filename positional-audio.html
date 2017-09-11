@@ -20,6 +20,7 @@ found in the LICENSE file.
     <script src='js/third-party/gl-matrix-min.js'></script>
     <script src='js/third-party/tiny-gltf2.js'></script>
 
+    <script src='js/third-party/wglu/wglu-debug-geometry.js'></script>
     <script src='js/third-party/wglu/wglu-program.js'></script>
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
@@ -44,7 +45,8 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      const DEFAULT_HEIGHT = 1.6;
+      const DEFAULT_HEIGHT = 1.5;
+      const ANALYSER_FFT_SIZE = 1024;
 
       // VR globals.
       let vrButton = null;
@@ -82,32 +84,84 @@ found in the LICENSE file.
       songbird.setRoomProperties(roomDimensions, roomMaterials);
 
       function createAudioSource(options) {
-        let audioElement = document.createElement('audio');
-        audioElement.src = options.url;
-        audioElement.loop = true;
-
-        // Create an AudioNode from the audio element.
-        let audioElementSource = audioContext.createMediaElementSource(audioElement);
-
-        // Create a Source, connect desired audio input to it.
+        // Create a Songbird source and set its position in space.
         let source = songbird.createSource();
-        audioElementSource.connect(source.input);
-
         let pos = options.position;
         source.setPosition(pos[0], pos[1], pos[2]);
 
-        return new Promise((resolve, reject) => {
-          audioElement.addEventListener('canplay', () => {
-            resolve(audioElement);
-          });
+        // Create a buffer source. We'll wire it up to a buffer of audio data
+        // at the end of this function.
+        let bufferSource = audioContext.createBufferSource();
+        bufferSource.loop = true;
+        bufferSource.connect(source.input);
 
-          audioElement.addEventListener('error', (err) => {
-            reject(err);
+        // Connect an analyser. This is only for visualization of the audio, and
+        // in most cases you won't want it.
+        let analyser = audioContext.createAnalyser();
+        analyser.fftSize = ANALYSER_FFT_SIZE;
+        analyser.lastRMSdB = 0;
+        bufferSource.connect(analyser);
+
+        // Create a bit of debug geometry to indicate where in the world this
+        // audio source is.
+        let geom = scene.createDebugGeometry("box");
+        geom.center = pos;
+        geom.size = 0.3;
+        geom.color = options.color;
+
+        return fetch(options.url)
+          .then((response) => response.arrayBuffer())
+          .then((buffer) => audioContext.decodeAudioData(buffer))
+          .then((decodedBuffer) => {
+            bufferSource.buffer = decodedBuffer;
+
+            return {
+              bufferSource: bufferSource,
+              source: source,
+              analyser: analyser,
+              geom: geom
+            };
           });
-        });
+      }
+
+      /**
+       * Returns a floating point value that represents the loudness of the audio
+       * stream, appropriate for scaling an object with.
+       * @return {Number} loudness scalar.
+       */
+      let fftBuffer = new Float32Array(ANALYSER_FFT_SIZE);
+      function getLoudnessScale(analyser) {
+        analyser.getFloatTimeDomainData(fftBuffer);
+        let sum = 0;
+        for (let i = 0; i < fftBuffer.length; ++i)
+          sum += fftBuffer[i] * fftBuffer[i];
+
+        // Calculate RMS and convert it to DB for perceptual loudness.
+        let rms = Math.sqrt(sum / fftBuffer.length);
+        let db = 30 + 10 / Math.LN10 * Math.log(rms <= 0 ? 0.0001 : rms);
+
+        // Moving average with the alpha of 0.525. Experimentally determined.
+        analyser.lastRMSdB += 0.525 * ((db < 0 ? 0 : db) - analyser.lastRMSdB);
+
+        // Scaling by 1/30 is also experimentally determined. Max is to present
+        // objects from disappearing entirely.
+        return Math.max(0.05, analyser.lastRMSdB / 30.0);
       }
 
       let audioSources = [];
+
+      function updateDebugGeometry() {
+        for (let source of audioSources) {
+          let geom = source.geom;
+
+          // Give all the boxes a slow spin.
+          mat4.identity(geom.transform);
+          mat4.translate(geom.transform, geom.transform, geom.center);
+
+          let scale = geom.size * getLoudnessScale(source.analyser);
+          mat4.scale(geom.transform, geom.transform, [scale, scale, scale]);
+        }
+      }
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -123,14 +177,17 @@ found in the LICENSE file.
               createAudioSource({
                 url: 'media/sound/drums.ogg',
                 position: [0, DEFAULT_HEIGHT, 1],
+                color: [1.0, 0.0, 0.0, 1.0]
               }),
               createAudioSource({
                 url: 'media/sound/guitar.ogg',
                 position: [-1, DEFAULT_HEIGHT, 0],
+                color: [0.0, 1.0, 0.0, 1.0]
               }),
               createAudioSource({
                 url: 'media/sound/perc.ogg',
                 position: [1, DEFAULT_HEIGHT, 0],
+                color: [0.0, 0.0, 1.0, 1.0]
               }),
             ]).then((sources) => {
               audioSources = sources;
@@ -163,7 +220,7 @@ found in the LICENSE file.
         });
 
         for (let source of audioSources) {
-          source.play();
+          source.bufferSource.start(0);
         }
       }
 
@@ -205,7 +262,7 @@ found in the LICENSE file.
           // Stop the audio playback when we exit VR.
           console.log('Stop Audio');
           for (let source of audioSources) {
-            source.pause();
+            source.bufferSource.stop(0);
           }
         }
       }
@@ -220,6 +277,10 @@ found in the LICENSE file.
         scene.startFrame();
 
         session.requestFrame(onVRFrame);
+
+        //if (session.exclusive) {
+          updateDebugGeometry();
+        //}
 
         scene.drawVRFrame(frame, pose);
 
