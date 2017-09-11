@@ -135,11 +135,10 @@ uniform vec3 emissiveFactor;
 #endif
 
 uniform vec3 lightColor;
-const vec3 ambientColor = vec3(0.1, 0.1, 0.1);
 
 const vec3 hemiLightDir = vec3(0.0, 1.0, 0.0);
-const vec3 skyColor = vec3(0.4, 0.4, 0.6);
-const vec3 groundColor = vec3(0.3, 0.3, 0.1);
+const vec3 skyColor = vec3(0.08, 0.08, 0.1);
+const vec3 groundColor = vec3(0.05, 0.05, 0.02);
 
 const vec3 dielectricSpec = vec3(0.04);
 const vec3 black = vec3(0.0);
@@ -194,13 +193,9 @@ void main() {
   float G = specG(roughness, nDotL, nDotV);
   vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);
 #endif
+  float halfLambert = nDotL * 0.85 + 0.15;
 
-  // Hemisphere lighting for better ambient
-  float nDotHL = dot(n, hemiLightDir);
-  float hemiDiffuseWeight = 0.5 * nDotHL + 0.5;
-  vec3 hemiIrradiance = mix(groundColor, skyColor, hemiDiffuseWeight) / M_PI;
-
-  vec3 color = hemiIrradiance + (nDotL * lightColor * lambertDiffuse(cDiff)) + specular;
+  vec3 color = (halfLambert * lightColor * lambertDiffuse(cDiff)) + specular;
 
 #ifdef USE_OCCLUSION
   float occlusion = texture2D(occlusionTex, vTex).r;
@@ -210,6 +205,9 @@ void main() {
 #ifdef USE_EMISSIVE
   color += texture2D(emissiveTex, vTex).rgb * emissiveFactor;
 #endif
+
+  // gamma correction
+  color = pow(color, vec3(1.0/2.2));
 
   gl_FragColor = vec4(color, baseColor.a);
 }`;
@@ -251,6 +249,9 @@ const IDENTITY = new Float32Array(
 const DEF_TRANSLATION = new Float32Array([0, 0, 0]);
 const DEF_ROTATION = new Float32Array([0, 0, 0, 1]);
 const DEF_SCALE = new Float32Array([1, 1, 1]);
+
+const DEF_LIGHT_DIR = new Float32Array([-0.1, -1.0, -0.2]);
+const DEF_LIGHT_COLOR = new Float32Array([1.0, 1.0, 0.9]);
 
 const GLB_MAGIC = 0x46546C67;
 const CHUNK_TYPE = {
@@ -607,7 +608,7 @@ class GLTF2Scene {
     this.images = [];
     this.meshes = [];
     this.nodes = [];
-    this.light = { direction: [-0.1, -1.0, -0.2], color: [2.0, 2.0, 2.0] };
+    this.light = { direction: DEF_LIGHT_DIR, color: DEF_LIGHT_COLOR};
     this.invViewMat = mat4.create();
     this.cameraPositions = [vec3.create()];
   }
