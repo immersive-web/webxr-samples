@@ -831,7 +831,7 @@ class GLTF2Material {
     this.occlusionTexture = textureCache.getTexture(json.occlusionTexture);
     this.occlusionStrength = (json.occlusionTexture && json.occlusionTexture.strength) ? json.occlusionTexture.strength : 1.0;
     this.emissiveFactor = new Float32Array(json.emissiveFactor || [0, 0, 0]);
-    this.emissiveTexture = textureCache.getTexture(json.emissiveTexture);
+    this.emissiveTexture = textureCache.getTexture(json.emissiveTexture, json.emissiveFactor ? 'white' : null);
     this.alphaMode = json.alpaMode;
     this.alphaCutoff = json.alphaCutoff;
     this.doubleSided = json.doubleSided;
@@ -1081,6 +1081,7 @@ class TextureCache {
   }
 
   colorTexture(r, g, b, a) {
+    let gl = this.gl;
     let data = new Uint8Array([r*255.0, g*255.0, b*255.0, a*255.0]);
     let texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
