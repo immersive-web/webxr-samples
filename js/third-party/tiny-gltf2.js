@@ -136,10 +136,6 @@ uniform vec3 emissiveFactor;
 
 uniform vec3 lightColor;
 
-const vec3 hemiLightDir = vec3(0.0, 1.0, 0.0);
-const vec3 skyColor = vec3(0.08, 0.08, 0.1);
-const vec3 groundColor = vec3(0.05, 0.05, 0.02);
-
 const vec3 dielectricSpec = vec3(0.04);
 const vec3 black = vec3(0.0);
 
@@ -193,7 +189,7 @@ void main() {
   float G = specG(roughness, nDotL, nDotV);
   vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);
 #endif
-  float halfLambert = nDotL * 0.85 + 0.15;
+  float halfLambert = dot(n, l) * 0.75 + 0.25;
 
   vec3 color = (halfLambert * lightColor * lambertDiffuse(cDiff)) + specular;
 
