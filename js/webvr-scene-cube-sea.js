@@ -164,6 +164,8 @@ class WebVRSceneCubeSea extends WebVRScene {
     this.indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
+
+    return Promise.resolve();
   }
 
   onDrawViews(gl, timestamp, views) {

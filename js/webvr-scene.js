@@ -31,16 +31,31 @@ class WebVRScene {
     this._pointer_renderer = null;
     this._lasers = [];
     this._cursors = [];
+
+    this._splash_renderer = null;
+    this._splash_url = null;
+
+    this._load_promise = Promise.resolve();
+    this._loaded = false;
   }
 
   setWebGLContext(gl) {
+    if (this._gl == gl) {
+      return this._load_promise;
+    }
+
     this._gl = gl;
+    this._loaded = false;
 
     if (gl) {
       if (this._stats_enabled) {
         this._stats = new WGLUStats(gl);
       }
       this.texture_loader = new WGLUTextureLoader(gl);
+
+      if (this._splash_url) {
+        this._splash_renderer = new WebVRSplashScreen(gl, scene.texture_loader.loadTexture(this._splash_url));
+      }
 
       if (this._debug_geometries.length) {
         this._debug_renderer = new WGLUDebugGeometry(gl);
@@ -50,8 +65,59 @@ class WebVRScene {
         this._pointer_renderer = new WebVRLaserRenderer(gl);
       }
 
-      this.onLoadScene(gl);
+      this._load_promise = this.onLoadScene(gl);
+    } else {
+      this._load_promise = Promise.resolve(); 
     }
+
+    this._load_promise.then(() => {
+      this._loaded = true;
+    });
+
+    return this._load_promise;
+  }
+
+  waitForLoadWithSplashScreen(session, splash_url) {
+    let gl = this._gl;
+    if (!gl) {
+      return Promise.reject();
+    }
+
+    // If the scene is already loaded don't bother with this.
+    if (!this._loaded) {
+      let drawSplash = () => {
+        // Grab a temporary frame of reference to draw a single frame with.
+        session.requestFrameOfReference('headModel').then((frameOfRef) => {
+          // Check and see of the scene has loaded while we were preparing the
+          // splash, in which case we've wasted a bit of time and won't display
+          // the splash screen at all.
+          if (!this._loaded) {
+            session.requestFrame((frame) => {
+              gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+
+              let pose = frame.getDevicePose(frameOfRef);
+              let views = [];
+              for (let view of frame.views) {
+                views.push(new WebVRView(view, pose, session.baseLayer));
+              }
+              this._splash_renderer.draw(views);
+            });
+          }
+        });
+      }
+
+      if (this._splash_url != splash_url) {
+        this._splash_url = splash_url;
+        this.texture_loader.loadTexture(this._splash_url, null, (texture) => {
+          this._splash_renderer = new WebVRSplashScreen(gl, texture);
+          drawSplash();
+        });
+      } else {
+        drawSplash();
+      }
+    }
+    
+    return this._load_promise;
   }
 
   loseWebGLContext() {
@@ -59,6 +125,9 @@ class WebVRScene {
       this._gl = null;
       this._stats = null;
       this.texture_loader = null;
+      this._splash_renderer = null;
+      this._debug_renderer = null;
+      this._pointer_renderer = null;
     }
   }
 
@@ -196,7 +265,9 @@ class WebVRScene {
   }
 
   // Override to load scene resources on construction or context restore.
-  onLoadScene(gl) {}
+  onLoadScene(gl) {
+    return Promise.resolve();
+  }
 
   // Override with custom scene rendering.
   onDrawViews(gl, timestamp, views) {}

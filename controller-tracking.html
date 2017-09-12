@@ -117,7 +117,9 @@ found in the LICENSE file.
           } else {
             vrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onVRFrame);
+          scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
+            session.requestFrame(onVRFrame);
+          });
         });
       }
 

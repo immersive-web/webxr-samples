@@ -189,7 +189,8 @@ void main() {
   float G = specG(roughness, nDotL, nDotV);
   vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);
 #endif
-  float halfLambert = dot(n, l) * 0.75 + 0.25;
+  float halfLambert = dot(n, l) * 0.5 + 0.5;
+  halfLambert *= halfLambert;
 
   vec3 color = (halfLambert * lightColor * lambertDiffuse(cDiff)) + specular;
 

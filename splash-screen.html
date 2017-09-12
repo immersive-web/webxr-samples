@@ -11,12 +11,11 @@ found in the LICENSE file.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>Room Scale</title>
+    <title>Splash Screen</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
     <script src='js/third-party/gl-matrix-min.js'></script>
-    <script src='js/third-party/tiny-gltf2.js'></script>
 
     <script src='js/third-party/wglu/wglu-program.js'></script>
     <script src='js/third-party/wglu/wglu-stats.js'></script>
@@ -24,19 +23,19 @@ found in the LICENSE file.
 
     <script src='js/webvr-button.js'></script>
     <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-gltf.js'></script>
+    <script src='js/webvr-scene-cube-sea.js'></script>
     <script src='js/webvr-samples-util.js'></script>
     <script src='js/webvr-splash.js'></script>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Room Scale</summary>
+        <summary>Splash Screen</summary>
         <p>
-          This sample demonstrates using a 'stage' frame of reference to provide
-          room scale tracking.
+          This sample demonstrates best practices when using a splash screen to
+          provide the user with immediate feedback while content is loading.
         </p>
-      </summary>
+      </details>
     </header>
     <script>
       (function () {
@@ -49,11 +48,8 @@ found in the LICENSE file.
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF('media/gltf/camp/camp.gltf');
-      scene.standingStats(true); // Position the stats at standing height.
-      let translatedViewMat = mat4.create();
-
-      const DEFAULT_HEIGHT = 1.65;
+      let scene = new WebVRSceneCubeSea();
+      let splash = null;
 
       function initVR() {
         vrButton = new VRDeviceButton({
@@ -67,15 +63,22 @@ found in the LICENSE file.
             for (let device of devices) {
               vrButton.addDevice(device);
             }
-
+            
             if (!devices.length)
               return;
 
+            // In order for a non-exclusive session to be used we must provide
+            // an outputContext, which indicates the canvas that will contain
+            // results of the session's rendering.
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            devices[0].requestSession({outputContext: ctx})
+            // Pick an arbitrary device for the magic window content and start
+            // up a non-exclusive session if possible.
+            devices[0].requestSession({ outputContext: ctx })
                 .then((session) => {
+                  // Add the canvas to the document once we know that it will be
+                  // rendered to.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
@@ -84,7 +87,7 @@ found in the LICENSE file.
       }
 
       function onRequestSession(device) {
-        device.requestSession({exclusive: true}).then((session) => {
+        device.requestSession({ exclusive: true }).then((session) => {
           vrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -99,26 +102,30 @@ found in the LICENSE file.
           });
 
           scene.setWebGLContext(gl);
-        }
+        } 
 
         session.baseLayer = new VRWebGLLayer(session, gl);
 
-        // Get a stage frame of reference, which will align the user's physical
-        // floor with Y=0 and can provide boundaries that indicate where the
-        // user can safely walk. If the system can't natively provide stage
-        // coordinates (for example, with a 3DoF device) then it will return an
-        // emulated stage, where the view is translated up by a static height so
-        // that the scene still renders in approximately the right place.
-        session.requestFrameOfReference('stage').then((frameOfRef) => {
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+          // Since we're dealing with multple sessions now we need to track
+          // which VRFrameOfReference is associated with which VRSession.
           if (session.exclusive) {
             vrExclusiveFrameOfRef = frameOfRef;
           } else {
             vrNonExclusiveFrameOfRef = frameOfRef;
           }
 
-          scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
-            session.requestFrame(onVRFrame);
+          // Start by displaying a single frame of the splash screen.
+          scene.texture_loader.loadTexture("media/textures/xr_splash.png", null, (texture) => {
+            splash = new WebVRSplashScreen(gl, texture);
+            session.requestFrame(onVRSplash);
           });
+          
+          // Then, after the content is loaded (long load simulated here by
+          // waiting for 5 seconds) kick off the normal frame loop.
+          setTimeout(() => {
+            session.requestFrame(onVRFrame);
+          }, 5000);
         });
       }
 
@@ -127,12 +134,39 @@ found in the LICENSE file.
       }
 
       function onSessionEnded(event) {
+        // Only reset the button when the exclusive session ends.
         if (event.session.exclusive)
           vrButton.setSession(null);
       }
 
+      function onVRSplash(frame) {
+        let session = frame.session;
+        // Ensure that we're using the right frame of reference for the session.
+        let frameOfRef = session.exclusive ?
+                         vrExclusiveFrameOfRef :
+                         vrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let views = [];
+        for (let view of frame.views) {
+          let render_view = new WebVRView();
+
+          render_view.projection_mat = view.projectionMatrix;
+          render_view.view_mat = pose.getViewMatrix(view);
+          render_view.viewport = view.getViewport(session.baseLayer);
+          views.push(render_view);
+        }
+
+        splash.draw(views);
+      }
+
+      // Called every time a VRSession requests that a new frame be drawn.
       function onVRFrame(frame) {
         let session = frame.session;
+        // Ensure that we're using the right frame of reference for the session.
         let frameOfRef = session.exclusive ?
                          vrExclusiveFrameOfRef :
                          vrNonExclusiveFrameOfRef;
@@ -142,6 +176,10 @@ found in the LICENSE file.
 
         session.requestFrame(onVRFrame);
 
+        // Every VR frame uses basically the same render loop, so for the sake
+        // of keeping the sample code focused on the interesting bits most
+        // samples after this one will start using this helper function to hide
+        // away the majority of the rendering logic.
         scene.drawVRFrame(frame, pose);
 
         scene.endFrame();
