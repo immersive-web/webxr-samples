@@ -35,8 +35,6 @@ class WebVRScenePanorama extends WebVRScene {
   }
 
   onLoadScene(gl) {
-    this.texture = this.texture_loader.loadTexture(this.mediaUrl);
-
     this.program = new WGLUProgram(gl);
     this.program.attachShaderSource(VRPanoramaVS, gl.VERTEX_SHADER);
     this.program.attachShaderSource(VRPanoramaFS, gl.FRAGMENT_SHADER);
@@ -98,7 +96,9 @@ class WebVRScenePanorama extends WebVRScene {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(panoIndices), gl.STATIC_DRAW);
 
-    return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      this.texture = this.texture_loader.loadTexture(this.mediaUrl, null, resolve);
+    });
   }
 
   onDrawViews(gl, timestamp, views) {
