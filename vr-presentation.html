@@ -67,9 +67,12 @@ found in the LICENSE file.
         if (navigator.vr) {
           // Request a list of all the VR Devices connected to the system.
           navigator.vr.getDevices().then((devices) => {
-            // Add each device to the 'Enter VR' button.
+            // Find devices that allow creation of exclusive sessions and add
+            // them to the 'Enter VR' button.
             for (let device of devices) {
-              vrButton.addDevice(device);
+              device.supportsSession({exclusive: true}).then(() => {
+                vrButton.addDevice(device);
+              });
             }
           });
         }

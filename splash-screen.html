@@ -115,7 +115,12 @@ found in the LICENSE file.
             vrNonExclusiveFrameOfRef = frameOfRef;
           }
 
-          // Start by displaying a single frame of the splash screen.
+          // Start by displaying a single frame of the splash screen. Typically
+          // you would not want to do this if the scene has already been loaded
+          // (For example, by magic window content prior to creating an
+          // exclusive session) but here we're going to do it explicitly for a
+          // few seconds regardless so that the user can see the splash screen
+          // effect no matter how fast the content loads.
           scene.texture_loader.loadTexture("media/textures/xr_splash.png", null, (texture) => {
             splash = new WebVRSplashScreen(gl, texture);
             session.requestFrame(onVRSplash);
