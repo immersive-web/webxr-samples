@@ -107,8 +107,6 @@ export class GLTF2Loader {
   loadFromJson(json, baseUrl, binaryChunk) {
     let gl = this._gl;
 
-    let pendingPromises = [];
-
     if (!json.asset) {
       throw new Error("Missing asset description.");
     }
@@ -146,9 +144,6 @@ export class GLTF2Loader {
         let imagePromise = image.image(bufferViews);
         let sampler = texture.sampler ? sampler[texture.sampler] : {};
         texture_cache.addTexture(`gltf2_${i}`, imagePromise, sampler);
-        // Comment out if you don't mind the mesh rendering before all of the
-        // textures have finished loading.
-        pendingPromises.push(imagePromise);
       }
     }
 
@@ -214,8 +209,6 @@ export class GLTF2Loader {
           glAttribute.normalized = accessor.normalized || false;
           
           attributes.push(glAttribute);
-
-          pendingPromises.push(glAttribute._promise);
         }
 
         let glPrimitive = new Primitive(attributes, element_count, primitive.mode);
@@ -232,8 +225,6 @@ export class GLTF2Loader {
           glPrimitive.indexType = accessor.componentType;
           glPrimitive.indexByteOffset = accessor.byteOffset || 0;
           glPrimitive.element_count = accessor.count;
-
-          pendingPromises.push(glPrimitive._index_promise);
         }
 
         // After all the attributes have been processed, get a program that is
@@ -251,7 +242,7 @@ export class GLTF2Loader {
           this.processNodes(node, json.nodes, meshes));
     }
 
-    return Promise.all(pendingPromises).then(() => scene_node);
+    return scene_node;
   }
 
   processNodes(node, nodes, meshes) {

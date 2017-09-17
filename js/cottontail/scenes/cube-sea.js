@@ -158,7 +158,7 @@ export class CubeSeaScene extends Scene {
       new PrimitiveAttribute("POSITION", vertBuffer, 3, gl.FLOAT, 32, 0),
       new PrimitiveAttribute("TEXCOORD_0", vertBuffer, 2, gl.FLOAT, 32, 12),
       new PrimitiveAttribute("NORMAL", vertBuffer, 3, gl.FLOAT, 32, 20),
-    ]
+    ];
   
     let cube_sea_primitive = new Primitive(attribs, indexCount);
     cube_sea_primitive.setIndexBuffer(indexBuffer);
@@ -179,6 +179,8 @@ export class CubeSeaScene extends Scene {
 
     this.hero_node = new MeshNode(hero_render_primitive);
     this.root_node.addNode(this.hero_node);
+
+    return this.root_node.waitForComplete();
   }
 
   onDrawViews(gl, renderer, timestamp, views) {

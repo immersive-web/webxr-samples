@@ -17,8 +17,9 @@ export class GLTF2Scene extends Scene {
   onLoadScene(gl, renderer) {
     this._loader = new GLTF2Loader(renderer);
 
-    this._loader.loadFromUrl(this.url).then((scene_node) => {
+    return this._loader.loadFromUrl(this.url).then((scene_node) => {
       this.scene_node = scene_node;
+      return scene_node.waitForComplete();
     });
   }
 

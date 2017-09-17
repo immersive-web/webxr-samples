@@ -11,13 +11,15 @@ export class Texture {
     this._gl = gl;
     this._texture_handle = default_texture || null;
     this._promise = texture_promise;
+    this._complete = false;
     this._promise.then((handle) => {
+      this._complete = true;
       this._texture_handle = handle;
     });
   }
 
-  then(callback) {
-    return this._promise.then(() => callback(this));
+  waitForComplete() {
+    return this._promise.then(() => this);
   }
 
   bind(slot) {

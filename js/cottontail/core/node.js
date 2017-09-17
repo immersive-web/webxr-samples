@@ -145,6 +145,14 @@ export class Node {
     }
     return this._scale;
   }
+
+  waitForComplete() {
+    let child_promises = [];
+    for (let child of this.children) {
+      child_promises.push(child.waitForComplete());
+    }
+    return Promise.all(child_promises).then(() => this);
+  }
 }
 
 export class MeshNode extends Node {
@@ -171,5 +179,16 @@ export class MeshNode extends Node {
         primitive.markActive(frame_id);
       }
     }
+  }
+
+  waitForComplete() {
+    let child_promises = [];
+    for (let child of this.children) {
+      child_promises.push(child.waitForComplete());
+    }
+    for (let primitive of this._render_primitives) {
+      child_promises.push(primitive.waitForComplete());
+    }
+    return Promise.all(child_promises).then(() => this);
   }
 }

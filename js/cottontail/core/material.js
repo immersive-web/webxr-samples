@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import { VERTEX_SHADER, FRAGMENT_SHADER } from './pbr-shader.js'
-import { ATTRIB, ATTRIB_MASK } from './primitive.js'
+import { ATTRIB, ATTRIB_MASK } from './renderer.js'
 import { Program } from './program.js'
 
 const PROGRAM_MASK = {
@@ -78,6 +78,26 @@ export class Material {
     if (!program.defines.FULLY_ROUGH) {
       gl.uniform2fv(program.uniform.metallicRoughnessFactor, this.metallic_roughness_factor);
     }
+  }
+
+  waitForComplete() {
+    let promises = [];
+    if (this.base_color_texture && !this.base_color_texture._complete) {
+      promises.push(this.base_color_texture._promise);
+    }
+    if (this.metallic_roughness_texture && !this.metallic_roughness_texture._complete) {
+      promises.push(this.metallic_roughness_texture._promise);
+    }
+    if (this.normal_texture && !this.normal_texture._complete) {
+      promises.push(this.normal_texture._promise);
+    }
+    if (this.occlusion_texture && !this.occlusion_texture._complete) {
+      promises.push(this.occlusion_texture._promise);
+    }
+    if (this.emissive_texture && !this.emissive_texture._complete) {
+      promises.push(this.emissive_texture._promise);
+    }
+    return Promise.all(promises).then(() => this);
   }
 }
 

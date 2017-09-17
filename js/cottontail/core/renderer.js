@@ -7,6 +7,24 @@ import { Node, MeshNode } from './node.js'
 import { Program } from './program.js'
 import { TextureCache } from './texture.js'
 
+export const ATTRIB = {
+  POSITION: 1,
+  NORMAL: 2,
+  TANGENT: 3,
+  TEXCOORD_0: 4,
+  TEXCOORD_1: 5,
+  COLOR_0: 6,
+};
+
+export const ATTRIB_MASK = {
+  POSITION:   0x0001,
+  NORMAL:     0x0002,
+  TANGENT:    0x0004,
+  TEXCOORD_0: 0x0008,
+  TEXCOORD_1: 0x0010,
+  COLOR_0:    0x0020,
+};
+
 const DEF_LIGHT_DIR = new Float32Array([-0.1, -1.0, -0.2]);
 const DEF_LIGHT_COLOR = new Float32Array([1.0, 1.0, 0.9]);
 
@@ -20,24 +38,121 @@ export class View {
   }
 }
 
+class RenderPrimitiveAttribute {
+  constructor(primitive_attribute) {
+    this._attrib_index = ATTRIB[primitive_attribute.name];
+    this._component_count = primitive_attribute.component_count;
+    this._component_type = primitive_attribute.component_type;
+    this._stride = primitive_attribute.stride;
+    this._byte_offset = primitive_attribute.byte_offset;
+    this._normalized = primitive_attribute.normalized;
+  }
+}
+
+class RenderPrimitiveAttributeBuffer {
+  constructor(buffer) {
+    if (buffer instanceof Promise) {
+      this._buffer = null;
+      this._promise = buffer;
+      this._complete = false;
+      this._promise.then((buffer) => {
+        this._complete = true;
+        this._buffer = buffer;
+      });
+    } else {
+      this._buffer = buffer;
+      this._promise = Promise.resolve(buffer);
+      this._complete = true;
+    }
+
+    this._attributes = [];
+  }
+
+  waitForComplete() {
+    return this._promise.then(() => this);
+  }
+}
+
 class RenderPrimitive {
-  constructor(primitive, material, program) {
-    this.primitive = primitive;
-    this.material = material;
-    this.program = program;
+  constructor(primitive, material) {
+    this._mode = primitive.mode;
+    this._element_count = primitive.element_count;
     this._instances = [];
+    this._program = null;
+
+    this._complete = false;
+    let completion_promises = [];
+
+    this._material = material;
+    completion_promises.push(material.waitForComplete());
+
+    this._attribute_buffers = [];
+    this._attribute_mask = 0;
+
+    for (let attribute of primitive.attributes) {
+      this._attribute_mask |= ATTRIB_MASK[attribute.name];
+      let render_attribute = new RenderPrimitiveAttribute(attribute);
+      let found_buffer = false;
+      for (let attribute_buffer of this._attribute_buffers) {
+        if (attribute_buffer.buffer == attribute.buffer ||
+            attribute_buffer._promise == attribute.buffer) {
+          attribute_buffer.attributes.push(attribute);
+          found_buffer = true;
+          break;
+        }
+      }
+      if (!found_buffer) {
+        let attribute_buffer = new RenderPrimitiveAttributeBuffer(attribute.buffer);
+        attribute_buffer._attributes.push(render_attribute);
+        this._attribute_buffers.push(attribute_buffer);
+        if (attribute.buffer instanceof Promise) {
+          completion_promises.push(attribute.buffer);
+        }
+      }
+    }
+
+    this._index_buffer = null;
+    this._index_byte_offset = 0;
+    this._index_type = 0;
+    this._index_promise = null;
+
+    if (primitive.index_buffer) {
+      this._index_byte_offset = primitive.index_byte_offset;
+      this._index_type = primitive.index_type;
+      if (primitive.index_buffer instanceof Promise) {
+        this._index_complete = false;
+        this._index_promise = primitive.index_buffer;
+        this._index_promise.then((buffer) => {
+          this._index_buffer = buffer;
+        });
+        completion_promises.push(this._index_promise);
+      } else {
+        this._index_buffer = primitive.index_buffer;
+      }
+    }
+
+    this._promise = Promise.all(completion_promises).then(() => {
+      this._complete = true;
+      return this;
+    });
   }
 
   markActive(frame_id) {
-    this._active_frame_id = frame_id;
+    if (this._complete) {
+      this._active_frame_id = frame_id;
 
-    if (this.material) {
-      this.material.markActive(frame_id);
-    }
+      if (this.material) {
+        this.material.markActive(frame_id);
+      }
 
-    if (this.program) {
-      this.program.markActive(frame_id);
+      if (this.program) {
+        this.program.markActive(frame_id);
+      }
     }
+  }
+
+  waitForComplete() {
+    return this._promise;
   }
 }
 
@@ -55,8 +170,8 @@ export class Renderer {
   }
 
   createRenderPrimitive(primitive, material) {
-    let program = this._program_cache.getProgram(material, primitive);
-    let render_primitive = new RenderPrimitive(primitive, material, program);
+    let render_primitive = new RenderPrimitive(primitive, material);
+    render_primitive._program = this._program_cache.getProgram(material, render_primitive);
     this._render_primitives.push(render_primitive);
     return render_primitive;
   }
@@ -91,20 +206,20 @@ export class Renderer {
     }
     
     let program = null;
+    let attrib_mask = 0;
 
     // Loop through every primitive known to the renderer.
-    for (let render_primitive of this._render_primitives) {
-      let primitive = render_primitive.primitive;
+    for (let primitive of this._render_primitives) {
       // Skip over those that haven't been marked as active for this frame.
-      if (render_primitive._active_frame_id != this._frame_id) {
+      if (primitive._active_frame_id != this._frame_id) {
         continue;
       }
 
       // Bind the primitive's program if it's different than the one we were
       // using for the previous primitive.
       // TODO: The ording of this could be more efficient.
-      if (program != render_primitive.program) {
-        program = render_primitive.program;
+      if (program != primitive._program) {
+        program = primitive._program;
         program.use();
 
         gl.uniform3fv(program.uniform.lightDir, DEF_LIGHT_DIR);
@@ -117,29 +232,33 @@ export class Renderer {
         }
       }
 
-      render_primitive.material.bind(gl, program);
+      primitive._material.bind(gl, program);
 
-      // TODO: Blerg. Do this better.
-      gl.disableVertexAttribArray(1);
-      gl.disableVertexAttribArray(2);
-      gl.disableVertexAttribArray(3);
-      gl.disableVertexAttribArray(4);
-      gl.disableVertexAttribArray(5);
-      gl.disableVertexAttribArray(6);
-
-      // Bind the primitive attributes and indices.
-      for (let buffer of primitive._attribute_buffers) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer.buffer);
-        for (let attrib of buffer.attributes) {
-          gl.enableVertexAttribArray(attrib.attrib_index);
-          gl.vertexAttribPointer(
-              attrib.attrib_index, attrib.component_count, attrib.component_type,
-              attrib.normalized, attrib.stride, attrib.byte_offset);
+      // If the active attributes have changed then update the active set.
+      if (attrib_mask != primitive._attribute_mask) {
+        attrib_mask = primitive._attribute_mask;
+        for (let attrib in ATTRIB) {
+          let attrib_index = ATTRIB[attrib];
+          if (primitive._attribute_mask & ATTRIB_MASK[attrib]) {
+            gl.enableVertexAttribArray(ATTRIB[attrib]);
+          } else {
+            gl.disableVertexAttribArray(ATTRIB[attrib]);
+          }
         }
       }
 
-      if (primitive.index_buffer) {
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive.index_buffer);
+      // Bind the primitive attributes and indices.
+      for (let attribute_buffer of primitive._attribute_buffers) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer);
+        for (let attrib of attribute_buffer._attributes) {
+          gl.vertexAttribPointer(
+              attrib._attrib_index, attrib._component_count, attrib._component_type,
+              attrib._normalized, attrib._stride, attrib._byte_offset);
+        }
+      }
+
+      if (primitive._index_buffer) {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer);
       }
 
       for (let i = 0; i < views.length; ++i) {
@@ -154,18 +273,18 @@ export class Renderer {
           gl.uniform3fv(program.uniform.cameraPos, this._camera_positions[i]);
         }
 
-        for (let instance of render_primitive._instances) {
+        for (let instance of primitive._instances) {
           if (instance._active_frame_id != this._frame_id) {
             continue;
           }
 
           gl.uniformMatrix4fv(program.uniform.model, false, instance.world_matrix);
 
-          if (primitive.index_buffer) {
-            gl.drawElements(primitive.mode, primitive.element_count,
-                primitive.index_type, primitive.index_byte_offset);
+          if (primitive._index_buffer) {
+            gl.drawElements(primitive._mode, primitive._element_count,
+                primitive._index_type, primitive._index_byte_offset);
           } else {
-            gl.drawArrays(primitive.mode, 0, primitive.element_count);
+            gl.drawArrays(primitive._mode, 0, primitive._element_count);
           }
         }
       }

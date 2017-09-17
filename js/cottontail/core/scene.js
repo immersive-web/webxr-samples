@@ -196,7 +196,9 @@ export class Scene {
   }
 
   // Override to load scene resources on construction or context restore.
-  onLoadScene(gl) {}
+  onLoadScene(gl) {
+    return Promise.resolve();
+  }
 
   // Override with custom scene rendering.
   onDrawViews(gl, renderer, timestamp, views) {}
