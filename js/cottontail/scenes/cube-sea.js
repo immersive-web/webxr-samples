@@ -3,43 +3,9 @@
 // found in the LICENSE file.
 
 import { Scene } from '../core/scene.js'
-import { Material } from '../core/material.js'
+import { PbrMaterial } from '../material/pbr.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { Node, MeshNode } from '../core/node.js'
-
-const VRCubeSeaVS = `
-  uniform mat4 projectionMat;
-  uniform mat4 modelViewMat;
-  uniform mat3 normalMat;
-  attribute vec3 position;
-  attribute vec2 texCoord;
-  attribute vec3 normal;
-  varying vec2 vTexCoord;
-  varying vec3 vLight;
-
-  const vec3 lightDir = vec3(0.75, 0.5, 1.0);
-  const vec3 ambientColor = vec3(0.5, 0.5, 0.5);
-  const vec3 lightColor = vec3(0.75, 0.75, 0.75);
-
-  void main() {
-    vec3 normalRotated = normalMat * normal;
-    float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);
-    vLight = ambientColor + (lightColor * lightFactor);
-    vTexCoord = texCoord;
-    gl_Position = projectionMat * modelViewMat * vec4( position, 1.0 );
-  }
-`;
-
-const VRCubeSeaFS = `
-  precision mediump float;
-  uniform sampler2D diffuse;
-  varying vec2 vTexCoord;
-  varying vec3 vLight;
-
-  void main() {
-    gl_FragColor = vec4(vLight, 1.0) * texture2D(diffuse, vTexCoord);
-  }
-`;
 
 export class CubeSeaScene extends Scene {
   constructor(gridSize) {
@@ -166,7 +132,7 @@ export class CubeSeaScene extends Scene {
     let hero_primitive = new Primitive(attribs, heroCount);
     hero_primitive.setIndexBuffer(indexBuffer, heroOffset * 2);
 
-    let material = new Material();
+    let material = new PbrMaterial();
     material.base_color_texture = renderer.texture_cache.fromUrl('media/textures/cube-sea.png');
 
     let cube_sea_render_primitive = renderer.createRenderPrimitive(cube_sea_primitive, material);

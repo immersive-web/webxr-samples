@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { Material } from '../core/material.js'
+import { PbrMaterial } from '../material/pbr.js'
 import { Node, MeshNode } from '../core/node.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 
@@ -150,7 +150,7 @@ export class GLTF2Loader {
     let materials = [];
     if (json.materials) {
       for (let material of json.materials) {
-        let glMaterial = new Material();
+        let glMaterial = new PbrMaterial();
         let pbr = material.pbrMetallicRoughness || {};
         // TODO: Handle textures here.
         glMaterial.base_color_factor = new Float32Array(pbr.baseColorFactor || [1, 1, 1, 1]);

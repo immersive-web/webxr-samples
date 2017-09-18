@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { MaterialProgramCache } from './material.js'
 import { Node, MeshNode } from './node.js'
 import { Program } from './program.js'
 import { TextureCache } from './texture.js'
@@ -162,7 +161,7 @@ export class Renderer {
   constructor(gl) {
     this._gl = gl;
     this._frame_id = -1;
-    this._program_cache = new MaterialProgramCache(gl);
+    this._program_cache = {};
     this._render_primitives = [];
     this._camera_positions = [];
 
@@ -170,8 +169,26 @@ export class Renderer {
   }
 
   createRenderPrimitive(primitive, material) {
-    let render_primitive = new RenderPrimitive(primitive, material);
-    render_primitive._program = this._program_cache.getProgram(material, render_primitive);
+    let render_material = new material.render_material_type(material);
+    let render_primitive = new RenderPrimitive(primitive, render_material);
+
+    let defines = render_material.getProgramDefines(render_primitive);
+    let key = `${render_material.material_name}_${render_material.getProgramKey(defines)}`;
+
+    if (key in this._program_cache) {
+      render_primitive._program = this._program_cache[key];
+    } else {
+      render_primitive._program = new Program(this._gl,
+        render_material.vertex_source,
+        render_material.fragment_source,
+        ATTRIB,
+        defines);
+      this._program_cache[key] = render_primitive._program;
+      render_primitive._program.onFirstUse((program) => {
+        render_material.onFirstProgramUse(this._gl, program);
+      });
+    }
+
     this._render_primitives.push(render_primitive);
     return render_primitive;
   }
