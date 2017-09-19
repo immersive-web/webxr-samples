@@ -123,7 +123,7 @@ export class Node {
     this._rotation = value;
   }
 
-  get translation() {
+  get rotation() {
     this._dirty_trs = true;
     if (!this._rotation) {
       this._rotation = quat.clone(DEFAULT_ROTATION);

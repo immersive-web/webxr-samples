@@ -112,25 +112,25 @@ export class CubeSeaScene extends Scene {
     appendCube(-0.8, 0.25, 0, 0.05);
     let heroCount = cubeIndices.length - heroOffset;
 
-    let vertBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+    let vertex_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVerts), gl.STATIC_DRAW);
 
-    let indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    let index_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
 
     let attribs = [
-      new PrimitiveAttribute("POSITION", vertBuffer, 3, gl.FLOAT, 32, 0),
-      new PrimitiveAttribute("TEXCOORD_0", vertBuffer, 2, gl.FLOAT, 32, 12),
-      new PrimitiveAttribute("NORMAL", vertBuffer, 3, gl.FLOAT, 32, 20),
+      new PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0),
+      new PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, gl.FLOAT, 32, 12),
+      new PrimitiveAttribute("NORMAL", vertex_buffer, 3, gl.FLOAT, 32, 20),
     ];
   
     let cube_sea_primitive = new Primitive(attribs, indexCount);
-    cube_sea_primitive.setIndexBuffer(indexBuffer);
+    cube_sea_primitive.setIndexBuffer(index_buffer);
 
     let hero_primitive = new Primitive(attribs, heroCount);
-    hero_primitive.setIndexBuffer(indexBuffer, heroOffset * 2);
+    hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
 
     let material = new PbrMaterial();
     material.base_color_texture = renderer.texture_cache.fromUrl('media/textures/cube-sea.png');
