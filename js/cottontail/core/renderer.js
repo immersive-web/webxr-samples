@@ -243,9 +243,9 @@ export class Renderer {
         gl.uniform3fv(program.uniform.lightColor, DEF_LIGHT_COLOR);
 
         if (views.length == 1) {
-          gl.uniformMatrix4fv(program.uniform.proj, false, views[0].projection_matrix);
-          gl.uniformMatrix4fv(program.uniform.view, false, views[0].view_matrix);
-          gl.uniform3fv(program.uniform.cameraPos, this._camera_positions[0]);
+          gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projection_matrix);
+          gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, views[0].view_matrix);
+          gl.uniform3fv(program.uniform.CAMERA_POSITION, this._camera_positions[0]);
         }
       }
 
@@ -285,9 +285,9 @@ export class Renderer {
             let vp = view.viewport;
             gl.viewport(vp.x, vp.y, vp.width, vp.height);
           }
-          gl.uniformMatrix4fv(program.uniform.proj, false, view.projection_matrix);
-          gl.uniformMatrix4fv(program.uniform.view, false, view.view_matrix);
-          gl.uniform3fv(program.uniform.cameraPos, this._camera_positions[i]);
+          gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, view.projection_matrix);
+          gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, view.view_matrix);
+          gl.uniform3fv(program.uniform.CAMERA_POSITION, this._camera_positions[i]);
         }
 
         for (let instance of primitive._instances) {
@@ -295,7 +295,7 @@ export class Renderer {
             continue;
           }
 
-          gl.uniformMatrix4fv(program.uniform.model, false, instance.world_matrix);
+          gl.uniformMatrix4fv(program.uniform.MODEL_MATRIX, false, instance.world_matrix);
 
           if (primitive._index_buffer) {
             gl.drawElements(primitive._mode, primitive._element_count,

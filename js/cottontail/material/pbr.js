@@ -9,9 +9,9 @@ const VERTEX_SOURCE = `
 attribute vec3 POSITION, NORMAL;
 attribute vec2 TEXCOORD_0, TEXCOORD_1;
 
-uniform mat4 proj, view, model;
+uniform mat4 PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX;
+uniform vec3 CAMERA_POSITION;
 uniform vec3 lightDir;
-uniform vec3 cameraPos;
 
 varying vec3 vLight; // Vector from vertex to light.
 varying vec3 vView; // Vector from vertex to camera.
@@ -30,9 +30,9 @@ varying vec4 vCol;
 #endif
 
 void main() {
-  vec3 n = normalize(vec3(model * vec4(NORMAL, 0.0)));
+  vec3 n = normalize(vec3(MODEL_MATRIX * vec4(NORMAL, 0.0)));
 #ifdef USE_NORMAL_MAP
-  vec3 t = normalize(vec3(model * vec4(TANGENT.xyz, 0.0)));
+  vec3 t = normalize(vec3(MODEL_MATRIX * vec4(TANGENT.xyz, 0.0)));
   vec3 b = cross(n, t) * TANGENT.w;
   vTBN = mat3(t, b, n);
 #else
@@ -44,10 +44,10 @@ void main() {
 #endif
 
   vTex = TEXCOORD_0;
-  vec4 mPos = model * vec4(POSITION, 1.0);
+  vec4 mPos = MODEL_MATRIX * vec4(POSITION, 1.0);
   vLight = -lightDir;
-  vView = cameraPos - mPos.xyz;
-  gl_Position = proj * view * mPos;
+  vView = CAMERA_POSITION - mPos.xyz;
+  gl_Position = PROJECTION_MATRIX * VIEW_MATRIX * mPos;
 }`;
 
 // These equations are borrowed with love from this docs from Epic because I

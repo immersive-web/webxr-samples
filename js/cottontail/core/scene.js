@@ -3,12 +3,15 @@
 // found in the LICENSE file.
 
 import { Renderer, View } from './renderer.js'
-/*import { InputRenderer } from '../input-renderer.js'*/
+import { InputRenderPrimitives } from '../utility/input-renderer.js'
 import { Program } from './program.js'
 import { TextureCache } from './texture.js'
+import { Node } from './node.js'
 
-export class Scene {
+export class Scene extends Node {
   constructor() {
+    super();
+
     this._gl = null;
 
     this._timestamp = -1;
@@ -25,7 +28,10 @@ export class Scene {
     this._debug_renderer = null;
     this._debug_geometries = [];
 
-    this._pointer_renderer = null;
+    this._input_renderer = null;
+
+    this._last_laser = 0;
+    this._last_cursor = 0;
     this._lasers = [];
     this._cursors = [];
   }
@@ -43,11 +49,11 @@ export class Scene {
       
       if (this._debug_geometries.length) {
         this._debug_renderer = new WGLUDebugGeometry(gl);
-      }
+      }*/
 
       if (this._lasers.length || this._cursors.length) {
-        this._pointer_renderer = new WebVRLaserRenderer(gl);
-      }*/
+        this._input_renderer = new InputRenderPrimitives(this._renderer);
+      }
 
       this.onLoadScene(gl, this._renderer);
     }
@@ -59,6 +65,7 @@ export class Scene {
       this._stats = null;
       this.texture_loader = null;
       this._renderer = null;
+      this._input_renderer = null;
     }
   }
 
@@ -96,22 +103,40 @@ export class Scene {
     return geometry;
   }
 
-  pushLaserPointer(pointer_mat) {
-    this._lasers.push(pointer_mat);
-
+  pushLaserPointer(pointer_matrix) {
     // Create the pointer renderer if needed.
-    /*if (!this._pointer_renderer && this._gl) {
-      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
-    }*/
+    if (!this._input_renderer && this._renderer) {
+      this._input_renderer = new InputRenderPrimitives(this._renderer);
+    }
+
+    if (this._last_laser < this._lasers.length) {
+      this._lasers[this._last_laser].matrix = pointer_matrix;
+      this._lasers[this._last_laser].visible = true;
+    } else {
+      let laser_node = this._input_renderer.getLaserNode();
+      laser_node.matrix = pointer_matrix;
+      this.addNode(laser_node);
+      this._lasers.push(laser_node);
+    }
+    this._last_laser++;
   }
 
   pushCursor(cursor_pos) {
-    this._cursors.push(cursor_pos);
-
     // Create the pointer renderer if needed.
-    /*if (!this._pointer_renderer && this._gl) {
-      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
-    }*/
+    if (!this._input_renderer && this._renderer) {
+      this._input_renderer = new InputRenderPrimitives(this._renderer);
+    }
+
+    if (this._last_cursor < this._cursors.length) {
+      this._cursors[this._last_cursor].translation = cursor_pos;
+      this._cursors[this._last_cursor].visible = true;
+    } else {
+      let cursor_node = this._input_renderer.getCursorNode();
+      cursor_node.translation = cursor_pos;
+      this.addNode(cursor_node);
+      this._cursors.push(cursor_node);
+    }
+    this._last_cursor++;
   }
 
   draw(projection_mat, view_mat, eye) {
@@ -187,8 +212,14 @@ export class Scene {
   }
 
   endFrame() {
-    this._lasers.length = 0;
-    this._cursors.length = 0;
+    for (let laser of this._lasers) {
+      laser.visible = false;
+    }
+    for (let cursor of this._cursors) {
+      cursor.visible = false;
+    }
+    this._last_laser = 0;
+    this._last_cursor = 0;
 
     if (this._stats) {
       this._stats.end();

@@ -138,19 +138,17 @@ export class CubeSeaScene extends Scene {
     let cube_sea_render_primitive = renderer.createRenderPrimitive(cube_sea_primitive, material);
     let hero_render_primitive = renderer.createRenderPrimitive(hero_primitive, material);
 
-    this.root_node = new Node();
-
     this.cube_sea_node = new MeshNode(cube_sea_render_primitive);
-    this.root_node.addNode(this.cube_sea_node);
+    this.addNode(this.cube_sea_node);
 
     this.hero_node = new MeshNode(hero_render_primitive);
-    this.root_node.addNode(this.hero_node);
+    this.addNode(this.hero_node);
 
-    return this.root_node.waitForComplete();
+    return this.waitForComplete();
   }
 
   onDrawViews(gl, renderer, timestamp, views) {
     mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
-    renderer.drawViews(views, this.root_node);
+    renderer.drawViews(views, this);
   }
 }
