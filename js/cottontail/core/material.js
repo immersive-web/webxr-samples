@@ -30,15 +30,9 @@ export class Material {
 
 export class RenderMaterial {
   constructor(material) {
-    this._active_frame_id = -1;
-
     this._alpha_mode = material.alpa_mode;
     this._alpha_cutoff = material.alpha_cutoff;
     this._double_sided = material.double_sided;
-  }
-
-  markActive(frame_id) {
-    this._active_frame_id = frame_id;
   }
 
   bind(gl, program) {

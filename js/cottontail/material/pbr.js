@@ -83,7 +83,9 @@ precision highp float;
 #define M_PI 3.14159265
 
 uniform vec4 baseColorFactor;
+#ifdef USE_BASE_COLOR_MAP
 uniform sampler2D baseColorTex;
+#endif
 
 varying vec3 vLight;
 varying vec3 vView;
@@ -126,7 +128,7 @@ void main() {
 #ifdef USE_BASE_COLOR_MAP
   vec4 baseColor = texture2D(baseColorTex, vTex) * baseColorFactor;
 #else
-  vec4 baseColor = vec4(1.0, 1.0, 1.0, 1.0) * baseColorFactor;
+  vec4 baseColor = baseColorFactor;
 #endif
 
 #ifdef USE_VERTEX_COLOR
@@ -359,7 +361,9 @@ export class PbrRenderMaterial extends RenderMaterial {
   }
 
   onFirstProgramUse(gl, program) {
-    gl.uniform1i(program.uniform.baseColorTex, 0);
+    if (program.defines.USE_BASE_COLOR_MAP) {
+      gl.uniform1i(program.uniform.baseColorTex, 0);
+    }
 
     if (program.defines.USE_NORMAL_MAP) {
       gl.uniform1i(program.uniform.normalTex, 1);

@@ -12,7 +12,6 @@ export class Program {
 
     this._first_use = true;
     this._first_use_callback = null;
-    this._active_frame_id = -1;
 
     let defines_string = '';
     if (defines) {
@@ -41,10 +40,6 @@ export class Program {
     }
 
     gl.linkProgram(this.program);
-  }
-
-  markActive(frame_id) {
-    this._active_frame_id = frame_id;
   }
 
   onFirstUse(callback) {
