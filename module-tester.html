@@ -45,7 +45,13 @@ found in the LICENSE file.
       import { CubeSeaScene } from './js/cottontail/scenes/cube-sea.js'
       import { GLTF2Scene } from './js/cottontail/scenes/gltf2.js'
       import { View } from './js/cottontail/core/renderer.js'
-      import { createWebGLContext } from './js/cottontail/util.js'
+      import { InputRenderPrimitives } from './js/cottontail/utility/input-renderer.js'
+      import { createWebGLContext } from './js/cottontail/utility/context.js'
+
+      const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
+                                                0, 1, 0, 0,
+                                                0, 0, 1, 0,
+                                                0, 1.6, 0, 1]);
 
       let projection_mat = mat4.create();
       let view_mat = mat4.create();
@@ -133,6 +139,8 @@ found in the LICENSE file.
 
         let frame_delta = scene.startFrame();
         updateView(frame_delta);
+
+        scene.pushLaserPointer(IDENTITY_MATRIX);
 
         scene.pushCursor([0, 1.6, -1.0]);
         scene.pushCursor([-0.2, 1.6, -1.0]);

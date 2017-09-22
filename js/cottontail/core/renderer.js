@@ -78,6 +78,7 @@ class RenderPrimitive {
     this._element_count = primitive.element_count;
     this._instances = [];
     this._program = null;
+    this._vao = null;
 
     this._complete = false;
     let completion_promises = [];
@@ -165,6 +166,8 @@ export class Renderer {
     this._render_primitives = [];
     this._camera_positions = [];
 
+    this._vao_ext = gl.getExtension("OES_vertex_array_object");
+
     this.texture_cache = new TextureCache(gl);
   }
 
@@ -186,6 +189,18 @@ export class Renderer {
       this._program_cache[key] = render_primitive._program;
       render_primitive._program.onFirstUse((program) => {
         render_material.onFirstProgramUse(this._gl, program);
+      });
+    }
+
+    if (this._vao_ext) {
+      render_primitive.waitForComplete().then(() => {
+        render_primitive._vao = this._vao_ext.createVertexArrayOES();
+        this._vao_ext.bindVertexArrayOES(render_primitive._vao);
+        this._bindPrimitive(render_primitive);
+        this._vao_ext.bindVertexArrayOES(null);
+        // TODO: Get rid of the buffer/attribute data on the RenderPrimitive when
+        // it has a VAO?
+        // render_primitive._attribute_buffers = null;
       });
     }
 
@@ -251,31 +266,11 @@ export class Renderer {
 
       primitive._material.bind(gl, program);
 
-      // If the active attributes have changed then update the active set.
-      if (attrib_mask != primitive._attribute_mask) {
+      if (primitive._vao) {
+        this._vao_ext.bindVertexArrayOES(primitive._vao);
+      } else {
+        this._bindPrimitive(primitive, attrib_mask);
         attrib_mask = primitive._attribute_mask;
-        for (let attrib in ATTRIB) {
-          let attrib_index = ATTRIB[attrib];
-          if (primitive._attribute_mask & ATTRIB_MASK[attrib]) {
-            gl.enableVertexAttribArray(ATTRIB[attrib]);
-          } else {
-            gl.disableVertexAttribArray(ATTRIB[attrib]);
-          }
-        }
-      }
-
-      // Bind the primitive attributes and indices.
-      for (let attribute_buffer of primitive._attribute_buffers) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer);
-        for (let attrib of attribute_buffer._attributes) {
-          gl.vertexAttribPointer(
-              attrib._attrib_index, attrib._component_count, attrib._component_type,
-              attrib._normalized, attrib._stride, attrib._byte_offset);
-        }
-      }
-
-      if (primitive._index_buffer) {
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer);
       }
 
       for (let i = 0; i < views.length; ++i) {
@@ -305,6 +300,42 @@ export class Renderer {
           }
         }
       }
+    }
+
+    if (this._vao_ext) {
+      this._vao_ext.bindVertexArrayOES(null);
+    }
+  }
+
+  _bindPrimitive(primitive, attrib_mask) {
+    let gl = this._gl;
+
+    // If the active attributes have changed then update the active set.
+    if (attrib_mask != primitive._attribute_mask) {
+      for (let attrib in ATTRIB) {
+        let attrib_index = ATTRIB[attrib];
+        if (primitive._attribute_mask & ATTRIB_MASK[attrib]) {
+          gl.enableVertexAttribArray(ATTRIB[attrib]);
+        } else {
+          gl.disableVertexAttribArray(ATTRIB[attrib]);
+        }
+      }
+    }
+
+    // Bind the primitive attributes and indices.
+    for (let attribute_buffer of primitive._attribute_buffers) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer);
+      for (let attrib of attribute_buffer._attributes) {
+        gl.vertexAttribPointer(
+            attrib._attrib_index, attrib._component_count, attrib._component_type,
+            attrib._normalized, attrib._stride, attrib._byte_offset);
+      }
+    }
+
+    if (primitive._index_buffer) {
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer);
+    } else {
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
   }
 }
