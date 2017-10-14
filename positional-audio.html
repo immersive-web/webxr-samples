@@ -90,18 +90,11 @@ found in the LICENSE file.
         let pos = options.position;
         source.setPosition(pos[0], pos[1], pos[2]);
 
-        // Create a buffer source. We'll wire it up to a buffer of audio data
-        // at the end of this function.
-        let bufferSource = audioContext.createBufferSource();
-        bufferSource.loop = true;
-        bufferSource.connect(source.input);
-
         // Connect an analyser. This is only for visualization of the audio, and
         // in most cases you won't want it.
         let analyser = audioContext.createAnalyser();
         analyser.fftSize = ANALYSER_FFT_SIZE;
         analyser.lastRMSdB = 0;
-        bufferSource.connect(analyser);
 
         // Create a bit of debug geometry to indicate where in the world this
         // audio source is.
@@ -114,15 +107,32 @@ found in the LICENSE file.
           .then((response) => response.arrayBuffer())
           .then((buffer) => audioContext.decodeAudioData(buffer))
           .then((decodedBuffer) => {
-            bufferSource.buffer = decodedBuffer;
+            let bufferSource = createBufferSource(
+              source, decodedBuffer, analyser);
 
             return {
+              buffer: decodedBuffer,
               bufferSource: bufferSource,
               source: source,
               analyser: analyser,
               geom: geom
             };
           });
+      }
+
+      function createBufferSource(source, buffer, analyser) {
+        // Create a buffer source. This will need to be recreated every time
+        // we wish to start the audio, see 
+        // https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode
+        let bufferSource = audioContext.createBufferSource();
+        bufferSource.loop = true;
+        bufferSource.connect(source.input);
+
+        bufferSource.connect(analyser);
+
+        bufferSource.buffer = buffer;
+
+        return bufferSource;
       }
 
       /**
@@ -266,6 +276,8 @@ found in the LICENSE file.
           console.log('Stop Audio');
           for (let source of audioSources) {
             source.bufferSource.stop(0);
+            source.bufferSource = createBufferSource(
+              source.source, source.buffer, source.analyser);
           }
         }
       }
