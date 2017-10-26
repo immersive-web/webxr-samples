@@ -58,12 +58,10 @@ found in the LICENSE file.
         document.querySelector('header').appendChild(vrButton.domElement);
 
         if (navigator.vr) {
-          navigator.vr.getDevices().then((devices) => {
-            for (let device of devices) {
-              vrButton.addDevice(device);
-            }
-            
-            if (!devices.length)
+          navigator.vr.requestDevice().then((device) => {
+            vrButton.setDevice(device);
+
+            if (!device)
               return;
 
             // In order for a non-exclusive session to be used we must provide
@@ -74,7 +72,7 @@ found in the LICENSE file.
 
             // Pick an arbitrary device for the magic window content and start
             // up a non-exclusive session if possible.
-            devices[0].requestSession({ outputContext: ctx })
+            device.requestSession({ outputContext: ctx })
                 .then((session) => {
                   // Add the canvas to the document once we know that it will be
                   // rendered to.

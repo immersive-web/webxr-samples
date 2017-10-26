@@ -35,8 +35,8 @@ found in the LICENSE file.
       <details open>
         <summary>VR Device Enumeration</summary>
         <p>
-          This sample queries the available VRDevices and prints out a brief
-          summary of each. This sample does not render anything to the VRDevice.
+          This sample queries an available VRDevices and prints out a brief
+          summary of it. This sample does not render anything to the VRDevice.
         </p>
       </details>
     </header>
@@ -51,34 +51,32 @@ found in the LICENSE file.
 
       // Is WebVR available on this User Agent?
       if (navigator.vr) {
-        // Request a list of all the VRDevices connected to the system.
-        navigator.vr.getDevices().then((devices) => {
-          if (devices.length == 0) {
-            results.innerHTML = 'WebVR supported, but no VRDevices found.';
+        // Request a VRDevice connected to the system.
+        navigator.vr.requestDevice().then((device) => {
+          if (!device) {
+            results.innerHTML = 'WebVR supported, but no VRDevice found.';
             return;
           }
 
-          // Add an element for the page for each device.
-          for (let device of devices) {
-            let deviceElement = document.createElement('article');
+          // Add an element for the page for the device.
+          let deviceElement = document.createElement('article');
 
-            let deviceName = document.createElement('h1');
-            deviceName.innerHTML = device.deviceName;
-            deviceElement.appendChild(deviceName);
+          let deviceName = document.createElement('h1');
+          deviceName.innerHTML = "VRDevice";
+          deviceElement.appendChild(deviceName);
 
-            let ul = document.createElement('ul');
+          let ul = document.createElement('ul');
 
-            function addAttributeLabel(name, value) {
-              let li = document.createElement('li');
-              li.innerHTML = `<b>${name}:</b> <span>${value}</span>`;
-              ul.appendChild(li);
-            }
-
-            addAttributeLabel('isExternal', device.isExternal);
-
-            deviceElement.appendChild(ul);
-            results.appendChild(deviceElement);
+          function addAttributeLabel(name, value) {
+            let li = document.createElement('li');
+            li.innerHTML = `<b>${name}:</b> <span>${value}</span>`;
+            ul.appendChild(li);
           }
+
+          addAttributeLabel('external', device.external);
+
+          deviceElement.appendChild(ul);
+          results.appendChild(deviceElement);
         });
       } else {
         results.innerHTML = 'WebVR not supported.';

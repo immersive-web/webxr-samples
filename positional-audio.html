@@ -182,7 +182,7 @@ found in the LICENSE file.
         document.querySelector('header').appendChild(vrButton.domElement);
 
         if (navigator.vr) {
-          navigator.vr.getDevices().then((devices) => {
+          navigator.vr.requestDevice().then((device) => {
             // Load multiple audio sources.
             Promise.all([
               createAudioSource({
@@ -203,19 +203,17 @@ found in the LICENSE file.
             ]).then((sources) => {
               audioSources = sources;
               // Wait till the audio is loaded before enabling the VR button.
-              for (let device of devices) {
-                vrButton.addDevice(device);
-              }
+              vrButton.setDevice(device);
             });
             vrButton.setTitle('Loading Audio');
 
-            if (!devices.length)
+            if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            devices[0].requestSession({ outputContext: ctx })
+            device.requestSession({ outputContext: ctx })
                 .then((session) => {
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);

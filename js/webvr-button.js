@@ -308,7 +308,7 @@ class EnterVRButton {
 
     this.options = options;
 
-    this.devices = [];
+    this.device = null;
     this.session = null;
 
     // Pass in your own domElement if you really dont want to use ours
@@ -324,15 +324,13 @@ class EnterVRButton {
   }
 
   /**
-   * Adds a VRDevice to the list of possible devices
+   * Sets the VRDevice this button is associated with.
    * @param {VRDevice} device
    * @return {EnterVRButton}
    */
-  addDevice(device) {
-    if (device) {
-      this.devices.push(device);
-      this.__updateButtonState();
-    }
+  setDevice(device) {
+    this.device = device;
+    this.__updateButtonState();
     return this;
   }
 
@@ -444,11 +442,8 @@ class EnterVRButton {
   __onVRButtonClick() {
     if (this.session) {
       this.options.onEndSession(this.session);
-    } else if (this.devices.length > 1) {
-      // TODO(bajones): Show a list of devices and let the user pick one.
-      this.options.onRequestSession(this.devices[this.devices.length-1]);
-    } else if (this.devices.length == 1) {
-      this.options.onRequestSession(this.devices[0]);
+    } else if (this.device) {
+      this.options.onRequestSession(this.device);
     }
   }
 
@@ -461,13 +456,9 @@ class EnterVRButton {
       this.setTitle(this.options.textExitVRTitle);
       this.setTooltip('Exit VR presentation');
       this.__setDisabledAttribute(false);
-    } else if (this.devices.length > 1) {
+    } else if (this.device) {
       this.setTitle(this.options.textEnterVRTitle);
-      this.setTooltip('Select a device to Enter VR with');
-      this.__setDisabledAttribute(false);
-    } else if (this.devices.length == 1) {
-      this.setTitle(this.options.textEnterVRTitle);
-      this.setTooltip('Enter VR using ' + this.devices[0].deviceName);
+      this.setTooltip('Enter VR');
       this.__setDisabledAttribute(false);
     } else {
       this.setTitle(this.options.textVRNotFoundTitle);

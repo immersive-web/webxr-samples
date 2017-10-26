@@ -57,14 +57,14 @@ found in the LICENSE file.
 
       function initVR() {
         if (navigator.vr) {
-          navigator.vr.getDevices().then((devices) => {
-            if (!devices.length)
+          navigator.vr.requestDevice().then((device) => {
+            if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            devices[0].requestSession({ outputContext: ctx })
+            device.requestSession({ outputContext: ctx })
                 .then((session) => {
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);

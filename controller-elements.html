@@ -126,18 +126,16 @@ found in the LICENSE file.
         document.querySelector('header').appendChild(vrButton.domElement);
 
         if (navigator.vr) {
-          navigator.vr.getDevices().then((devices) => {
-            for (let device of devices) {
-              vrButton.addDevice(device);
-            }
+          navigator.vr.requestDevice().then((device) => {
+            vrButton.setDevice(device);
 
-            if (!devices.length)
+            if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('vrpresent');
 
-            devices[0].requestSession({ outputContext: ctx })
+            device.requestSession({ outputContext: ctx })
                 .then((session) => {
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);

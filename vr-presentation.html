@@ -66,14 +66,12 @@ found in the LICENSE file.
         // Is WebVR available on this UA?
         if (navigator.vr) {
           // Request a list of all the VR Devices connected to the system.
-          navigator.vr.getDevices().then((devices) => {
-            // Find devices that allow creation of exclusive sessions and add
-            // them to the 'Enter VR' button.
-            for (let device of devices) {
-              device.supportsSession({exclusive: true}).then(() => {
-                vrButton.addDevice(device);
-              });
-            }
+          navigator.vr.requestDevice().then((device) => {
+            // If the device allows creation of exclusive sessions set it as the
+            // target of the 'Enter VR' button.
+            device.supportsSession({exclusive: true}).then(() => {
+              vrButton.setDevice(device);
+            });
           });
         }
       }
