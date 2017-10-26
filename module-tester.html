@@ -44,7 +44,7 @@ found in the LICENSE file.
     <script type="module">
       import { CubeSeaScene } from './js/cottontail/scenes/cube-sea.js'
       import { GLTF2Scene } from './js/cottontail/scenes/gltf2.js'
-      import { View } from './js/cottontail/core/renderer.js'
+      import { Renderer, View } from './js/cottontail/core/renderer.js'
       import { InputRenderPrimitives } from './js/cottontail/utility/input-renderer.js'
       import { createWebGLContext } from './js/cottontail/utility/context.js'
 
@@ -60,9 +60,11 @@ found in the LICENSE file.
       let gl = createWebGLContext({antialias: false});
       document.body.appendChild(gl.canvas);
 
+      let renderer = new Renderer(gl);
+
       function setScene(new_scene) {
         scene = new_scene;
-        scene.setWebGLContext(gl);
+        scene.setRenderer(renderer);
       }
 
       function onResize () {

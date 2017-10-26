@@ -12,8 +12,6 @@ export class Scene extends Node {
   constructor() {
     super();
 
-    this._gl = null;
-
     this._timestamp = -1;
     this._frame_delta = 0;
     this._stats_enabled = true;
@@ -36,11 +34,10 @@ export class Scene extends Node {
     this._cursors = [];
   }
 
-  setWebGLContext(gl) {
-    this._gl = gl;
+  setRenderer(renderer) {
+    this._renderer = renderer;
 
-    if (gl) {
-      this._renderer = new Renderer(gl);
+    if (renderer) {
       //this.texture_loader = new WGLUTextureLoader(gl);
 
       /*if (this._stats_enabled) {
@@ -55,13 +52,12 @@ export class Scene extends Node {
         this._input_renderer = new InputRenderPrimitives(this._renderer);
       }
 
-      this.onLoadScene(gl, this._renderer);
+      this.onLoadScene(this._renderer);
     }
   }
 
-  loseWebGLContext() {
-    if (this._gl) {
-      this._gl = null;
+  loseRenderer() {
+    if (this._renderer) {
       this._stats = null;
       this.texture_loader = null;
       this._renderer = null;
@@ -96,8 +92,8 @@ export class Scene extends Node {
     this._debug_geometries.push(geometry);
 
     // Create the debug geometry renderer if needed.
-    if (!this._debug_renderer && this._gl) {
-      this._debug_renderer = new WGLUDebugGeometry(this._gl);
+    if (!this._debug_renderer && this._renderer) {
+      this._debug_renderer = new WGLUDebugGeometry(this._renderer._gl);
     }
 
     return geometry;
@@ -152,7 +148,11 @@ export class Scene extends Node {
 
   /** Draws the scene into the base layer of the VRFrame's session */
   drawVRFrame(vr_frame, pose) {
-    let gl = this._gl;
+    if (!this._renderer) {
+      return;
+    }
+
+    let gl = this._renderer._gl;
     let session = vr_frame.session;
     // Assumed to be a VRWebGLLayer for now.
     let layer = session.baseLayer;
@@ -177,7 +177,7 @@ export class Scene extends Node {
   }
 
   drawViewArray(views) {
-    if (!this._gl) {
+    if (!this._renderer) {
       // Don't draw when we don't have a valid context
       return;
     }
@@ -188,7 +188,7 @@ export class Scene extends Node {
 
     this._onDrawDebugGeometry(views);*/
 
-    this.onDrawViews(this._gl, this._renderer, this._timestamp, views);
+    this.onDrawViews(this._renderer, this._timestamp, views);
 
     // Because of the blending used when drawing the lasers/cursors they should
     // always be drawn last.
@@ -227,15 +227,15 @@ export class Scene extends Node {
   }
 
   // Override to load scene resources on construction or context restore.
-  onLoadScene(gl) {
+  onLoadScene(renderer) {
     return Promise.resolve();
   }
 
   // Override with custom scene rendering.
-  onDrawViews(gl, renderer, timestamp, views) {}
+  onDrawViews(renderer, timestamp, views) {}
 
   _onDrawStats(views) {
-    let gl = this._gl;
+    let gl = this._renderer._gl;
     for (let view of views) {
       if (view.viewport) {
         let vp = view.viewport;
@@ -258,7 +258,7 @@ export class Scene extends Node {
   }
 
   _onDrawDebugGeometry(views) {
-    let gl = this._gl;
+    let gl = this._renderer._gl;
     if (this._debug_renderer && this._debug_geometries.length) {
       for (let view of views) {
         if (view.viewport) {

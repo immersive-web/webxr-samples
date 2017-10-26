@@ -205,7 +205,12 @@ export class Renderer {
     }
 
     this._render_primitives.push(render_primitive);
+
     return render_primitive;
+  }
+
+  createMesh(primitive, material) {
+    return new MeshNode(createRenderPrimitive(primitive, material));
   }
 
   drawViews(views, root_node) {

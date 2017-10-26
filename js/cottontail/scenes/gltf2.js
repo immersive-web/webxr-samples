@@ -14,7 +14,7 @@ export class GLTF2Scene extends Scene {
     this._loader = null;
   }
 
-  onLoadScene(gl, renderer) {
+  onLoadScene(renderer) {
     this._loader = new GLTF2Loader(renderer);
 
     return this._loader.loadFromUrl(this.url).then((scene_node) => {
@@ -24,7 +24,7 @@ export class GLTF2Scene extends Scene {
     });
   }
 
-  onDrawViews(gl, renderer, timestamp, views) {
+  onDrawViews(renderer, timestamp, views) {
     renderer.drawViews(views, this);
   }
 }

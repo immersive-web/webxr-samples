@@ -30,7 +30,7 @@ export class Material {
 
 export class RenderMaterial {
   constructor(material) {
-    this._alpha_mode = material.alpa_mode;
+    this._alpha_mode = material.alpha_mode;
     this._alpha_cutoff = material.alpha_cutoff;
     this._double_sided = material.double_sided;
   }

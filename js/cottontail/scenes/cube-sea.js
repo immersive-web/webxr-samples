@@ -14,7 +14,8 @@ export class CubeSeaScene extends Scene {
     this.gridSize = gridSize ? gridSize : 10;
   }
 
-  onLoadScene(gl, renderer) {
+  onLoadScene(renderer) {
+    let gl = renderer._gl;
     let cubeVerts = [];
     let cubeIndices = [];
 
@@ -135,19 +136,16 @@ export class CubeSeaScene extends Scene {
     let material = new PbrMaterial();
     material.base_color_texture = renderer.texture_cache.fromUrl('media/textures/cube-sea.png');
 
-    let cube_sea_render_primitive = renderer.createRenderPrimitive(cube_sea_primitive, material);
-    let hero_render_primitive = renderer.createRenderPrimitive(hero_primitive, material);
+    this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
+    this.hero_node = renderer.createMesh(hero_primitive, material);
 
-    this.cube_sea_node = new MeshNode(cube_sea_render_primitive);
     this.addNode(this.cube_sea_node);
-
-    this.hero_node = new MeshNode(hero_render_primitive);
     this.addNode(this.hero_node);
 
     return this.waitForComplete();
   }
 
-  onDrawViews(gl, renderer, timestamp, views) {
+  onDrawViews(renderer, timestamp, views) {
     mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
     renderer.drawViews(views, this);
   }

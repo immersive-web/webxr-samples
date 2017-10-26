@@ -7,7 +7,7 @@ export class PrimitiveAttribute {
     this.name = name;
     this.buffer = buffer;
     this.component_count = component_count || 3;
-    this.component_type = component_type || WebGLRenderingContext.FLOAT;
+    this.component_type = component_type || 5126; // gl.FLOAT;
     this.stride = stride || 0;
     this.byte_offset = byte_offset || 0;
     this.normalized = false;
