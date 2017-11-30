@@ -207,21 +207,16 @@ export class PbrMaterial extends Material {
   constructor() {
     super();
 
-    let json = {};
-    let pbr = json.pbrMetallicRoughness || {};
-    this.base_color_factor = pbr.baseColorFactor || [1, 1, 1, 1];
+    this.base_color_factor = [1, 1, 1, 1];
     this.base_color_texture = null;
-    this.metallic_factor = pbr.metallicFactor || 1.0;
-    this.roughness_factor = pbr.roughnessFactor || 1.0;
+    this.metallic_factor = 1.0;
+    this.roughness_factor = 1.0;
     this.metallic_roughness_texture = null;
     this.normal_texture = null;
     this.occlusion_texture = null;
-    this.occlusion_strength = (json.occlusionTexture && json.occlusionTexture.strength) ? json.occlusionTexture.strength : 1.0;
-    this.emissive_factor = json.emissiveFactor || [0, 0, 0];
+    this.occlusion_strength = 1.0;
+    this.emissive_factor = [0, 0, 0];
     this.emissive_texture = null;
-    this.alpha_mode = json.alpaMode;
-    this.alpha_cutoff = json.alphaCutoff;
-    this.double_sided = json.doubleSided;
   }
 
   get render_material_type() {
@@ -307,8 +302,8 @@ export class PbrRenderMaterial extends RenderMaterial {
     return key;
   }
 
-  bind(gl, program) {
-    super.bind(gl, program);
+  bind(gl, program, prev_material) {
+    super.bind(gl, program, prev_material);
 
     // Bind all appropriate textures
     if (this._base_color_texture) {

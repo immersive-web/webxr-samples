@@ -116,7 +116,10 @@ const CURSOR_FRAGMENT_SOURCE = `
 class LaserMaterial extends Material {
   constructor() {
     super();
-    this.double_sided = true;
+    this.state.cull_face = false;
+    this.state.blend = true;
+    this.state.blend_func_src = WebGLRenderingContext.ONE;
+    this.state.blend_func_dst = WebGLRenderingContext.ONE;
 
     this.laser_texture = null;
   }
@@ -145,8 +148,8 @@ class LaserRenderMaterial extends RenderMaterial {
     return LASER_FRAGMENT_SOURCE;
   }
 
-  bind(gl, program) {
-    super.bind(gl, program);
+  bind(gl, program, prev_material) {
+    super.bind(gl, program, prev_material);
 
     // Bind all appropriate textures
     if (this._laser_texture) {
@@ -162,7 +165,9 @@ class LaserRenderMaterial extends RenderMaterial {
 class CursorMaterial extends Material {
   constructor() {
     super();
-    this.double_sided = true;
+    this.state.cull_face = false;
+    this.state.blend = true;
+    this.state.blend_func_src = WebGLRenderingContext.ONE;
   }
 
   get render_material_type() {
@@ -187,8 +192,8 @@ class CursorRenderMaterial extends RenderMaterial {
     return CURSOR_FRAGMENT_SOURCE;
   }
 
-  bind(gl, program) {
-    super.bind(gl, program);
+  bind(gl, program, prev_material) {
+    super.bind(gl, program, prev_material);
 
     gl.uniform4f(program.uniform.cursorColor, 1.0, 1.0, 1.0, 1.0);
   }

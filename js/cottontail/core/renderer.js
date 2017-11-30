@@ -246,6 +246,7 @@ export class Renderer {
     }
 
     let program = null;
+    let material = null;
     let attrib_mask = 0;
 
     // Loop through every primitive known to the renderer.
@@ -272,7 +273,10 @@ export class Renderer {
         }
       }
 
-      primitive._material.bind(gl, program);
+      if (material != primitive._material) {
+        primitive._material.bind(gl, program, material);
+        material = primitive._material;
+      }
 
       if (primitive._vao) {
         this._vao_ext.bindVertexArrayOES(primitive._vao);

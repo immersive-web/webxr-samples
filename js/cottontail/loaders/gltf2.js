@@ -164,9 +164,22 @@ export class GLTF2Loader {
         glMaterial.occlusion_strength = (material.occlusionTexture && material.occlusionTexture.strength) ? material.occlusionTexture.strength : 1.0;
         glMaterial.emissive_factor = new Float32Array(material.emissiveFactor || [0, 0, 0]);
         glMaterial.emissive_texture = null;
-        glMaterial.alpha_mode = material.alpaMode;
-        glMaterial.alpha_cutoff = material.alphaCutoff;
-        glMaterial.double_sided = material.doubleSided;
+
+        switch(material.alphaMode) {
+          case "BLEND":
+            glMaterial.state.blend = true;
+            break;
+          case "MASK":
+            // Not really supported.
+            glMaterial.state.blend = true;
+            break;
+          default: // Includes "OPAQUE"
+            glMaterial.state.blend = false;
+        }
+
+        //glMaterial.alpha_mode = material.alphaMode;
+        //glMaterial.alpha_cutoff = material.alphaCutoff;
+        glMaterial.state.cull_face = !(material.doubleSided);
 
         materials.push(glMaterial);
       }
