@@ -93,13 +93,8 @@ class PanoramaScene extends Scene {
 
     this.indexCount = panoIndices.length;
 
-    this.vertBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(panoVerts), gl.STATIC_DRAW);
-
-    this.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(panoIndices), gl.STATIC_DRAW);
+    this.vertBuffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(panoVerts));
+    this.indexBuffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(panoIndices));
   }
 
   onDrawViews(renderer, timestamp, views) {

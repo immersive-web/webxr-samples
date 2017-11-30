@@ -5,17 +5,6 @@
 import { ATTRIB, ATTRIB_MASK } from './renderer.js'
 import { Program } from './program.js'
 
-const PROGRAM_MASK = {
-  USE_VERTEX_COLOR:    0x0001,
-  USE_BASE_COLOR_MAP:  0x0002,
-  USE_MATERIAL_COLOR:  0x0004,
-  USE_NORMAL_MAP:      0x0008,
-  USE_METAL_ROUGH_MAP: 0x0010,
-  USE_OCCLUSION:       0x0020,
-  USE_EMISSIVE:        0x0040,
-  FULLY_ROUGH:         0x0080,
-};
-
 export class Material {
   constructor() {
     this.alpha_mode = null;

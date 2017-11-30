@@ -41,11 +41,11 @@ export class TextureCache {
     }
 
     return this.addTexture(url, new Promise((resolve, reject) => {
-        let img = new Image();
-        img.addEventListener('load', () => resolve(img));
-        img.addEventListener('error', reject);
-        img.src = url;
-      }), sampler);
+      let img = new Image();
+      img.addEventListener('load', () => resolve(img));
+      img.addEventListener('error', reject);
+      img.src = url;
+    }), sampler);
   }
 
   fromDataView(key, data_view, mime_type, sampler) {
@@ -54,13 +54,13 @@ export class TextureCache {
     }
 
     return this.addTexture(key, new Promise((resolve, reject) => {
-        let img = new Image();
-        img.addEventListener('load', () => resolve(img));
-        img.addEventListener('error', reject);
+      let img = new Image();
+      img.addEventListener('load', () => resolve(img));
+      img.addEventListener('error', reject);
 
-        let blob = new Blob([data_view], {type: mime_type});
-        img.src = window.URL.createObjectURL(blob);
-      }), sampler);
+      let blob = new Blob([data_view], {type: mime_type});
+      img.src = window.URL.createObjectURL(blob);
+    }), sampler);
   }
 
   addTexture(key, image_promise, sampler) {

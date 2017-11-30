@@ -113,13 +113,8 @@ export class CubeSeaScene extends Scene {
     appendCube(-0.8, 0.25, 0, 0.05);
     let heroCount = cubeIndices.length - heroOffset;
 
-    let vertex_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVerts), gl.STATIC_DRAW);
-
-    let index_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
+    let vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cubeVerts));
+    let index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices));
 
     let attribs = [
       new PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0),

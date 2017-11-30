@@ -200,7 +200,7 @@ export class GLTF2Loader {
 
           let glAttribute = new PrimitiveAttribute(
             name,
-            bufferView.glBuffer(gl, gl.ARRAY_BUFFER),
+            bufferView.renderBuffer(this.renderer, gl.ARRAY_BUFFER),
             getComponentCount(accessor.type),
             accessor.componentType,
             bufferView.byteStride || 0,
@@ -218,7 +218,7 @@ export class GLTF2Loader {
           let bufferView = bufferViews[accessor.bufferView];
 
           glPrimitive.setIndexBuffer(
-            bufferView.glBuffer(gl, gl.ELEMENT_ARRAY_BUFFER),
+            bufferView.renderBuffer(this.renderer, gl.ELEMENT_ARRAY_BUFFER),
             accessor.byteOffset || 0,
             accessor.componentType
           );
@@ -292,7 +292,7 @@ class GLTF2BufferView {
     this.byteStride = json.byteStride;
 
     this._viewPromise = null;
-    this._glBufferPromise = null;
+    this._renderBuffer = null;
   }
 
   dataView() {
@@ -304,16 +304,11 @@ class GLTF2BufferView {
     return this._viewPromise;
   }
 
-  glBuffer(gl, target) {
-    if (!this._glBufferPromise) {
-      this._glBufferPromise = this.dataView().then((dataView) => {
-        let buffer = gl.createBuffer();
-        gl.bindBuffer(target, buffer);
-        gl.bufferData(target, dataView, gl.STATIC_DRAW);
-        return buffer;
-      });
+  renderBuffer(renderer, target) {
+    if (!this._renderBuffer) {
+      this._renderBuffer = renderer.createRenderBuffer(target, this.dataView());
     }
-    return this._glBufferPromise;
+    return this._renderBuffer;
   }
 }
 

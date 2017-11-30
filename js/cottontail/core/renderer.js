@@ -49,26 +49,13 @@ class RenderPrimitiveAttribute {
 }
 
 class RenderPrimitiveAttributeBuffer {
-  constructor(buffer) {
-    if (buffer instanceof Promise) {
-      this._buffer = null;
-      this._promise = buffer;
-      this._complete = false;
-      this._promise.then((buffer) => {
-        this._complete = true;
-        this._buffer = buffer;
-      });
-    } else {
+  constructor(buffer_promise) {
+    this._buffer = null;
+    buffer_promise.then((buffer) => {
       this._buffer = buffer;
-      this._promise = Promise.resolve(buffer);
-      this._complete = true;
-    }
+    });
 
     this._attributes = [];
-  }
-
-  waitForComplete() {
-    return this._promise.then(() => this);
   }
 }
 
@@ -105,9 +92,7 @@ class RenderPrimitive {
         let attribute_buffer = new RenderPrimitiveAttributeBuffer(attribute.buffer);
         attribute_buffer._attributes.push(render_attribute);
         this._attribute_buffers.push(attribute_buffer);
-        if (attribute.buffer instanceof Promise) {
-          completion_promises.push(attribute.buffer);
-        }
+        completion_promises.push(attribute.buffer);
       }
     }
 
@@ -171,6 +156,23 @@ export class Renderer {
     this.texture_cache = new TextureCache(gl);
   }
 
+  createRenderBuffer(target, data) {
+    let gl = this._gl;
+    let render_buffer = gl.createBuffer();
+
+    if (data instanceof Promise) {
+      return data.then((data) => {
+        gl.bindBuffer(target, render_buffer);
+        gl.bufferData(target, data, gl.STATIC_DRAW);
+        return render_buffer;
+      });
+    } else {
+      gl.bindBuffer(target, render_buffer);
+      gl.bufferData(target, data, gl.STATIC_DRAW);
+      return Promise.resolve(render_buffer);
+    }
+  }
+
   createRenderPrimitive(primitive, material) {
     let render_material = new material.render_material_type(material);
     let render_primitive = new RenderPrimitive(primitive, render_material);
@@ -187,7 +189,8 @@ export class Renderer {
         ATTRIB,
         defines);
       this._program_cache[key] = render_primitive._program;
-      render_primitive._program.onFirstUse((program) => {
+      render_primitive._program.onFirstUse().then((program) => {
+        this._gl.useProgram(program.program);
         render_material.onFirstProgramUse(this._gl, program);
       });
     }
@@ -210,7 +213,7 @@ export class Renderer {
   }
 
   createMesh(primitive, material) {
-    return new MeshNode(createRenderPrimitive(primitive, material));
+    return new MeshNode(this.createRenderPrimitive(primitive, material));
   }
 
   drawViews(views, root_node) {
@@ -241,7 +244,7 @@ export class Renderer {
       vec3.set(camera_position, 0, 0, 0);
       vec3.transformMat4(camera_position, camera_position, inverse_matrix);
     }
-    
+
     let program = null;
     let attrib_mask = 0;
 

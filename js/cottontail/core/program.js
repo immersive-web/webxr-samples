@@ -11,7 +11,8 @@ export class Program {
     this.defines = {};
 
     this._first_use = true;
-    this._first_use_callback = null;
+    this._first_use_promise = null;
+    this._first_use_resolver = null;
 
     let defines_string = '';
     if (defines) {
@@ -42,12 +43,17 @@ export class Program {
     gl.linkProgram(this.program);
   }
 
-  onFirstUse(callback) {
-    if (this._first_use) {
-      this._first_use_callback = callback;
-    } else {
-      console.error('Attempted to set a program first use callback after first use.');
+  onFirstUse() {
+    if (!this._first_use_promise) {
+      this._first_use_promise = new Promise((resolve, reject) => {
+        if (!this._first_use) {
+          resolve(this);
+          return;
+        }
+        this._first_use_resolver = resolve;
+      });
     }
+    return this._first_use_promise;
   }
 
   use() {
@@ -93,9 +99,9 @@ export class Program {
 
     gl.useProgram(this.program);
 
-    if (first_use && this._first_use_callback) {
-      this._first_use_callback(this);
-      this._first_use_callback = null;
+    if (this._first_use_resolver) {
+      this._first_use_resolver(this);
+      this._first_use_resolver = null;
     }
   }
 }

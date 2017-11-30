@@ -243,13 +243,8 @@ export class InputRenderPrimitives {
       12, 13, 14, 13, 15, 14,
     ];
   
-    let laser_vertex_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, laser_vertex_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(laser_verts), gl.STATIC_DRAW);
-
-    let laser_index_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, laser_index_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(laser_indices), gl.STATIC_DRAW);
+    let laser_vertex_buffer = this._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(laser_verts));
+    let laser_index_buffer = this._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(laser_indices));
 
     let laser_index_count = laser_indices.length;
 
@@ -331,13 +326,8 @@ export class InputRenderPrimitives {
     cursor_indices.push(idx-2, idx-1, index_offset);
     cursor_indices.push(idx-1, index_offset+1, index_offset);
 
-    let cursor_vertex_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, cursor_vertex_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cursor_verts), gl.STATIC_DRAW);
-
-    let cursor_index_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cursor_index_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cursor_indices), gl.STATIC_DRAW);
+    let cursor_vertex_buffer = this._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cursor_verts));
+    let cursor_index_buffer = this._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cursor_indices));
 
     let cursor_index_count = cursor_indices.length;
 
