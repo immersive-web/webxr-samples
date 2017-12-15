@@ -21,17 +21,17 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <details open>
         <summary>Viewport Scaling</summary>
         <p>
-          This sample demonstrates scaling the viewports used for a WebVR layer
+          This sample demonstrates scaling the viewports used for a WebXR layer
           at runtime to dynamically adjust the fillrate required and improve
           performance or quality as needed.
 
@@ -44,14 +44,14 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebXRSceneCubeSea();
 
       let resolutionMultiplier = 1.0;
       let lastAdjustment = Date.now()-1000;
@@ -69,30 +69,30 @@ found in the LICENSE file.
         // Oscillates between 1.0 to 0.5.
         resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
 
-        // This is the only new VRSession call in this sample. It sets a
+        // This is the only new XRSession call in this sample. It sets a
         // requested scale to be applied to the viewports reported for each
-        // VRView. The UA is allowed to ignore the request or adjust it as
+        // XRView. The UA is allowed to ignore the request or adjust it as
         // needed. If the scaling request is honored it will take effect on the
         // *next* frame, not the current one.
         session.baseLayer.requestViewportScaling(resolutionMultiplier);
       }
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
 
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({outputContext: ctx})
                 .then((session) => {
@@ -105,7 +105,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({exclusive: true}).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
@@ -114,22 +114,22 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onVRFrame);
+          session.requestFrame(onXRFrame);
         });
       }
 
@@ -139,14 +139,14 @@ found in the LICENSE file.
 
       function onSessionEnded(event) {
         if (event.session.exclusive)
-          vrButton.setSession(null);
+          xrButton.setSession(null);
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
@@ -154,15 +154,15 @@ found in the LICENSE file.
         // Adjust the viewports if needed.
         adjustViewportScale(session);
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
-        scene.drawVRFrame(frame, pose);
+        scene.drawXRFrame(frame, pose);
 
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

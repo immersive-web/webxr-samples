@@ -23,11 +23,11 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-gltf.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
-    <script src='js/webvr-laser-renderer.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-gltf.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-laser-renderer.js'></script>
   </head>
   <body>
     <header>
@@ -46,23 +46,23 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrFrameOfRef = null;
+      // XR globals.
+      let xrFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF('media/gltf/camp/camp.gltf');
+      let scene = new WebXRSceneGLTF('media/gltf/camp/camp.gltf');
 
       let selectPointers = [];
 
-      function initVR() {
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
+      function initXR() {
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({ outputContext: ctx })
                 .then((session) => {
@@ -77,25 +77,25 @@ found in the LICENSE file.
         session.addEventListener('select', onSelectGesture);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('stage').then((frameOfRef) => {
-          vrFrameOfRef = frameOfRef;
-          session.requestFrame(onVRFrame);
+          xrFrameOfRef = frameOfRef;
+          session.requestFrame(onXRFrame);
         });
       }
 
       function onSelectGesture(event) {
         let session = event.frame.session;
         // Get the pose associated with the event's input source.
-        let inputPose = event.frame.getInputPose(event.inputSource, vrFrameOfRef);
+        let inputPose = event.frame.getInputPose(event.inputSource, xrFrameOfRef);
 
         // Stick a cursor 1 centimeter along the ray and remember the ray matrix.
         let cursorPos = vec3.fromValues(0, 0, -0.01);
@@ -108,13 +108,13 @@ found in the LICENSE file.
         console.log("Placed a cursor at [" + cursorPos[0] + ", " + cursorPos[1] + ", " + cursorPos[2] + "]");
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
-        let pose = frame.getDevicePose(vrFrameOfRef);
+        let pose = frame.getDevicePose(xrFrameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         // Render all of the cursors/rays we've cached so far.
         for (let pointer of selectPointers) {
@@ -122,13 +122,13 @@ found in the LICENSE file.
           scene.pushLaserPointer(pointer.pointerMatrix);
         }
 
-        scene.drawVRFrame(frame, pose);
+        scene.drawXRFrame(frame, pose);
 
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

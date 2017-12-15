@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// This file builds and renders a really generic "VR Controller" that doesn't
+// This file builds and renders a really generic "XR Controller" that doesn't
 // really match any particular piece of hardware but DOES provide a visual
 // representation of all of it's inputs. It have special cases for touchpad,
 // joystick, trigger, grip, and everything else is represented as a generic
@@ -10,7 +10,7 @@
 // Lots of manual vertex buffer building and magic numbers ahead!
 // Consider yourself warned!
 
-const VRInputVS = `
+const XRInputVS = `
   uniform mat4 projectionMat;
   uniform mat4 modelViewMat;
   uniform mat3 normalMat;
@@ -33,7 +33,7 @@ const VRInputVS = `
   }
 `;
 
-const VRInputFS = `
+const XRInputFS = `
   precision mediump float;
   varying vec3 vLight;
   varying vec4 vColor;
@@ -43,7 +43,7 @@ const VRInputFS = `
   }
 `;
 
-class WebVRInputRenderer {
+class WebXRInputRenderer {
   constructor(gl) {
     this.gl = gl;
 
@@ -51,8 +51,8 @@ class WebVRInputRenderer {
 
     // Build controller representation
     this.program = new WGLUProgram(gl);
-    this.program.attachShaderSource(VRInputVS, gl.VERTEX_SHADER);
-    this.program.attachShaderSource(VRInputFS, gl.FRAGMENT_SHADER);
+    this.program.attachShaderSource(XRInputVS, gl.VERTEX_SHADER);
+    this.program.attachShaderSource(XRInputFS, gl.FRAGMENT_SHADER);
     this.program.bindAttribLocation({
       position: 0,
       texCoord: 1,

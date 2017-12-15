@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-const VRCubeSeaVS = `
+const XRCubeSeaVS = `
   uniform mat4 projectionMat;
   uniform mat4 modelViewMat;
   uniform mat3 normalMat;
@@ -25,7 +25,7 @@ const VRCubeSeaVS = `
   }
 `;
 
-const VRCubeSeaFS = `
+const XRCubeSeaFS = `
   precision mediump float;
   uniform sampler2D diffuse;
   varying vec2 vTexCoord;
@@ -36,7 +36,7 @@ const VRCubeSeaFS = `
   }
 `;
 
-class WebVRSceneCubeSea extends WebVRScene {
+class WebXRSceneCubeSea extends WebXRScene {
   constructor(gridSize) {
     super();
 
@@ -51,8 +51,8 @@ class WebVRSceneCubeSea extends WebVRScene {
     this.texture = this.texture_loader.loadTexture("media/textures/cube-sea.png");
 
     this.program = new WGLUProgram(gl);
-    this.program.attachShaderSource(VRCubeSeaVS, gl.VERTEX_SHADER);
-    this.program.attachShaderSource(VRCubeSeaFS, gl.FRAGMENT_SHADER);
+    this.program.attachShaderSource(XRCubeSeaVS, gl.VERTEX_SHADER);
+    this.program.attachShaderSource(XRCubeSeaFS, gl.FRAGMENT_SHADER);
     this.program.bindAttribLocation({
       position: 0,
       texCoord: 1,

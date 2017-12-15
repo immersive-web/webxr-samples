@@ -23,19 +23,19 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-gltf.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
-    <script src='js/webvr-laser-renderer.js'></script>
-    <script src='js/webvr-splash.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-gltf.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-laser-renderer.js'></script>
+    <script src='js/webxr-splash.js'></script>
   </head>
   <body>
     <header>
       <details open>
         <summary>Controller Tracking</summary>
         <p>
-          This sample demonstrates basic tracking of VR controllers. It does not
+          This sample demonstrates basic tracking of XR controllers. It does not
           respond to button presses or other controller interactions.
         </p>
       </details>
@@ -44,14 +44,14 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF('media/gltf/camp/camp.gltf');
+      let scene = new WebXRSceneGLTF('media/gltf/camp/camp.gltf');
       scene.standingStats(true);
       let controllerGeometries = [];
 
@@ -64,22 +64,22 @@ found in the LICENSE file.
         ));
       }
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
 
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({ outputContext: ctx })
                 .then((session) => {
@@ -92,7 +92,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
@@ -101,23 +101,23 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('stage').then((frameOfRef) => {
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
           scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
-            session.requestFrame(onVRFrame);
+            session.requestFrame(onXRFrame);
           });
         });
       }
@@ -128,19 +128,19 @@ found in the LICENSE file.
 
       function onSessionEnded(event) {
         if (event.session.exclusive)
-          vrButton.setSession(null);
+          xrButton.setSession(null);
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         let i = 0;
         if (pose) {
@@ -204,13 +204,13 @@ found in the LICENSE file.
           controllerLasers[i].visible = false;
         }
 
-        scene.drawVRFrame(frame, pose);
+        scene.drawXRFrame(frame, pose);
 
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

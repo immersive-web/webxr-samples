@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>VR Device Enumeration</title>
+    <title>XR Device Enumeration</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
@@ -33,10 +33,10 @@ found in the LICENSE file.
   <body>
     <header>
       <details open>
-        <summary>VR Device Enumeration</summary>
+        <summary>XR Device Enumeration</summary>
         <p>
-          This sample queries an available VRDevices and prints out a brief
-          summary of it. This sample does not render anything to the VRDevice.
+          This sample queries an available XRDevices and prints out a brief
+          summary of it. This sample does not render anything to the XRDevice.
         </p>
       </details>
     </header>
@@ -49,12 +49,12 @@ found in the LICENSE file.
 
       let results = document.getElementById('results');
 
-      // Is WebVR available on this User Agent?
-      if (navigator.vr) {
-        // Request a VRDevice connected to the system.
-        navigator.vr.requestDevice().then((device) => {
+      // Is WebXR available on this User Agent?
+      if (navigator.xr) {
+        // Request a XRDevice connected to the system.
+        navigator.xr.requestDevice().then((device) => {
           if (!device) {
-            results.innerHTML = 'WebVR supported, but no VRDevice found.';
+            results.innerHTML = 'WebXR supported, but no XRDevice found.';
             return;
           }
 
@@ -62,7 +62,7 @@ found in the LICENSE file.
           let deviceElement = document.createElement('article');
 
           let deviceName = document.createElement('h1');
-          deviceName.innerHTML = "VRDevice";
+          deviceName.innerHTML = "XRDevice";
           deviceElement.appendChild(deviceName);
 
           let ul = document.createElement('ul');
@@ -79,7 +79,7 @@ found in the LICENSE file.
           results.appendChild(deviceElement);
         });
       } else {
-        results.innerHTML = 'WebVR not supported.';
+        results.innerHTML = 'WebXR not supported.';
       }
 
       })();

@@ -4,7 +4,7 @@
 
 import { Scene } from '../core/scene.js'
 
-const VRPanoramaVS = `
+const XRPanoramaVS = `
   uniform mat4 projectionMat;
   uniform mat4 modelViewMat;
   uniform vec4 texCoordScaleOffset;
@@ -18,7 +18,7 @@ const VRPanoramaVS = `
   }
 `;
 
-const VRPanoramaFS = `
+const XRPanoramaFS = `
   precision mediump float;
   uniform sampler2D diffuse;
   varying vec2 vTexCoord;
@@ -41,8 +41,8 @@ class PanoramaScene extends Scene {
     this.texture = this.texture_loader.loadTexture(this.mediaUrl);
 
     this.program = new WGLUProgram(gl);
-    this.program.attachShaderSource(VRPanoramaVS, gl.VERTEX_SHADER);
-    this.program.attachShaderSource(VRPanoramaFS, gl.FRAGMENT_SHADER);
+    this.program.attachShaderSource(XRPanoramaVS, gl.VERTEX_SHADER);
+    this.program.attachShaderSource(XRPanoramaFS, gl.FRAGMENT_SHADER);
     this.program.bindAttribLocation({
       position: 0,
       texCoord: 1

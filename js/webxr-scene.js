@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-class WebVRView {
+class WebXRView {
   constructor(view, pose, layer) {
     this.projection_mat = view ? view.projectionMatrix : null;
     this.view_mat = (pose && view) ? pose.getViewMatrix(view) : null;
@@ -12,7 +12,7 @@ class WebVRView {
   }
 }
 
-class WebVRScene {
+class WebXRScene {
   constructor() {
     this._gl = null;
 
@@ -54,7 +54,7 @@ class WebVRScene {
       this.texture_loader = new WGLUTextureLoader(gl);
 
       if (this._splash_url) {
-        this._splash_renderer = new WebVRSplashScreen(gl, scene.texture_loader.loadTexture(this._splash_url));
+        this._splash_renderer = new WebXRSplashScreen(gl, scene.texture_loader.loadTexture(this._splash_url));
       }
 
       if (this._debug_geometries.length) {
@@ -62,7 +62,7 @@ class WebVRScene {
       }
 
       if (this._lasers.length || this._cursors.length) {
-        this._pointer_renderer = new WebVRLaserRenderer(gl);
+        this._pointer_renderer = new WebXRLaserRenderer(gl);
       }
 
       this._load_promise = this.onLoadScene(gl);
@@ -98,7 +98,7 @@ class WebVRScene {
               let pose = frame.getDevicePose(frameOfRef);
               let views = [];
               for (let view of frame.views) {
-                views.push(new WebVRView(view, pose, session.baseLayer));
+                views.push(new WebXRView(view, pose, session.baseLayer));
               }
               this._splash_renderer.draw(views);
             });
@@ -109,7 +109,7 @@ class WebVRScene {
       if (this._splash_url != splash_url) {
         this._splash_url = splash_url;
         this.texture_loader.loadTexture(this._splash_url, null, (texture) => {
-          this._splash_renderer = new WebVRSplashScreen(gl, texture);
+          this._splash_renderer = new WebXRSplashScreen(gl, texture);
           drawSplash();
         });
       } else {
@@ -170,7 +170,7 @@ class WebVRScene {
 
     // Create the pointer renderer if needed.
     if (!this._pointer_renderer && this._gl) {
-      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
+      this._pointer_renderer = new WebXRLaserRenderer(this._gl);
     }
   }
 
@@ -179,12 +179,12 @@ class WebVRScene {
 
     // Create the pointer renderer if needed.
     if (!this._pointer_renderer && this._gl) {
-      this._pointer_renderer = new WebVRLaserRenderer(this._gl);
+      this._pointer_renderer = new WebXRLaserRenderer(this._gl);
     }
   }
 
   draw(projection_mat, view_mat, eye) {
-    let view = new WebVRView();
+    let view = new WebXRView();
     view.projection_mat = projection_mat;
     view.view_mat = view_mat;
     if (eye) {
@@ -194,11 +194,11 @@ class WebVRScene {
     this.drawViewArray([view]);
   }
 
-  /** Draws the scene into the base layer of the VRFrame's session */
-  drawVRFrame(vr_frame, pose) {
+  /** Draws the scene into the base layer of the XRFrame's session */
+  drawXRFrame(xr_frame, pose) {
     let gl = this._gl;
-    let session = vr_frame.session;
-    // Assumed to be a VRWebGLLayer for now.
+    let session = xr_frame.session;
+    // Assumed to be a XRWebGLLayer for now.
     let layer = session.baseLayer;
 
     if(!gl) {
@@ -213,8 +213,8 @@ class WebVRScene {
     }
 
     let views = [];
-    for (let view of vr_frame.views) {
-      views.push(new WebVRView(view, pose, layer));
+    for (let view of xr_frame.views) {
+      views.push(new WebXRView(view, pose, layer));
     }
 
     this.drawViewArray(views);
@@ -280,7 +280,7 @@ class WebVRScene {
         gl.viewport(vp.x, vp.y, vp.width, vp.height);
       }
 
-      // To ensure that the FPS counter is visible in VR mode we have to
+      // To ensure that the FPS counter is visible in XR mode we have to
       // render it as part of the scene.
       if (this._stats_standing) {
         mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);

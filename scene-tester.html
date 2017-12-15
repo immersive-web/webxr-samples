@@ -22,12 +22,12 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-scene-gltf.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
-    <script src='js/webvr-laser-renderer.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-scene-gltf.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-laser-renderer.js'></script>
 
     <style>
       #scene-select {
@@ -61,7 +61,7 @@ found in the LICENSE file.
       var view_mat = mat4.create();
 
       let scene = null;
-      let gl = VRSamplesUtil.initWebGLContext({antialias: false});
+      let gl = XRSamplesUtil.initWebGLContext({antialias: false});
       document.body.appendChild(gl.canvas);
 
       function setScene(new_scene) {
@@ -160,13 +160,13 @@ found in the LICENSE file.
       function onSceneSelected() {
         switch(sceneSelect.value) {
           case 'cube-sea':
-            setScene(new WebVRSceneCubeSea());
+            setScene(new WebXRSceneCubeSea());
             return;
           case 'camp':
-            setScene(new WebVRSceneGLTF('media/gltf/camp/camp.gltf'));
+            setScene(new WebXRSceneGLTF('media/gltf/camp/camp.gltf'));
             return;
           case 'garage':
-            setScene(new WebVRSceneGLTF('media/gltf/garage/garage.gltf'));
+            setScene(new WebXRSceneGLTF('media/gltf/garage/garage.gltf'));
             return;
           default:
             console.error(`Unknown Scene: ${sceneSelect.value}`);

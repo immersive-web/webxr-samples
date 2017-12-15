@@ -70,12 +70,12 @@ var WGLUTextureLoader = (function() {
       case COMPRESSED_RGBA_ATC_INTERPOLATED_ALPHA_WEBGL:
         return ((width + 3) >> 2) * ((height + 3) >> 2) * 16;
 
-      case COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
-      case COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+      case COMPRESSED_RGB_PXRTC_4BPPV1_IMG:
+      case COMPRESSED_RGBA_PXRTC_4BPPV1_IMG:
         return Math.floor((Math.max(width, 8) * Math.max(height, 8) * 4 + 7) / 8);
 
-      case COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
-      case COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
+      case COMPRESSED_RGB_PXRTC_2BPPV1_IMG:
+      case COMPRESSED_RGBA_PXRTC_2BPPV1_IMG:
         return Math.floor((Math.max(width, 16) * Math.max(height, 8) * 2 + 7) / 8);
 
       default:
@@ -149,39 +149,39 @@ var WGLUTextureLoader = (function() {
   DXT_FORMAT_MAP[CRN_FORMAT.cCRNFmtDXT5] = COMPRESSED_RGBA_S3TC_DXT5_EXT;
 
   //===============//
-  // PVR constants //
+  // PXR constants //
   //===============//
 
-  // PVR formats, from:
-  // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_pvrtc/
-  var COMPRESSED_RGB_PVRTC_4BPPV1_IMG  = 0x8C00;
-  var COMPRESSED_RGB_PVRTC_2BPPV1_IMG  = 0x8C01;
-  var COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02;
-  var COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03;
+  // PXR formats, from:
+  // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_pxrtc/
+  var COMPRESSED_RGB_PXRTC_4BPPV1_IMG  = 0x8C00;
+  var COMPRESSED_RGB_PXRTC_2BPPV1_IMG  = 0x8C01;
+  var COMPRESSED_RGBA_PXRTC_4BPPV1_IMG = 0x8C02;
+  var COMPRESSED_RGBA_PXRTC_2BPPV1_IMG = 0x8C03;
 
   // ETC1 format, from:
   // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_etc1/
   var COMPRESSED_RGB_ETC1_WEBGL = 0x8D64;
 
-  var PVR_FORMAT_2BPP_RGB  = 0;
-  var PVR_FORMAT_2BPP_RGBA = 1;
-  var PVR_FORMAT_4BPP_RGB  = 2;
-  var PVR_FORMAT_4BPP_RGBA = 3;
-  var PVR_FORMAT_ETC1      = 6;
-  var PVR_FORMAT_DXT1      = 7;
-  var PVR_FORMAT_DXT3      = 9;
-  var PVR_FORMAT_DXT5      = 5;
+  var PXR_FORMAT_2BPP_RGB  = 0;
+  var PXR_FORMAT_2BPP_RGBA = 1;
+  var PXR_FORMAT_4BPP_RGB  = 2;
+  var PXR_FORMAT_4BPP_RGBA = 3;
+  var PXR_FORMAT_ETC1      = 6;
+  var PXR_FORMAT_DXT1      = 7;
+  var PXR_FORMAT_DXT3      = 9;
+  var PXR_FORMAT_DXT5      = 5;
 
-  var PVR_HEADER_LENGTH = 13; // The header length in 32 bit ints.
-  var PVR_MAGIC = 0x03525650; //0x50565203;
+  var PXR_HEADER_LENGTH = 13; // The header length in 32 bit ints.
+  var PXR_MAGIC = 0x03525650; //0x50565203;
 
   // Offsets into the header array.
-  var PVR_HEADER_MAGIC = 0;
-  var PVR_HEADER_FORMAT = 2;
-  var PVR_HEADER_HEIGHT = 6;
-  var PVR_HEADER_WIDTH = 7;
-  var PVR_HEADER_MIPMAPCOUNT = 11;
-  var PVR_HEADER_METADATA = 12;
+  var PXR_HEADER_MAGIC = 0;
+  var PXR_HEADER_FORMAT = 2;
+  var PXR_HEADER_HEIGHT = 6;
+  var PXR_HEADER_WIDTH = 7;
+  var PXR_HEADER_MIPMAPCOUNT = 11;
+  var PXR_HEADER_METADATA = 12;
 
   //============//
   // Misc Utils //
@@ -291,73 +291,73 @@ var WGLUTextureLoader = (function() {
   }
 
   //==================//
-  // PVR File Reading //
+  // PXR File Reading //
   //==================//
 
-  // Parse a PVR file and provide information about the raw texture data it contains to the given callback.
-  function parsePVR(arrayBuffer, callback, errorCallback) {
+  // Parse a PXR file and provide information about the raw texture data it contains to the given callback.
+  function parsePXR(arrayBuffer, callback, errorCallback) {
     // Callbacks must be provided.
     if (!callback || !errorCallback) { return; }
 
     // Get a view of the arrayBuffer that represents the DDS header.
-    var header = new Int32Array(arrayBuffer, 0, PVR_HEADER_LENGTH);
+    var header = new Int32Array(arrayBuffer, 0, PXR_HEADER_LENGTH);
 
     // Do some sanity checks to make sure this is a valid DDS file.
-    if(header[PVR_HEADER_MAGIC] != PVR_MAGIC) {
-      errorCallback("Invalid magic number in PVR header");
+    if(header[PXR_HEADER_MAGIC] != PXR_MAGIC) {
+      errorCallback("Invalid magic number in PXR header");
       return 0;
     }
 
     // Determine what type of compressed data the file contains.
-    var format = header[PVR_HEADER_FORMAT];
+    var format = header[PXR_HEADER_FORMAT];
     var internalFormat;
     switch(format) {
-      case PVR_FORMAT_2BPP_RGB:
-        internalFormat = COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
+      case PXR_FORMAT_2BPP_RGB:
+        internalFormat = COMPRESSED_RGB_PXRTC_2BPPV1_IMG;
         break;
 
-      case PVR_FORMAT_2BPP_RGBA:
-        internalFormat = COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
+      case PXR_FORMAT_2BPP_RGBA:
+        internalFormat = COMPRESSED_RGBA_PXRTC_2BPPV1_IMG;
         break;
 
-      case PVR_FORMAT_4BPP_RGB:
-        internalFormat = COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
+      case PXR_FORMAT_4BPP_RGB:
+        internalFormat = COMPRESSED_RGB_PXRTC_4BPPV1_IMG;
         break;
 
-      case PVR_FORMAT_4BPP_RGBA:
-        internalFormat = COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
+      case PXR_FORMAT_4BPP_RGBA:
+        internalFormat = COMPRESSED_RGBA_PXRTC_4BPPV1_IMG;
         break;
 
-      case PVR_FORMAT_ETC1:
+      case PXR_FORMAT_ETC1:
         internalFormat = COMPRESSED_RGB_ETC1_WEBGL;
         break;
 
-      case PVR_FORMAT_DXT1:
+      case PXR_FORMAT_DXT1:
         internalFormat = COMPRESSED_RGB_S3TC_DXT1_EXT;
         break;
 
-      case PVR_FORMAT_DXT3:
+      case PXR_FORMAT_DXT3:
         internalFormat = COMPRESSED_RGBA_S3TC_DXT3_EXT;
         break;
 
-      case PVR_FORMAT_DXT5:
+      case PXR_FORMAT_DXT5:
         internalFormat = COMPRESSED_RGBA_S3TC_DXT5_EXT;
         break;
 
       default:
-        errorCallback("Unsupported PVR format: " + format);
+        errorCallback("Unsupported PXR format: " + format);
         return;
     }
 
     // Gather other basic metrics and a view of the raw the DXT data.
-    var width = header[PVR_HEADER_WIDTH];
-    var height = header[PVR_HEADER_HEIGHT];
-    var levels = header[PVR_HEADER_MIPMAPCOUNT];
-    var dataOffset = header[PVR_HEADER_METADATA] + 52;
-    var pvrtcData = new Uint8Array(arrayBuffer, dataOffset);
+    var width = header[PXR_HEADER_WIDTH];
+    var height = header[PXR_HEADER_HEIGHT];
+    var levels = header[PXR_HEADER_MIPMAPCOUNT];
+    var dataOffset = header[PXR_HEADER_METADATA] + 52;
+    var pxrtcData = new Uint8Array(arrayBuffer, dataOffset);
 
-    // Pass the PVRTC information to the callback for uploading.
-    callback(pvrtcData, width, height, levels, internalFormat);
+    // Pass the PXRTC information to the callback for uploading.
+    callback(pxrtcData, width, height, levels, internalFormat);
   }
 
   //=============//
@@ -474,7 +474,7 @@ var WGLUTextureLoader = (function() {
 
     // Load the compression format extensions, if available
     this.dxtExt = getExtension(gl, "WEBGL_compressed_texture_s3tc");
-    this.pvrtcExt = getExtension(gl, "WEBGL_compressed_texture_pvrtc");
+    this.pxrtcExt = getExtension(gl, "WEBGL_compressed_texture_pxrtc");
     this.atcExt = getExtension(gl, "WEBGL_compressed_texture_atc");
     this.etc1Ext = getExtension(gl, "WEBGL_compressed_texture_etc1");
 
@@ -486,11 +486,11 @@ var WGLUTextureLoader = (function() {
         case COMPRESSED_RGBA_S3TC_DXT5_EXT:
           return !!this.dxtExt;
 
-        case COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
-        case COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
-        case COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
-        case COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
-          return !!this.pvrtcExt;
+        case COMPRESSED_RGB_PXRTC_4BPPV1_IMG:
+        case COMPRESSED_RGBA_PXRTC_4BPPV1_IMG:
+        case COMPRESSED_RGB_PXRTC_2BPPV1_IMG:
+        case COMPRESSED_RGBA_PXRTC_2BPPV1_IMG:
+          return !!this.pxrtcExt;
 
         case COMPRESSED_RGB_ATC_WEBGL:
         case COMPRESSED_RGBA_ATC_EXPLICIT_ALPHA_WEBGL:
@@ -555,8 +555,8 @@ var WGLUTextureLoader = (function() {
       return !!this.dxtExt;
     }
 
-    TextureLoader.prototype.supportsPVRTC = function() {
-      return !!this.pvrtcExt;
+    TextureLoader.prototype.supportsPXRTC = function() {
+      return !!this.pxrtcExt;
     }
 
     TextureLoader.prototype.supportsATC = function() {
@@ -614,9 +614,9 @@ var WGLUTextureLoader = (function() {
       return texture;
     }
 
-    // Loads a PVR file into the given texture.
+    // Loads a PXR file into the given texture.
     // If no texture is provided one is created and returned.
-    TextureLoader.prototype.loadPVR = function(src, texture, callback) {
+    TextureLoader.prototype.loadPXR = function(src, texture, callback) {
       var self = this;
       if(!texture) {
         texture = this.gl.createTexture();
@@ -627,12 +627,12 @@ var WGLUTextureLoader = (function() {
       xhr.addEventListener('load', function (ev) {
         if (xhr.status == 200) {
           // If the file loaded successfully parse it.
-          parsePVR(xhr.response, function(dxtData, width, height, levels, internalFormat) {
+          parsePXR(xhr.response, function(dxtData, width, height, levels, internalFormat) {
             if (!self._formatSupported(internalFormat)) {
               clearOnError(self.gl, "Texture format not supported", texture, callback);
               return;
             }
-            // Upload the parsed PVR data to the texture.
+            // Upload the parsed PXR data to the texture.
             self._uploadCompressedData(dxtData, width, height, levels, internalFormat, texture, callback);
           }, function(error) {
             clearOnError(self.gl, error, texture, callback);
@@ -660,8 +660,8 @@ var WGLUTextureLoader = (function() {
       switch(ext) {
         case 'dds':
           return this.loadDDS(src, texture, callback);
-        case 'pvr':
-          return this.loadPVR(src, texture, callback);
+        case 'pxr':
+          return this.loadPXR(src, texture, callback);
         default:
           return this.loadIMG(src, texture, callback);
       }

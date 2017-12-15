@@ -230,7 +230,7 @@ var WGLUDebugGeometry = (function() {
 
   DebugGeometry.prototype._bindUniformsRaw = function(model, color, light) {
     if (!color) { color = [1, 0, 0, 1]; }
-    if (!light) { light = [0.75, 0.5, 1.0]; }  // Should match vr-cube-sea.js
+    if (!light) { light = [0.75, 0.5, 1.0]; }  // Should match xr-cube-sea.js
     var lightVec = vec3.fromValues(light[0], light[1], light[2]);
     vec3.normalize(lightVec, lightVec);
 

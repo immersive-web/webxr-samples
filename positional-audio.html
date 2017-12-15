@@ -25,11 +25,11 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-gltf.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
-    <script src='js/webvr-splash.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-gltf.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-splash.js'></script>
   </head>
   <body>
     <header>
@@ -38,7 +38,7 @@ found in the LICENSE file.
         <p>
           This sample demonstrates playing audio that sounds as if it originates
           at a specific point in the space. Audio will begin playing when you
-          enter VR.
+          enter XR.
         </p>
       </details>
     </header>
@@ -49,14 +49,14 @@ found in the LICENSE file.
       const DEFAULT_HEIGHT = 1.5;
       const ANALYSER_FFT_SIZE = 1024;
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneGLTF('media/gltf/garage/garage.gltf');
+      let scene = new WebXRSceneGLTF('media/gltf/garage/garage.gltf');
       scene.standingStats(true);
       let translatedViewMat = mat4.create();
       let translatedPoseMat = mat4.create();
@@ -174,15 +174,15 @@ found in the LICENSE file.
         }
       }
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
             // Load multiple audio sources.
             Promise.all([
               createAudioSource({
@@ -202,16 +202,16 @@ found in the LICENSE file.
               }),
             ]).then((sources) => {
               audioSources = sources;
-              // Wait till the audio is loaded before enabling the VR button.
-              vrButton.setDevice(device);
+              // Wait till the audio is loaded before enabling the XR button.
+              xrButton.setDevice(device);
             });
-            vrButton.setTitle('Loading Audio');
+            xrButton.setTitle('Loading Audio');
 
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({ outputContext: ctx })
                 .then((session) => {
@@ -224,7 +224,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
 
@@ -237,23 +237,23 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('stage').then((frameOfRef) => {
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
           scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
-            session.requestFrame(onVRFrame);
+            session.requestFrame(onXRFrame);
           });
         });
       }
@@ -267,10 +267,10 @@ found in the LICENSE file.
         console.log('Session: ' + event.session);
         console.log('Exclusive: ' + event.session.exclusive);
         if (event.session.exclusive) {
-          console.log('vrButton.setSession(null)');
-          vrButton.setSession(null);
+          console.log('xrButton.setSession(null)');
+          xrButton.setSession(null);
 
-          // Stop the audio playback when we exit VR.
+          // Stop the audio playback when we exit XR.
           console.log('Stop Audio');
           for (let source of audioSources) {
             source.bufferSource.stop(0);
@@ -280,22 +280,22 @@ found in the LICENSE file.
         }
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         //if (session.exclusive) {
           updateDebugGeometry();
         //}
 
-        scene.drawVRFrame(frame, pose);
+        scene.drawXRFrame(frame, pose);
 
         if (pose) {
           songbird.setListenerFromMatrix({ elements: pose.poseModelMatrix });
@@ -304,8 +304,8 @@ found in the LICENSE file.
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

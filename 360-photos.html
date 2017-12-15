@@ -21,11 +21,11 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-panorama.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
-    <script src='js/webvr-splash.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-panorama.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
+    <script src='js/webxr-splash.js'></script>
   </head>
   <body>
     <header>
@@ -42,34 +42,34 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRScenePanorama({
+      let scene = new WebXRScenePanorama({
         url: 'media/textures/chess_pano_4k.jpg',
         topBottomStereo: true
       });
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
 
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({ outputContext: ctx })
                 .then((session) => {
@@ -82,7 +82,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
@@ -91,14 +91,14 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         // When rendering 360 photos/videos you want to ensure that the user's
         // head is always at the center of the rendered media. Otherwise users
@@ -110,12 +110,12 @@ found in the LICENSE file.
         // be more power efficent on some hardware!)
         session.requestFrameOfReference('headModel').then((frameOfRef) => {
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
           scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
-            session.requestFrame(onVRFrame);
+            session.requestFrame(onXRFrame);
           });
         });
       }
@@ -126,19 +126,19 @@ found in the LICENSE file.
 
       function onSessionEnded(event) {
         if (event.session.exclusive)
-          vrButton.setSession(null);
+          xrButton.setSession(null);
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -146,7 +146,7 @@ found in the LICENSE file.
         if (pose) {
           let views = [];
           for (let view of frame.views) {
-            let render_view = new WebVRView();
+            let render_view = new WebXRView();
             render_view.projection_mat = view.projectionMatrix;
             render_view.view_mat = pose.getViewMatrix(view);
             render_view.viewport = view.getViewport(session.baseLayer);
@@ -164,8 +164,8 @@ found in the LICENSE file.
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

@@ -11,7 +11,7 @@ found in the LICENSE file.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>VR Presentation</title>
+    <title>XR Presentation</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
@@ -21,56 +21,56 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <details open>
-        <summary>VR Presentation</summary>
+        <summary>XR Presentation</summary>
         <p>
           This sample demonstrates how to present a simple WebGL scene to a
-          VRDevice. The scene is not rendered to the page prior to VR
+          XRDevice. The scene is not rendered to the page prior to XR
           presentation, nor is it mirrored during presentation.
         </p>
       </details>
     </header>
     <main style='text-align: center;'>
-      <p>Click 'Enter VR' to see content</p> 
+      <p>Click 'Enter XR' to see content</p> 
     </main>
     <script>
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebXRSceneCubeSea();
 
-      // Checks to see if WebVR is available and, if so, queries a list of
-      // VRDevices that are connected to the system.
-      function initVR() {
-        // Adds a helper button to the page that indicates if any VRDevices are
+      // Checks to see if WebXR is available and, if so, queries a list of
+      // XRDevices that are connected to the system.
+      function initXR() {
+        // Adds a helper button to the page that indicates if any XRDevices are
         // available and let's the user pick between them if there's multiple.
-        vrButton = new VRDeviceButton({
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        // Is WebVR available on this UA?
-        if (navigator.vr) {
-          // Request a list of all the VR Devices connected to the system.
-          navigator.vr.requestDevice().then((device) => {
+        // Is WebXR available on this UA?
+        if (navigator.xr) {
+          // Request a list of all the XR Devices connected to the system.
+          navigator.xr.requestDevice().then((device) => {
             // If the device allows creation of exclusive sessions set it as the
-            // target of the 'Enter VR' button.
+            // target of the 'Enter XR' button.
             device.supportsSession({exclusive: true}).then(() => {
-              vrButton.setDevice(device);
+              xrButton.setDevice(device);
             });
           });
         }
@@ -82,43 +82,43 @@ found in the LICENSE file.
         device.requestSession({exclusive: true}).then(onSessionStarted);
       }
 
-      // Called when we've successfully acquired a VRSession. In response we
+      // Called when we've successfully acquired a XRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
-        // This informs the 'Enter VR' button that the session has started and
-        // that it should display 'Exit VR' instead.
-        vrButton.setSession(session);
+        // This informs the 'Enter XR' button that the session has started and
+        // that it should display 'Exit XR' instead.
+        xrButton.setSession(session);
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
         session.addEventListener('end', onSessionEnded);
 
         // Create a WebGL context to render with, initialized to be compatible
-        // with the VRDisplay we're presenting to.
-        gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: session.device
+        // with the XRDisplay we're presenting to.
+        gl = XRSamplesUtil.initWebGLContext({
+          compatibleXrDevice: session.device
         });
 
         // Initialize the scene's WebGL content
         scene.setWebGLContext(gl);
 
-        // Use the new WebGL context to create a VRWebGLLayer and set it as the
+        // Use the new WebGL context to create a XRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
-        // be displayed on the VRDevice.
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        // be displayed on the XRDevice.
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         // Get a frame of reference, which is required for querying poses. In
         // this case an 'eyeLevel' frame of reference means that all poses will
-        // be relative to the location where the VRDevice was first detected.
+        // be relative to the location where the XRDevice was first detected.
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
-          vrFrameOfRef = frameOfRef;
+          xrFrameOfRef = frameOfRef;
 
           // Inform the session that we're ready to begin drawing.
-          session.requestFrame(onVRFrame);
+          session.requestFrame(onXRFrame);
         });
       }
 
-      // Called when the user clicks the 'Exit VR' button. In response we end
+      // Called when the user clicks the 'Exit XR' button. In response we end
       // the session.
       function onEndSession(session) {
         session.end();
@@ -129,33 +129,33 @@ found in the LICENSE file.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
-        vrButton.setSession(null);
+        xrButton.setSession(null);
 
         // In this simple case discard the WebGL context too, since we're not
         // rendering anything else to the screen with it.
         gl = null;
       }
 
-      // Called every time the VRSession requests that a new frame be drawn.
-      function onVRFrame(frame) {
+      // Called every time the XRSession requests that a new frame be drawn.
+      function onXRFrame(frame) {
         let session = frame.session;
 
-        // Per-frame scene setup. Nothing WebVR specific here.
+        // Per-frame scene setup. Nothing WebXR specific here.
         scene.startFrame();
 
         // Inform the session that we're ready for the next frame.
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         // Bind the WebGL layer's framebuffer, which is where any content to be
-        // displayed on the VRDevice must be rendered.
+        // displayed on the XRDevice must be rendered.
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
 
         // Clear the framebuffer
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // Get the VRDevice pose relative to the Frame of Reference we created
+        // Get the XRDevice pose relative to the Frame of Reference we created
         // earlier.
-        let pose = frame.getDevicePose(vrFrameOfRef);
+        let pose = frame.getDevicePose(xrFrameOfRef);
 
         // Getting the pose may fail if, for example, tracking is lost. So we
         // have to check to make sure that we got a valid pose before attempting
@@ -172,7 +172,7 @@ found in the LICENSE file.
 
             // Draw this view of the scene. What happens in this function really
             // isn't all that important. What is important is that it renders
-            // into the VRWebGLLayer's framebuffer, using the viewport into that
+            // into the XRWebGLLayer's framebuffer, using the viewport into that
             // framebuffer reported by the current view, and using the
             // projection and view matricies from the current view and pose.
             // We bound the framebuffer and viewport up above, and are passing
@@ -181,12 +181,12 @@ found in the LICENSE file.
           }
         }
 
-        // Per-frame scene teardown. Nothing WebVR specific here.
+        // Per-frame scene teardown. Nothing WebXR specific here.
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>
