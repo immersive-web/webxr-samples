@@ -165,7 +165,7 @@ void main() {
   float a = roughness * roughness;
 
 #ifdef FULLY_ROUGH
-  vec3 specular = F0 * 0.45;;
+  vec3 specular = F0 * 0.45;
 #else
   vec3 F = specF(vDotH, F0);
   float D = specD(a, nDotH);

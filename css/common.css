@@ -19,6 +19,11 @@ header {
 }
 
 details summary {
+  font-size: 1.0em;
+  font-weight: bold;
+}
+
+details[open] summary {
   font-size: 1.4em;
   font-weight: bold;
 }
