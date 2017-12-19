@@ -70,12 +70,12 @@ var WGLUTextureLoader = (function() {
       case COMPRESSED_RGBA_ATC_INTERPOLATED_ALPHA_WEBGL:
         return ((width + 3) >> 2) * ((height + 3) >> 2) * 16;
 
-      case COMPRESSED_RGB_PXRTC_4BPPV1_IMG:
-      case COMPRESSED_RGBA_PXRTC_4BPPV1_IMG:
+      case COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
+      case COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
         return Math.floor((Math.max(width, 8) * Math.max(height, 8) * 4 + 7) / 8);
 
-      case COMPRESSED_RGB_PXRTC_2BPPV1_IMG:
-      case COMPRESSED_RGBA_PXRTC_2BPPV1_IMG:
+      case COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
+      case COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
         return Math.floor((Math.max(width, 16) * Math.max(height, 8) * 2 + 7) / 8);
 
       default:
@@ -153,11 +153,11 @@ var WGLUTextureLoader = (function() {
   //===============//
 
   // PXR formats, from:
-  // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_pxrtc/
-  var COMPRESSED_RGB_PXRTC_4BPPV1_IMG  = 0x8C00;
-  var COMPRESSED_RGB_PXRTC_2BPPV1_IMG  = 0x8C01;
-  var COMPRESSED_RGBA_PXRTC_4BPPV1_IMG = 0x8C02;
-  var COMPRESSED_RGBA_PXRTC_2BPPV1_IMG = 0x8C03;
+  // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_PVRTC/
+  var COMPRESSED_RGB_PVRTC_4BPPV1_IMG  = 0x8C00;
+  var COMPRESSED_RGB_PVRTC_2BPPV1_IMG  = 0x8C01;
+  var COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02;
+  var COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03;
 
   // ETC1 format, from:
   // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_etc1/
@@ -313,19 +313,19 @@ var WGLUTextureLoader = (function() {
     var internalFormat;
     switch(format) {
       case PXR_FORMAT_2BPP_RGB:
-        internalFormat = COMPRESSED_RGB_PXRTC_2BPPV1_IMG;
+        internalFormat = COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
         break;
 
       case PXR_FORMAT_2BPP_RGBA:
-        internalFormat = COMPRESSED_RGBA_PXRTC_2BPPV1_IMG;
+        internalFormat = COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
         break;
 
       case PXR_FORMAT_4BPP_RGB:
-        internalFormat = COMPRESSED_RGB_PXRTC_4BPPV1_IMG;
+        internalFormat = COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
         break;
 
       case PXR_FORMAT_4BPP_RGBA:
-        internalFormat = COMPRESSED_RGBA_PXRTC_4BPPV1_IMG;
+        internalFormat = COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
         break;
 
       case PXR_FORMAT_ETC1:
@@ -354,10 +354,10 @@ var WGLUTextureLoader = (function() {
     var height = header[PXR_HEADER_HEIGHT];
     var levels = header[PXR_HEADER_MIPMAPCOUNT];
     var dataOffset = header[PXR_HEADER_METADATA] + 52;
-    var pxrtcData = new Uint8Array(arrayBuffer, dataOffset);
+    var PVRTCData = new Uint8Array(arrayBuffer, dataOffset);
 
-    // Pass the PXRTC information to the callback for uploading.
-    callback(pxrtcData, width, height, levels, internalFormat);
+    // Pass the PVRTC information to the callback for uploading.
+    callback(PVRTCData, width, height, levels, internalFormat);
   }
 
   //=============//
@@ -474,7 +474,7 @@ var WGLUTextureLoader = (function() {
 
     // Load the compression format extensions, if available
     this.dxtExt = getExtension(gl, "WEBGL_compressed_texture_s3tc");
-    this.pxrtcExt = getExtension(gl, "WEBGL_compressed_texture_pxrtc");
+    this.PVRTCExt = getExtension(gl, "WEBGL_compressed_texture_PVRTC");
     this.atcExt = getExtension(gl, "WEBGL_compressed_texture_atc");
     this.etc1Ext = getExtension(gl, "WEBGL_compressed_texture_etc1");
 
@@ -486,11 +486,11 @@ var WGLUTextureLoader = (function() {
         case COMPRESSED_RGBA_S3TC_DXT5_EXT:
           return !!this.dxtExt;
 
-        case COMPRESSED_RGB_PXRTC_4BPPV1_IMG:
-        case COMPRESSED_RGBA_PXRTC_4BPPV1_IMG:
-        case COMPRESSED_RGB_PXRTC_2BPPV1_IMG:
-        case COMPRESSED_RGBA_PXRTC_2BPPV1_IMG:
-          return !!this.pxrtcExt;
+        case COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
+        case COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+        case COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
+        case COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
+          return !!this.PVRTCExt;
 
         case COMPRESSED_RGB_ATC_WEBGL:
         case COMPRESSED_RGBA_ATC_EXPLICIT_ALPHA_WEBGL:
@@ -555,8 +555,8 @@ var WGLUTextureLoader = (function() {
       return !!this.dxtExt;
     }
 
-    TextureLoader.prototype.supportsPXRTC = function() {
-      return !!this.pxrtcExt;
+    TextureLoader.prototype.supportsPVRTC = function() {
+      return !!this.PVRTCExt;
     }
 
     TextureLoader.prototype.supportsATC = function() {

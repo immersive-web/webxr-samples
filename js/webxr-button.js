@@ -12,10 +12,10 @@
 //     See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a stripped down and specialized version of WebXR-UI
-// (https://github.com/googlexr/webxr-ui) that takes out most of the XR state
-// management in favor of providing a simple way of listing available XRDevices
-// for the needs of the sample pages. Functionality like beginning XR sessions
+// This is a stripped down and specialized version of WebVR-UI
+// (https://github.com/googlevr/webvr-ui) that takes out most of the state
+// management in favor of providing a simple way of listing available devices
+// for the needs of the sample pages. Functionality like beginning sessions
 // is intentionally left out so that the sample pages can demonstrate them more
 // clearly.
 
@@ -271,7 +271,7 @@ class EnterXRButton {
   /**
    * Construct a new Enter XR Button
    * @constructor
-   * @param {HTMLCanvasElement} sourceCanvas the canvas that you want to present in WebXR
+   * @param {HTMLCanvasElement} sourceCanvas the canvas that you want to present with WebXR
    * @param {Object} [options] optional parameters
    * @param {HTMLElement} [options.domElement] provide your own domElement to bind to
    * @param {Boolean} [options.injectCSS=true] set to false if you want to write your own styles
@@ -285,7 +285,7 @@ class EnterXRButton {
    * @param {string} [options.background] set to false for no brackground or a color
    * @param {string} [options.corners] set to 'round', 'square' or pixel value representing the corner radius
    * @param {string} [options.disabledOpacity] set opacity of button dom when disabled
-   * @param {string} [options.cssprefix] set to change the css prefix from default 'webxr-ui'
+   * @param {string} [options.cssprefix] set to change the css prefix from default 'webvr-ui'
    */
   constructor(options) {
     options = options || {};
@@ -295,11 +295,12 @@ class EnterXRButton {
     options.disabledOpacity = options.disabledOpacity || 0.5;
     options.height = options.height || 55;
     options.corners = options.corners || 'square';
-    options.cssprefix = options.cssprefix || 'webxr-ui';
+    options.cssprefix = options.cssprefix || 'webvr-ui';
 
-    options.textEnterXRTitle = options.textEnterXRTitle || 'ENTER XR';
-    options.textXRNotFoundTitle = options.textXRNotFoundTitle || 'XR NOT FOUND';
-    options.textExitXRTitle = options.textExitXRTitle || 'EXIT XR';
+    // This reads VR as none of the samples are designed for other formats as of yet.
+    options.textEnterXRTitle = options.textEnterXRTitle || 'ENTER VR';
+    options.textXRNotFoundTitle = options.textXRNotFoundTitle || 'VR NOT FOUND';
+    options.textExitXRTitle = options.textExitXRTitle || 'EXIT VR';
 
     options.onRequestSession = options.onRequestSession || (function() {});
     options.onEndSession = options.onEndSession || (function() {});
