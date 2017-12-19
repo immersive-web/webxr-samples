@@ -21,17 +21,17 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <details open>
         <summary>Framebuffer Scaling</summary>
         <p>
-          This sample demonstrates scaling the framebuffer used for a WebVR layer
+          This sample demonstrates scaling the framebuffer used for a WebXR layer
           at creation time to control the memory and fillrate required and improve
           performance or quality as needed.
 
@@ -48,7 +48,7 @@ found in the LICENSE file.
       </details>
     </header>
     <main style='text-align: center;'>
-      <p>Click 'Enter VR' to see content</p> 
+      <p>Click 'Enter XR' to see content</p> 
     </main>
     <script>
       (function () {
@@ -56,24 +56,24 @@ found in the LICENSE file.
 
       let scaleSelect = document.getElementById('framebufferScaleSelect');
 
-      // VR globals.
-      let vrButton = null;
-      let vrFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebXRSceneCubeSea();
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
           });
         }
       }
@@ -83,31 +83,31 @@ found in the LICENSE file.
       }
 
       function onSessionStarted(session) {
-        vrButton.setSession(session);
+        xrButton.setSession(session);
 
         session.addEventListener('end', onSessionEnded);
 
-        gl = VRSamplesUtil.initWebGLContext({
-          compatibleVrDevice: session.device
+        gl = XRSamplesUtil.initWebGLContext({
+          compatibleXrDevice: session.device
         });
 
         scene.setWebGLContext(gl);
 
-        // This is the only meaningful change in this sample from vr-presentation.js.
+        // This is the only meaningful change in this sample from xr-presentation.js.
         // It sets a requested scale to be applied to the framebuffer created
         // for the layer. The UA is allowed to ignore the request or adjust it
         // as needed. The scale of the framebuffer cannot be changed after the
         // layer is created, though the UA is allowed to resize the framebuffer
         // at any time.
         let scale = parseFloat(scaleSelect.value);
-        session.baseLayer = new VRWebGLLayer(session, gl, {
+        session.baseLayer = new XRWebGLLayer(session, gl, {
           framebufferScaleFactor: scale
         });
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
-          vrFrameOfRef = frameOfRef;
+          xrFrameOfRef = frameOfRef;
 
-          session.requestFrame(onVRFrame);
+          session.requestFrame(onXRFrame);
         });
       }
 
@@ -116,26 +116,26 @@ found in the LICENSE file.
       }
 
       function onSessionEnded(event) {
-        vrButton.setSession(null);
+        xrButton.setSession(null);
 
         gl = null;
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
-        let pose = frame.getDevicePose(vrFrameOfRef);
+        let pose = frame.getDevicePose(xrFrameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
-        scene.drawVRFrame(frame, pose);
+        scene.drawXRFrame(frame, pose);
 
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

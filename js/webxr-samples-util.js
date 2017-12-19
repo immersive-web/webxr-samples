@@ -2,21 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-window.VRSamplesUtil = (function () {
+window.XRSamplesUtil = (function () {
 
   "use strict";
 
-  // Lifted from the WebVR Polyfill
+  // Lifted from the WebXR Polyfill
   function isMobile () {
     return /Android/i.test(navigator.userAgent) ||
       /iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
 
   function getMessageContainer () {
-    let messageContainer = document.getElementById("vr-sample-message-container");
+    let messageContainer = document.getElementById("xr-sample-message-container");
     if (!messageContainer) {
       messageContainer = document.createElement("div");
-      messageContainer.id = "vr-sample-message-container";
+      messageContainer.id = "xr-sample-message-container";
       messageContainer.style.fontFamily = "sans-serif";
       messageContainer.style.position = "absolute";
       messageContainer.style.zIndex = "999";
@@ -33,7 +33,7 @@ window.VRSamplesUtil = (function () {
 
   function addMessageElement (message, backgroundColor) {
     let messageElement = document.createElement("div");
-    messageElement.classList.add = "vr-sample-message";
+    messageElement.classList.add = "xr-sample-message";
     messageElement.style.color = "#FFF";
     messageElement.style.backgroundColor = backgroundColor;
     messageElement.style.borderRadius = "3px";
@@ -84,10 +84,10 @@ window.VRSamplesUtil = (function () {
   }
 
   function getButtonContainer () {
-    let buttonContainer = document.getElementById("vr-sample-button-container");
+    let buttonContainer = document.getElementById("xr-sample-button-container");
     if (!buttonContainer) {
       buttonContainer = document.createElement("div");
-      buttonContainer.id = "vr-sample-button-container";
+      buttonContainer.id = "xr-sample-button-container";
       buttonContainer.style.fontFamily = "sans-serif";
       buttonContainer.style.position = "absolute";
       buttonContainer.style.zIndex = "999";

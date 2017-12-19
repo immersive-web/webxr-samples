@@ -13,13 +13,13 @@
 // limitations under the License.
 
 // This is a stripped down and specialized version of WebVR-UI
-// (https://github.com/googlevr/webvr-ui) that takes out most of the VR state
-// management in favor of providing a simple way of listing available VRDevices
-// for the needs of the sample pages. Functionality like beginning VR sessions
+// (https://github.com/googlevr/webvr-ui) that takes out most of the state
+// management in favor of providing a simple way of listing available devices
+// for the needs of the sample pages. Functionality like beginning sessions
 // is intentionally left out so that the sample pages can demonstrate them more
 // clearly.
 
-window.VRDeviceButton = (function () {
+window.XRDeviceButton = (function () {
 
 //
 // State consts
@@ -48,7 +48,7 @@ const ERROR_UNKOWN = 'error-unkown';
 //
 
 const _LOGO_SCALE = 0.8;
-let _WEBVR_UI_CSS_INJECTED = {};
+let _WEBXR_UI_CSS_INJECTED = {};
 
 /**
  * Generate the innerHTML for the button
@@ -60,7 +60,7 @@ let _WEBVR_UI_CSS_INJECTED = {};
  */
 const generateInnerHTML = (cssPrefix, height)=> {
   const logoHeight = height*_LOGO_SCALE;
-  const svgString = generateVRIconString(cssPrefix, logoHeight) + generateNoVRIconString(cssPrefix, logoHeight);
+  const svgString = generateXRIconString(cssPrefix, logoHeight) + generateNoXRIconString(cssPrefix, logoHeight);
 
   return `<button class="${cssPrefix}-button">
           <div class="${cssPrefix}-title"></div>
@@ -92,9 +92,9 @@ const createDefaultView = (options)=> {
   const fontSize = options.height / 3;
   if (options.injectCSS) {
     // Check that css isnt already injected
-    if (!_WEBVR_UI_CSS_INJECTED[options.cssprefix]) {
+    if (!_WEBXR_UI_CSS_INJECTED[options.cssprefix]) {
       injectCSS(generateCSS(options, fontSize));
-      _WEBVR_UI_CSS_INJECTED[options.cssprefix] = true;
+      _WEBXR_UI_CSS_INJECTED[options.cssprefix] = true;
     }
   }
 
@@ -104,19 +104,19 @@ const createDefaultView = (options)=> {
 };
 
 
-const createVRIcon = (cssPrefix, height)=>{
+const createXRIcon = (cssPrefix, height)=>{
   const el = document.createElement('div');
-  el.innerHTML = generateVRIconString(cssPrefix, height);
+  el.innerHTML = generateXRIconString(cssPrefix, height);
   return el.firstChild;
 };
 
-const createNoVRIcon = (cssPrefix, height)=>{
+const createNoXRIcon = (cssPrefix, height)=>{
   const el = document.createElement('div');
-  el.innerHTML = generateNoVRIconString(cssPrefix, height);
+  el.innerHTML = generateNoXRIconString(cssPrefix, height);
   return el.firstChild;
 };
 
-const generateVRIconString = (cssPrefix, height)=> {
+const generateXRIconString = (cssPrefix, height)=> {
     let aspect = 28 / 18;
     return `<svg class="${cssPrefix}-svg" version="1.1" x="0px" y="0px"
         width="${aspect * height}px" height="${height}px" viewBox="0 0 28 18" xml:space="preserve">
@@ -130,7 +130,7 @@ const generateVRIconString = (cssPrefix, height)=> {
     </svg>`;
 };
 
-const generateNoVRIconString = (cssPrefix, height)=>{
+const generateNoXRIconString = (cssPrefix, height)=>{
     let aspect = 28 / 18;
     return `<svg class="${cssPrefix}-svg-error" x="0px" y="0px"
         width="${aspect * height}px" height="${aspect * height}px" viewBox="0 0 28 28" xml:space="preserve">
@@ -267,20 +267,20 @@ const generateCSS = (options, fontSize=18)=> {
 // Button class
 //
 
-class EnterVRButton {
+class EnterXRButton {
   /**
-   * Construct a new Enter VR Button
+   * Construct a new Enter XR Button
    * @constructor
-   * @param {HTMLCanvasElement} sourceCanvas the canvas that you want to present in WebVR
+   * @param {HTMLCanvasElement} sourceCanvas the canvas that you want to present with WebXR
    * @param {Object} [options] optional parameters
    * @param {HTMLElement} [options.domElement] provide your own domElement to bind to
    * @param {Boolean} [options.injectCSS=true] set to false if you want to write your own styles
    * @param {Function} [options.beforeEnter] should return a promise, opportunity to intercept request to enter
    * @param {Function} [options.beforeExit] should return a promise, opportunity to intercept request to exit
    * @param {Function} [options.onRequestStateChange] set to a function returning false to prevent default state changes
-   * @param {string} [options.textEnterVRTitle] set the text for Enter VR
-   * @param {string} [options.textVRNotFoundTitle] set the text for when a VR display is not found
-   * @param {string} [options.textExitVRTitle] set the text for exiting VR
+   * @param {string} [options.textEnterXRTitle] set the text for Enter XR
+   * @param {string} [options.textXRNotFoundTitle] set the text for when a XR display is not found
+   * @param {string} [options.textExitXRTitle] set the text for exiting XR
    * @param {string} [options.color] text and icon color
    * @param {string} [options.background] set to false for no brackground or a color
    * @param {string} [options.corners] set to 'round', 'square' or pixel value representing the corner radius
@@ -297,9 +297,10 @@ class EnterVRButton {
     options.corners = options.corners || 'square';
     options.cssprefix = options.cssprefix || 'webvr-ui';
 
-    options.textEnterVRTitle = options.textEnterVRTitle || 'ENTER VR';
-    options.textVRNotFoundTitle = options.textVRNotFoundTitle || 'VR NOT FOUND';
-    options.textExitVRTitle = options.textExitVRTitle || 'EXIT VR';
+    // This reads VR as none of the samples are designed for other formats as of yet.
+    options.textEnterXRTitle = options.textEnterXRTitle || 'ENTER VR';
+    options.textXRNotFoundTitle = options.textXRNotFoundTitle || 'VR NOT FOUND';
+    options.textExitXRTitle = options.textExitXRTitle || 'EXIT VR';
 
     options.onRequestSession = options.onRequestSession || (function() {});
     options.onEndSession = options.onEndSession || (function() {});
@@ -316,17 +317,17 @@ class EnterVRButton {
     this.__defaultDisplayStyle = this.domElement.style.display || 'initial';
 
     // Bind button click events to __onClick
-    this.domElement.addEventListener('click', ()=> this.__onVRButtonClick());
+    this.domElement.addEventListener('click', ()=> this.__onXRButtonClick());
 
     this.__forceDisabled = false;
     this.__setDisabledAttribute(true);
-    this.setTitle(this.options.textVRNotFoundTitle);
+    this.setTitle(this.options.textXRNotFoundTitle);
   }
 
   /**
-   * Sets the VRDevice this button is associated with.
-   * @param {VRDevice} device
-   * @return {EnterVRButton}
+   * Sets the XRDevice this button is associated with.
+   * @param {XRDevice} device
+   * @return {EnterXRButton}
    */
   setDevice(device) {
     this.device = device;
@@ -335,10 +336,10 @@ class EnterVRButton {
   }
 
   /**
-   * Indicate that there's an active VRSession. Switches the button to "Exit VR"
-   * state if not null, or "Enter VR" state if null.
-   * @param {VRSession} session
-   * @return {EnterVRButton}
+   * Indicate that there's an active XRSession. Switches the button to "Exit XR"
+   * state if not null, or "Enter XR" state if null.
+   * @param {XRSession} session
+   * @return {EnterXRButton}
    */
   setSession(session) {
     this.session = session;
@@ -349,7 +350,7 @@ class EnterVRButton {
   /**
    * Set the title of the button
    * @param {string} text
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   setTitle(text) {
     this.domElement.title = text;
@@ -368,7 +369,7 @@ class EnterVRButton {
   /**
    * Set the tooltip of the button
    * @param {string} tooltip
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   setTooltip(tooltip) {
     this.domElement.title = tooltip;
@@ -377,7 +378,7 @@ class EnterVRButton {
 
   /**
    * Show the button
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   show() {
     this.domElement.style.display = this.__defaultDisplayStyle;
@@ -386,7 +387,7 @@ class EnterVRButton {
 
   /**
    * Hide the button
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   hide() {
     this.domElement.style.display = 'none';
@@ -395,7 +396,7 @@ class EnterVRButton {
 
   /**
    * Enable the button
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   enable() {
     this.__setDisabledAttribute(false);
@@ -405,7 +406,7 @@ class EnterVRButton {
 
   /**
    * Disable the button from being clicked
-   * @return {EnterVRButton}
+   * @return {EnterXRButton}
    */
   disable() {
     this.__setDisabledAttribute(true);
@@ -439,7 +440,7 @@ class EnterVRButton {
    * Handling click event from button
    * @private
    */
-  __onVRButtonClick() {
+  __onXRButtonClick() {
     if (this.session) {
       this.options.onEndSession(this.session);
     } else if (this.device) {
@@ -453,16 +454,16 @@ class EnterVRButton {
    */
   __updateButtonState() {
     if (this.session) {
-      this.setTitle(this.options.textExitVRTitle);
-      this.setTooltip('Exit VR presentation');
+      this.setTitle(this.options.textExitXRTitle);
+      this.setTooltip('Exit XR presentation');
       this.__setDisabledAttribute(false);
     } else if (this.device) {
-      this.setTitle(this.options.textEnterVRTitle);
-      this.setTooltip('Enter VR');
+      this.setTitle(this.options.textEnterXRTitle);
+      this.setTooltip('Enter XR');
       this.__setDisabledAttribute(false);
     } else {
-      this.setTitle(this.options.textVRNotFoundTitle);
-      this.setTooltip('No VR headset found.');
+      this.setTitle(this.options.textXRNotFoundTitle);
+      this.setTooltip('No XR headset found.');
       this.__setDisabledAttribute(true);
     }
   }
@@ -482,6 +483,6 @@ const ifChild = (el, cssPrefix, suffix, fn)=> {
   c && fn(c);
 };
 
-return EnterVRButton;
+return EnterXRButton;
 
 })();

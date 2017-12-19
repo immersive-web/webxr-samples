@@ -146,15 +146,15 @@ export class Scene extends Node {
     this.drawViewArray([view]);
   }
 
-  /** Draws the scene into the base layer of the VRFrame's session */
-  drawVRFrame(vr_frame, pose) {
+  /** Draws the scene into the base layer of the XRFrame's session */
+  drawXRFrame(xr_frame, pose) {
     if (!this._renderer) {
       return;
     }
 
     let gl = this._renderer._gl;
-    let session = vr_frame.session;
-    // Assumed to be a VRWebGLLayer for now.
+    let session = xr_frame.session;
+    // Assumed to be a XRWebGLLayer for now.
     let layer = session.baseLayer;
 
     if(!gl) {
@@ -169,7 +169,7 @@ export class Scene extends Node {
     }
 
     let views = [];
-    for (let view of vr_frame.views) {
+    for (let view of xr_frame.views) {
       views.push(new View(view, pose, layer));
     }
 
@@ -242,7 +242,7 @@ export class Scene extends Node {
         gl.viewport(vp.x, vp.y, vp.width, vp.height);
       }
 
-      // To ensure that the FPS counter is visible in VR mode we have to
+      // To ensure that the FPS counter is visible in XR mode we have to
       // render it as part of the scene.
       if (this._stats_standing) {
         mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);

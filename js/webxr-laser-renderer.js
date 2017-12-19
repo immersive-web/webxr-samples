@@ -104,7 +104,7 @@ const CURSOR_SHADER_FRAGMENT = `
   }
 `;
 
-class WebVRLaserRenderer {
+class WebXRLaserRenderer {
   constructor(gl) {
     this._gl = gl;
 

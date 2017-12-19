@@ -21,18 +21,18 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
   </head>
   <body>
     <header>
       <details open>
         <summary>Magic Window</summary>
         <p>
-          This sample demonstrates use of a non-exclusive VRSession to present
-          'Magic Window' content prior to entering VR presentation with an
+          This sample demonstrates use of a non-exclusive XRSession to present
+          'Magic Window' content prior to entering XR presentation with an
           exclusive.
         </p>
       </details>
@@ -41,25 +41,25 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebXRSceneCubeSea();
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
 
             if (!device)
               return;
@@ -68,7 +68,7 @@ found in the LICENSE file.
             // an outputContext, which indicates the canvas that will contain
             // results of the session's rendering.
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             // Pick an arbitrary device for the magic window content and start
             // up a non-exclusive session if possible.
@@ -85,7 +85,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
@@ -94,24 +94,24 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           // Since we're dealing with multple sessions now we need to track
-          // which VRFrameOfReference is associated with which VRSession.
+          // which XRFrameOfReference is associated with which XRSession.
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onVRFrame);
+          session.requestFrame(onXRFrame);
         });
       }
 
@@ -122,21 +122,21 @@ found in the LICENSE file.
       function onSessionEnded(event) {
         // Only reset the button when the exclusive session ends.
         if (event.session.exclusive)
-          vrButton.setSession(null);
+          xrButton.setSession(null);
       }
 
-      // Called every time a VRSession requests that a new frame be drawn.
-      function onVRFrame(frame) {
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -154,8 +154,8 @@ found in the LICENSE file.
         scene.endFrame();
       }
 
-      // Start the VR application.
-      initVR();
+      // Start the XR application.
+      initXR();
       })();
     </script>
   </body>

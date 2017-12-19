@@ -21,10 +21,10 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
-    <script src='js/webvr-button.js'></script>
-    <script src='js/webvr-scene.js'></script>
-    <script src='js/webvr-scene-cube-sea.js'></script>
-    <script src='js/webvr-samples-util.js'></script>
+    <script src='js/webxr-button.js'></script>
+    <script src='js/webxr-scene.js'></script>
+    <script src='js/webxr-scene-cube-sea.js'></script>
+    <script src='js/webxr-samples-util.js'></script>
   </head>
   <body>
     <header>
@@ -41,31 +41,31 @@ found in the LICENSE file.
       (function () {
       'use strict';
 
-      // VR globals.
-      let vrButton = null;
-      let vrExclusiveFrameOfRef = null;
-      let vrNonExclusiveFrameOfRef = null;
+      // XR globals.
+      let xrButton = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
-      let scene = new WebVRSceneCubeSea();
+      let scene = new WebXRSceneCubeSea();
 
-      function initVR() {
-        vrButton = new VRDeviceButton({
+      function initXR() {
+        xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
-        document.querySelector('header').appendChild(vrButton.domElement);
+        document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.vr) {
-          navigator.vr.requestDevice().then((device) => {
-            vrButton.setDevice(device);
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrButton.setDevice(device);
 
             if (!device)
               return;
 
             let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('vrpresent');
+            let ctx = outputCanvas.getContext('xrpresent');
 
             device.requestSession({ outputContext: ctx })
                 .then((session) => {
@@ -78,7 +78,7 @@ found in the LICENSE file.
 
       function onRequestSession(device) {
         device.requestSession({ exclusive: true }).then((session) => {
-          vrButton.setSession(session);
+          xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
@@ -87,22 +87,22 @@ found in the LICENSE file.
         session.addEventListener('end', onSessionEnded);
 
         if (!gl) {
-          gl = VRSamplesUtil.initWebGLContext({
-            compatibleVrDevice: session.device
+          gl = XRSamplesUtil.initWebGLContext({
+            compatibleXrDevice: session.device
           });
 
           scene.setWebGLContext(gl);
         }
 
-        session.baseLayer = new VRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           if (session.exclusive) {
-            vrExclusiveFrameOfRef = frameOfRef;
+            xrExclusiveFrameOfRef = frameOfRef;
           } else {
-            vrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onVRFrame);
+          session.requestFrame(onXRFrame);
         });
       }
 
@@ -112,19 +112,19 @@ found in the LICENSE file.
 
       function onSessionEnded(event) {
         if (event.session.exclusive)
-          vrButton.setSession(null);
+          xrButton.setSession(null);
       }
 
-      function onVRFrame(frame) {
+      function onXRFrame(frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
-                         vrExclusiveFrameOfRef :
-                         vrNonExclusiveFrameOfRef;
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onVRFrame);
+        session.requestFrame(onXRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -132,8 +132,8 @@ found in the LICENSE file.
         if (pose) {
           // This is a different rendering pattern than the previous samples
           // used, but it should be more efficent. It's very common for apps
-          // being ported to VR to take existing 2D rendering code and call the
-          // top-level "drawScene" function once per VR view, effectively
+          // being ported to XR to take existing 2D rendering code and call the
+          // top-level "drawScene" function once per XR view, effectively
           // drawing a single eye at a time. However, this causes many state
           // changes to be duplicated, which adds to the render loop's overhead.
           // By providing the matrices and viewports as an array to the drawing
@@ -178,13 +178,13 @@ found in the LICENSE file.
           let views = [];
           for (let view of frame.views) {
             // Gather all the values needed for one view and push it into the
-            // array of views to be drawn. WebVRView is a utility class defined
-            // by webvr-scene.js that holds all the necessary values for drawing
+            // array of views to be drawn. WebXRView is a utility class defined
+            // by webxr-scene.js that holds all the necessary values for drawing
             // a single view.
-            let render_view = new WebVRView();
+            let render_view = new WebXRView();
 
             // In future samples we'll hide this part away as well by using the
-            // scene.drawVRViews() function, which handles gathering these
+            // scene.drawXRViews() function, which handles gathering these
             // values internally.
             render_view.projection_mat = view.projectionMatrix;
             render_view.view_mat = pose.getViewMatrix(view);
@@ -198,7 +198,7 @@ found in the LICENSE file.
         scene.endFrame();
       }
 
-      initVR();
+      initXR();
       })();
     </script>
   </body>
