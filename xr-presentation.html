@@ -114,7 +114,7 @@ found in the LICENSE file.
           xrFrameOfRef = frameOfRef;
 
           // Inform the session that we're ready to begin drawing.
-          session.requestFrame(onXRFrame);
+          session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -137,14 +137,14 @@ found in the LICENSE file.
       }
 
       // Called every time the XRSession requests that a new frame be drawn.
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
 
         // Per-frame scene setup. Nothing WebXR specific here.
         scene.startFrame();
 
         // Inform the session that we're ready for the next frame.
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         // Bind the WebGL layer's framebuffer, which is where any content to be
         // displayed on the XRDevice must be rendered.

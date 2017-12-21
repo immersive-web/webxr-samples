@@ -111,7 +111,7 @@ found in the LICENSE file.
           } else {
             xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onXRFrame);
+          session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -126,7 +126,7 @@ found in the LICENSE file.
       }
 
       // Called every time a XRSession requests that a new frame be drawn.
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
         let frameOfRef = session.exclusive ?
@@ -136,7 +136,7 @@ found in the LICENSE file.
 
         scene.startFrame();
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

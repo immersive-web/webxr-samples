@@ -121,13 +121,13 @@ found in the LICENSE file.
           // effect no matter how fast the content loads.
           scene.texture_loader.loadTexture("media/textures/xr_splash.png", null, (texture) => {
             splash = new WebXRSplashScreen(gl, texture);
-            session.requestFrame(onXRSplash);
+            session.requestAnimationFrame(onXRSplash);
           });
           
           // Then, after the content is loaded (long load simulated here by
           // waiting for 5 seconds) kick off the normal frame loop.
           setTimeout(() => {
-            session.requestFrame(onXRFrame);
+            session.requestAnimationFrame(onXRFrame);
           }, 5000);
         });
       }
@@ -167,7 +167,7 @@ found in the LICENSE file.
       }
 
       // Called every time a XRSession requests that a new frame be drawn.
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
         let frameOfRef = session.exclusive ?
@@ -177,7 +177,7 @@ found in the LICENSE file.
 
         scene.startFrame();
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         // Every XR frame uses basically the same render loop, so for the sake
         // of keeping the sample code focused on the interesting bits most

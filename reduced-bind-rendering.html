@@ -102,7 +102,7 @@ found in the LICENSE file.
           } else {
             xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onXRFrame);
+          session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -115,7 +115,7 @@ found in the LICENSE file.
           xrButton.setSession(null);
       }
 
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
                          xrExclusiveFrameOfRef :
@@ -124,7 +124,7 @@ found in the LICENSE file.
 
         scene.startFrame();
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

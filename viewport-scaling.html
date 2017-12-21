@@ -129,7 +129,7 @@ found in the LICENSE file.
           } else {
             xrNonExclusiveFrameOfRef = frameOfRef;
           }
-          session.requestFrame(onXRFrame);
+          session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -142,7 +142,7 @@ found in the LICENSE file.
           xrButton.setSession(null);
       }
 
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
                          xrExclusiveFrameOfRef :
@@ -154,7 +154,7 @@ found in the LICENSE file.
         // Adjust the viewports if needed.
         adjustViewportScale(session);
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         scene.drawXRFrame(frame, pose);
 

@@ -88,7 +88,7 @@ found in the LICENSE file.
 
         session.requestFrameOfReference('stage').then((frameOfRef) => {
           xrFrameOfRef = frameOfRef;
-          session.requestFrame(onXRFrame);
+          session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -108,13 +108,13 @@ found in the LICENSE file.
         console.log("Placed a cursor at [" + cursorPos[0] + ", " + cursorPos[1] + ", " + cursorPos[2] + "]");
       }
 
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         let pose = frame.getDevicePose(xrFrameOfRef);
 
         scene.startFrame();
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         // Render all of the cursors/rays we've cached so far.
         for (let pointer of selectPointers) {

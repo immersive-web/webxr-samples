@@ -185,7 +185,7 @@ found in the LICENSE file.
             xrNonExclusiveFrameOfRef = frameOfRef;
           }
           scene.waitForLoadWithSplashScreen(session, 'media/textures/xr_splash.png').then(() => {
-            session.requestFrame(onXRFrame);
+            session.requestAnimationFrame(onXRFrame);
           });
         });
       }
@@ -219,7 +219,7 @@ found in the LICENSE file.
         }
       }
 
-      function onXRFrame(frame) {
+      function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
                          xrExclusiveFrameOfRef :
@@ -228,7 +228,7 @@ found in the LICENSE file.
 
         scene.startFrame();
 
-        session.requestFrame(onXRFrame);
+        session.requestAnimationFrame(onXRFrame);
 
         let i = 0;
         let hoverBox = null;
