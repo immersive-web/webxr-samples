@@ -60,6 +60,28 @@ export class View {
   }
 }
 
+class RenderBuffer {
+  constructor(target, usage, buffer, length = 0) {
+    this._target = target;
+    this._usage = usage;
+    this._length = length;
+    if (buffer instanceof Promise) {
+      this._buffer = null;
+      this._promise = buffer.then((buffer) => {
+        this._buffer = buffer;
+        return this;
+      });
+    } else {
+      this._buffer = buffer;
+      this._promise = Promise.resolve(this);
+    }
+  }
+
+  waitForComplete() {
+    return this._promise;
+  }
+}
+
 class RenderPrimitiveAttribute {
   constructor(primitive_attribute) {
     this._attrib_index = ATTRIB[primitive_attribute.name];
@@ -72,12 +94,8 @@ class RenderPrimitiveAttribute {
 }
 
 class RenderPrimitiveAttributeBuffer {
-  constructor(buffer_promise) {
-    this._buffer = null;
-    buffer_promise.then((buffer) => {
-      this._buffer = buffer;
-    });
-
+  constructor(buffer) {
+    this._buffer = buffer;
     this._attributes = [];
   }
 }
@@ -104,9 +122,8 @@ class RenderPrimitive {
       let render_attribute = new RenderPrimitiveAttribute(attribute);
       let found_buffer = false;
       for (let attribute_buffer of this._attribute_buffers) {
-        if (attribute_buffer.buffer == attribute.buffer ||
-            attribute_buffer._promise == attribute.buffer) {
-          attribute_buffer.attributes.push(attribute);
+        if (attribute_buffer._buffer == attribute.buffer) {
+          attribute_buffer._attributes.push(render_attribute);
           found_buffer = true;
           break;
         }
@@ -115,27 +132,22 @@ class RenderPrimitive {
         let attribute_buffer = new RenderPrimitiveAttributeBuffer(attribute.buffer);
         attribute_buffer._attributes.push(render_attribute);
         this._attribute_buffers.push(attribute_buffer);
-        completion_promises.push(attribute.buffer);
+        if (!attribute.buffer._buffer) {
+          completion_promises.push(attribute.buffer._promise);
+        }
       }
     }
 
     this._index_buffer = null;
     this._index_byte_offset = 0;
     this._index_type = 0;
-    this._index_promise = null;
 
     if (primitive.index_buffer) {
       this._index_byte_offset = primitive.index_byte_offset;
       this._index_type = primitive.index_type;
-      if (primitive.index_buffer instanceof Promise) {
-        this._index_complete = false;
-        this._index_promise = primitive.index_buffer;
-        this._index_promise.then((buffer) => {
-          this._index_buffer = buffer;
-        });
-        completion_promises.push(this._index_promise);
-      } else {
-        this._index_buffer = primitive.index_buffer;
+      this._index_buffer = primitive.index_buffer;
+      if (primitive.index_buffer._promise) {
+        completion_promises.push(primitive.index_buffer._promise);
       }
     }
 
@@ -182,20 +194,38 @@ export class Renderer {
     this._default_frag_precision = frag_high_precision.precision > 0 ? 'highp' : 'mediump';
   }
 
-  createRenderBuffer(target, data) {
+  createRenderBuffer(target, data, usage = WebGLRenderingContext.STATIC_DRAW) {
     let gl = this._gl;
-    let render_buffer = gl.createBuffer();
+    let gl_buffer = gl.createBuffer();
 
     if (data instanceof Promise) {
-      return data.then((data) => {
-        gl.bindBuffer(target, render_buffer);
-        gl.bufferData(target, data, gl.STATIC_DRAW);
-        return render_buffer;
-      });
+      let render_buffer = new RenderBuffer(target, usage, data.then((data) => {
+        gl.bindBuffer(target, gl_buffer);
+        gl.bufferData(target, data, usage);
+        render_buffer._length = data.byteLength;
+        return gl_buffer;
+      }));
+      return render_buffer;
     } else {
-      gl.bindBuffer(target, render_buffer);
-      gl.bufferData(target, data, gl.STATIC_DRAW);
-      return Promise.resolve(render_buffer);
+      gl.bindBuffer(target, gl_buffer);
+      gl.bufferData(target, data, usage);
+      return new RenderBuffer(target, usage, gl_buffer, data.byteLength);
+    }
+  }
+
+  updateRenderBuffer(buffer, data, offset = 0) {
+    if (buffer._buffer) {
+      let gl = this._gl;
+      gl.bindBuffer(buffer._target, buffer._buffer);
+      if (offset == 0 && buffer._length == data.byteLength) {
+        gl.bufferData(buffer._target, data, buffer._usage);
+      } else {
+        gl.bufferSubData(buffer._target, offset, data);
+      }
+    } else {
+      buffer.waitForComplete().then((buffer) => {
+        this.updateRenderBuffer(buffer, data, offset);
+      });
     }
   }
 
@@ -375,7 +405,7 @@ export class Renderer {
 
     // Bind the primitive attributes and indices.
     for (let attribute_buffer of primitive._attribute_buffers) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer);
+      gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer._buffer);
       for (let attrib of attribute_buffer._attributes) {
         gl.vertexAttribPointer(
             attrib._attrib_index, attrib._component_count, attrib._component_type,
@@ -384,7 +414,7 @@ export class Renderer {
     }
 
     if (primitive._index_buffer) {
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer._buffer);
     } else {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }

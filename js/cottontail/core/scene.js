@@ -4,6 +4,7 @@
 
 import { Renderer, View } from './renderer.js'
 import { InputRenderPrimitives } from '../utility/input-renderer.js'
+import { StatsViewer } from '../utility/stats-viewer.js'
 import { Program } from './program.js'
 import { TextureCache } from './texture.js'
 import { Node } from './node.js'
@@ -17,7 +18,7 @@ export class Scene extends Node {
     this._stats_enabled = true;
     this._stats_standing = false;
     this._stats = null;
-    this._stats_mat = mat4.create();
+    this._stats_node = null;
 
     this._renderer = null;
 
@@ -40,11 +41,20 @@ export class Scene extends Node {
     if (renderer) {
       //this.texture_loader = new WGLUTextureLoader(gl);
 
-      /*if (this._stats_enabled) {
-        this._stats = new WGLUStats(gl);
+      if (this._stats_enabled) {
+        this._stats = new StatsViewer(this._renderer);
+        this._stats_node = this._stats.getNode();
+        this.addNode(this._stats_node);
+
+        if (this._stats_standing) {
+          this._stats_node.translation = [0, 1.4, -0.75];
+        } else {
+          this._stats_node.translation = [0, -0.3, -0.5];
+        }
+        this._stats_node.scale = [0.3, 0.3, 0.3];
       }
       
-      if (this._debug_geometries.length) {
+      /*if (this._debug_geometries.length) {
         this._debug_renderer = new WGLUDebugGeometry(gl);
       }*/
 
@@ -71,10 +81,25 @@ export class Scene extends Node {
 
     this._stats_enabled = enable;
 
-    if (enable && this.gl) {
-      this._stats = new WGLUStats(this.gl);
+    if (enable && this._renderer) {
+      this._stats = new StatsViewer(this._renderer);
+      this._stats_node = this._stats.getNode();
+      this.addNode(this._stats_node);
+
+      if (this._stats_standing) {
+        this._stats_node.translation = [0, 1.4, -0.75];
+      } else {
+        this._stats_node.translation = [0, -0.3, -0.5];
+      }
+      this._stats_node.scale = [0.3, 0.3, 0.3];
+      //this._stats_node.rotateX(-0.75);
+
     } else if (!enable) {
       this._stats = null;
+      if (this._stats_node) {
+        this.removeNode(this._stats_node);
+        this._stats_node = null;
+      }
     }
   }
 

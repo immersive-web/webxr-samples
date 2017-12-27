@@ -45,7 +45,7 @@ found in the LICENSE file.
       import { CubeSeaScene } from './js/cottontail/scenes/cube-sea.js'
       import { GLTF2Scene } from './js/cottontail/scenes/gltf2.js'
       import { Renderer, View } from './js/cottontail/core/renderer.js'
-      import { InputRenderPrimitives } from './js/cottontail/utility/input-renderer.js'
+      //import { InputRenderPrimitives } from './js/cottontail/utility/input-renderer.js'
       import { createWebGLContext } from './js/cottontail/utility/context.js'
 
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
@@ -64,6 +64,7 @@ found in the LICENSE file.
 
       function setScene(new_scene) {
         scene = new_scene;
+        scene.standingStats(true);
         scene.setRenderer(renderer);
       }
 
