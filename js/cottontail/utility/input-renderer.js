@@ -35,20 +35,17 @@ const LASER_VERTEX_SOURCE = `
   attribute vec3 POSITION;
   attribute vec2 TEXCOORD_0;
 
-  uniform mat4 PROJECTION_MATRIX;
-  uniform mat4 VIEW_MATRIX;
-  uniform mat4 MODEL_MARTIX;
-  
   varying vec2 vTexCoord;
 
-  void main() {
+  vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
     vTexCoord = TEXCOORD_0;
-    gl_Position = PROJECTION_MATRIX * VIEW_MATRIX * MODEL_MARTIX * vec4(POSITION, 1.0);
+    return proj * view * model * vec4(POSITION, 1.0);
   }
 `;
 
 const LASER_FRAGMENT_SOURCE = `
   precision mediump float;
+
   uniform sampler2D diffuse;
   uniform vec4 laserColor;
   varying vec2 vTexCoord;
@@ -56,13 +53,13 @@ const LASER_FRAGMENT_SOURCE = `
   const float fade_point = ${LASER_FADE_POINT};
   const float fade_end = ${LASER_FADE_END};
 
-  void main() {
+  vec4 fragment_main() {
     vec2 uv = vTexCoord;
     float front_fade_factor = 1.0 - clamp(1.0 - (uv.y - fade_point) / (1.0 - fade_point), 0.0, 1.0);
     float back_fade_factor = clamp((uv.y - fade_point) / (fade_end - fade_point), 0.0, 1.0);
     vec4 color = laserColor * texture2D(diffuse, vTexCoord);
     float opacity = color.a * front_fade_factor * back_fade_factor;
-    gl_FragColor = vec4(color.rgb * opacity, opacity);
+    return vec4(color.rgb * opacity, opacity);
   }
 `;
 
@@ -81,35 +78,32 @@ const CURSOR_DEFAULT_COLOR = new Float32Array([1.0, 1.0, 1.0, 1.0]);
 const CURSOR_VERTEX_SOURCE = `
   attribute vec4 POSITION;
 
-  uniform mat4 PROJECTION_MATRIX;
-  uniform mat4 VIEW_MATRIX;
-  uniform mat4 MODEL_MATRIX;
-  
   varying float vLuminance;
   varying float vOpacity;
 
-  void main() {
+  vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
     vLuminance = POSITION.z;
     vOpacity = POSITION.w;
 
     // Billboarded, constant size vertex transform.
-    vec4 screenPos = PROJECTION_MATRIX * VIEW_MATRIX * MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 screenPos = proj * view * model * vec4(0.0, 0.0, 0.0, 1.0);
     screenPos /= screenPos.w;
     screenPos.xy += POSITION.xy;
-    gl_Position = screenPos;
+    return screenPos;
   }
 `;
 
 const CURSOR_FRAGMENT_SOURCE = `
   precision mediump float;
+
   uniform vec4 cursorColor;
   varying float vLuminance;
   varying float vOpacity;
 
-  void main() {
+  vec4 fragment_main() {
     vec3 color = cursorColor.rgb * vLuminance;
     float opacity = cursorColor.a * vOpacity;
-    gl_FragColor = vec4(color * opacity, opacity);
+    return vec4(color * opacity, opacity);
   }
 `;
 

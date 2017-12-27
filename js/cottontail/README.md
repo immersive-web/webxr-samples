@@ -1,8 +1,8 @@
-cottontail
+Cottontail
 ==========================================
 A simple WebGL renderering framework optimised for demonstrating WebXR concepts.
 
-cottontail does two things well and not much else:
+Cottontail does two things well and not much else:
 
 1) Loading and Rendering GLTF 2.0 files.
 2) Optimising for WebXR-style rendering.
@@ -13,7 +13,7 @@ the WebXR samples, who's sole purpose in life is to provide easy-to-follow code
 snippets demonstrating the API use and thus anything this code did to hide the
 WebXR API's direct use is counter productive.
 
-Using cottontail for your own projects is very much not recommended, as you will
+Using Cottontail for your own projects is very much not recommended, as you will
 almost certainly be better served by one of the other more popular frameworks
 out there.
 
@@ -25,5 +25,5 @@ idea of riffing off of that. It's also nice (though unintended) bonus that the
 Daydream logo looks a bit like a stylized rabbit tail. Finally, it's based on
 some code that I started on Easter day, 2017.
 
-The real world may rests on the back of a giant tortise, but I propose
+The real world may rest on the back of a giant tortise, but I propose
 that the virtual one is bunnies all the way down. ;)

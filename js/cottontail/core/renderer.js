@@ -27,6 +27,29 @@ export const ATTRIB_MASK = {
 const DEF_LIGHT_DIR = new Float32Array([-0.1, -1.0, -0.2]);
 const DEF_LIGHT_COLOR = new Float32Array([1.0, 1.0, 0.9]);
 
+const PRECISION_REGEX = new RegExp('precision (lowp|mediump|highp) float;');
+
+const VERTEX_SHADER_SINGLE_ENTRY = `
+uniform mat4 PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX;
+
+void main() {
+  gl_Position = vertex_main(PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX);
+}
+`;
+
+const VERTEX_SHADER_MULTI_ENTRY = `
+#ERROR Multiview rendering is not implemented
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+}
+`;
+
+const FRAGMENT_SHADER_ENTRY = `
+void main() {
+  gl_FragColor = fragment_main();
+}
+`;
+
 export class View {
   constructor(view, pose, layer) {
     this.projection_matrix = view ? view.projectionMatrix : null;
@@ -154,6 +177,9 @@ export class Renderer {
     this._vao_ext = gl.getExtension("OES_vertex_array_object");
 
     this.texture_cache = new TextureCache(gl);
+
+    let frag_high_precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+    this._default_frag_precision = frag_high_precision.precision > 0 ? 'highp' : 'mediump';
   }
 
   createRenderBuffer(target, data) {
@@ -177,23 +203,7 @@ export class Renderer {
     let render_material = new material.render_material_type(material);
     let render_primitive = new RenderPrimitive(primitive, render_material);
 
-    let defines = render_material.getProgramDefines(render_primitive);
-    let key = `${render_material.material_name}_${render_material.getProgramKey(defines)}`;
-
-    if (key in this._program_cache) {
-      render_primitive._program = this._program_cache[key];
-    } else {
-      render_primitive._program = new Program(this._gl,
-        render_material.vertex_source,
-        render_material.fragment_source,
-        ATTRIB,
-        defines);
-      this._program_cache[key] = render_primitive._program;
-      render_primitive._program.onFirstUse().then((program) => {
-        this._gl.useProgram(program.program);
-        render_material.onFirstProgramUse(this._gl, program);
-      });
-    }
+    render_primitive._program = this._getRenderMaterialProgram(render_material, render_primitive);
 
     if (this._vao_ext) {
       render_primitive.waitForComplete().then(() => {
@@ -316,6 +326,35 @@ export class Renderer {
 
     if (this._vao_ext) {
       this._vao_ext.bindVertexArrayOES(null);
+    }
+  }
+
+  _getRenderMaterialProgram(render_material, render_primitive) {
+    let defines = render_material.getProgramDefines(render_primitive);
+    let key = `${render_material.material_name}_${render_material.getProgramKey(defines)}`;
+
+    if (key in this._program_cache) {
+      return this._program_cache[key];
+    } else {
+      let multiview = false; // Handle this dynamically later
+      let full_vertex_source = render_material.vertex_source;
+      full_vertex_source += multiview ? VERTEX_SHADER_MULTI_ENTRY :
+                                        VERTEX_SHADER_SINGLE_ENTRY;
+
+      let precision_match = render_material.fragment_source.match(PRECISION_REGEX);
+      let frag_precision_header = precision_match ? '' : `precision ${this._default_frag_precision} float;\n`;
+
+      let full_fragment_source = frag_precision_header + render_material.fragment_source;
+      full_fragment_source += FRAGMENT_SHADER_ENTRY;
+
+      let program = new Program(this._gl,
+          full_vertex_source, full_fragment_source, ATTRIB, defines);
+      this._program_cache[key] = program;
+      program.onFirstUse().then((program) => {
+        this._gl.useProgram(program.program);
+        render_material.onFirstProgramUse(this._gl, program);
+      });
+      return program;
     }
   }
 

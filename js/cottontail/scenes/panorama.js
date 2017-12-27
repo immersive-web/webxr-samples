@@ -5,27 +5,25 @@
 import { Scene } from '../core/scene.js'
 
 const XRPanoramaVS = `
-  uniform mat4 projectionMat;
-  uniform mat4 modelViewMat;
-  uniform vec4 texCoordScaleOffset;
-  attribute vec3 position;
-  attribute vec2 texCoord;
-  varying vec2 vTexCoord;
+uniform vec4 texCoordScaleOffset;
+attribute vec3 position;
+attribute vec2 texCoord;
+varying vec2 vTexCoord;
 
-  void main() {
-    vTexCoord = (texCoord * texCoordScaleOffset.xy) + texCoordScaleOffset.zw;
-    gl_Position = projectionMat * modelViewMat * vec4(position, 1.0);
-  }
+vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
+  vTexCoord = (texCoord * texCoordScaleOffset.xy) + texCoordScaleOffset.zw;
+  return projectionMat * view * model * vec4(position, 1.0);
+}
 `;
 
 const XRPanoramaFS = `
-  precision mediump float;
-  uniform sampler2D diffuse;
-  varying vec2 vTexCoord;
+precision mediump float;
+uniform sampler2D diffuse;
+varying vec2 vTexCoord;
 
-  void main() {
-    gl_FragColor = texture2D(diffuse, vTexCoord);
-  }
+vec4 fragment_main() {
+  return texture2D(diffuse, vTexCoord);
+}
 `;
 
 class PanoramaScene extends Scene {
