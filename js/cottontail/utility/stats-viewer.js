@@ -69,7 +69,7 @@ class SevenSegmentRenderMaterial extends RenderMaterial {
   }
 
   get material_name() {
-    return '__SEVEN_SEGMENT__';
+    return '__SEVEN_SEGMENT';
   }
 
   get vertex_source() {
@@ -110,7 +110,7 @@ class StatsRenderMaterial extends RenderMaterial {
   }
 
   get material_name() {
-    return '__STATS_VIEWER__';
+    return '__STATS_VIEWER';
   }
 
   get vertex_source() {

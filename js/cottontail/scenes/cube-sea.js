@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { Scene } from '../core/scene.js'
-import { PbrMaterial } from '../material/pbr.js'
+import { Scene } from './scene.js'
+import { PbrMaterial } from '../materials/pbr.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { Node, MeshNode } from '../core/node.js'
 

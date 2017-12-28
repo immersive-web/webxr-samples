@@ -2,12 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { Renderer, View } from './renderer.js'
+import { Renderer, RenderView } from '../core/renderer.js'
 import { InputRenderPrimitives } from '../utility/input-renderer.js'
 import { StatsViewer } from '../utility/stats-viewer.js'
-import { Program } from './program.js'
-import { TextureCache } from './texture.js'
-import { Node } from './node.js'
+import { Program } from '../core/program.js'
+import { TextureCache } from '../core/texture.js'
+import { Node } from '../core/node.js'
+
+export class WebXRView extends RenderView {
+  constructor(view, pose, layer) {
+    super(
+      view ? view.projectionMatrix : null,
+      (pose && view) ? pose.getViewMatrix(view) : null,
+      (layer && view) ? view.getViewport(layer) : null,
+      view ? view.eye : 'left'
+    );
+  }
+}
 
 export class Scene extends Node {
   constructor() {
@@ -161,7 +172,7 @@ export class Scene extends Node {
   }
 
   draw(projection_mat, view_mat, eye) {
-    let view = new View();
+    let view = new RenderView();
     view.projection_matrix = projection_mat;
     view.view_matrix = view_mat;
     if (eye) {
@@ -195,7 +206,7 @@ export class Scene extends Node {
 
     let views = [];
     for (let view of xr_frame.views) {
-      views.push(new View(view, pose, layer));
+      views.push(new WebXRView(view, pose, layer));
     }
 
     this.drawViewArray(views);

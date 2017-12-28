@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import { CAP } from './material.js'
 import { Node, MeshNode } from './node.js'
 import { Program } from './program.js'
 import { TextureCache } from './texture.js'
@@ -50,13 +51,13 @@ void main() {
 }
 `;
 
-export class View {
-  constructor(view, pose, layer) {
-    this.projection_matrix = view ? view.projectionMatrix : null;
-    this.view_matrix = (pose && view) ? pose.getViewMatrix(view) : null;
-    this.viewport = (layer && view) ? view.getViewport(layer) : null;
-    // If an eye isn't given just assume the left eye.
-    this.eye = view ? view.eye : 'left';
+export class RenderView {
+  constructor(projection_matrix, view_matrix, viewport = null, eye = 'left') {
+    this.projection_matrix = projection_matrix;
+    this.view_matrix = view_matrix;
+    this.viewport = viewport;
+    // If an eye isn't given the left eye is assumed.
+    this.eye = eye;
   }
 }
 
@@ -177,6 +178,18 @@ class RenderPrimitive {
 }
 
 const inverse_matrix = mat4.create();
+
+function setCap(gl, gl_enum, cap, prev_state, state) {
+  let change = (state & cap) - (prev_state & cap);
+  if (!change)
+    return;
+
+  if (change > 0) {
+    gl.enable(gl_enum);
+  } else {
+    gl.disable(gl_enum);
+  }
+}
 
 export class Renderer {
   constructor(gl) {
@@ -314,6 +327,7 @@ export class Renderer {
       }
 
       if (material != primitive._material) {
+        this._bindMaterialState(primitive._material, material);
         primitive._material.bind(gl, program, material);
         material = primitive._material;
       }
@@ -417,6 +431,46 @@ export class Renderer {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, primitive._index_buffer._buffer);
     } else {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    }
+  }
+
+  _bindMaterialState(material, prev_material = null) {
+    let gl = this._gl;
+
+    let state = material._state;
+    let prev_state = prev_material ? prev_material._state : ~state;
+
+    // Return early if both materials use identical state
+    if (state == prev_state)
+        return;
+
+    // Any caps bits changed?
+    if (material._capsDiff(prev_state)) {
+      setCap(gl, gl.CULL_FACE, CAP.CULL_FACE, prev_state, state);
+      setCap(gl, gl.BLEND, CAP.BLEND, prev_state, state);
+      setCap(gl, gl.DEPTH_TEST, CAP.DEPTH_TEST, prev_state, state);
+      setCap(gl, gl.STENCIL_TEST, CAP.STENCIL_TEST, prev_state, state);
+
+      let color_mask_change = (state & CAP.COLOR_MASK) - (prev_state & CAP.COLOR_MASK);
+      if (color_mask_change) {
+        let mask = color_mask_change > 1;
+        gl.colorMask(mask, mask, mask, mask);
+      }
+
+      let depth_mask_change = (state & CAP.DEPTH_MASK) - (prev_state & CAP.DEPTH_MASK);
+      if (depth_mask_change) {
+        gl.depthMask(depth_mask_change > 1);
+      }
+
+      let stencil_mask_change = (state & CAP.STENCIL_MASK) - (prev_state & CAP.STENCIL_MASK);
+      if (stencil_mask_change) {
+        gl.stencilMask(stencil_mask_change > 1);
+      }
+    }
+
+    // Blending enabled and blend func changed?
+    if (material._blendDiff(prev_state)) {
+      gl.blendFunc(material.blend_func_src, material.blend_func_dst);
     }
   }
 }

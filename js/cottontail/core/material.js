@@ -5,7 +5,9 @@
 import { ATTRIB, ATTRIB_MASK } from './renderer.js'
 import { Program } from './program.js'
 
-const CAP = {
+const GL = WebGLRenderingContext; // For enums
+
+export const CAP = {
   // Enable caps
   CULL_FACE:    0x001,
   BLEND:        0x002,
@@ -33,18 +35,6 @@ function stateToBlendFunc(state, mask, shift) {
       return value;
     default:
       return (value - 2) + WebGLRenderingContext.SRC_COLOR;
-  }
-}
-
-function setCap(gl, gl_enum, cap, prev_state, state) {
-  let change = (state & cap) - (prev_state & cap);
-  if (!change)
-    return;
-
-  if (change > 0) {
-    gl.enable(gl_enum);
-  } else {
-    gl.disable(gl_enum);
   }
 }
 
@@ -170,44 +160,6 @@ export class RenderMaterial {
   }
 
   bind(gl, program, prev_material) {
-    let state = this._state;
-    let prev_state = prev_material ? prev_material._state : ~state;
-    if (prev_state == state)
-        return;
-
-    // Any caps bits changed?
-    if ((prev_state & MAT_STATE.CAPS_RANGE) ^ (state & MAT_STATE.CAPS_RANGE)) {
-      setCap(gl, gl.CULL_FACE, CAP.CULL_FACE, prev_state, state);
-      setCap(gl, gl.BLEND, CAP.BLEND, prev_state, state);
-      setCap(gl, gl.DEPTH_TEST, CAP.DEPTH_TEST, prev_state, state);
-      setCap(gl, gl.STENCIL_TEST, CAP.STENCIL_TEST, prev_state, state);
-
-      let color_mask_change = (state & CAP.COLOR_MASK) - (prev_state & CAP.COLOR_MASK);
-      if (color_mask_change) {
-        let mask = color_mask_change > 1;
-        gl.colorMask(mask, mask, mask, mask);
-      }
-
-      let depth_mask_change = (state & CAP.DEPTH_MASK) - (prev_state & CAP.DEPTH_MASK);
-      if (depth_mask_change) {
-        gl.depthMask(depth_mask_change > 1);
-      }
-
-      let stencil_mask_change = (state & CAP.STENCIL_MASK) - (prev_state & CAP.STENCIL_MASK);
-      if (stencil_mask_change) {
-        gl.stencilMask(stencil_mask_change > 1);
-      }
-    }
-
-    let blend_enabled = (state & CAP.BLEND);
-    if (blend_enabled) {
-      // Blend func changed?
-      if ((prev_state & MAT_STATE.BLEND_FUNC_RANGE) ^ (state & MAT_STATE.BLEND_FUNC_RANGE)) {
-        let src_func = stateToBlendFunc(state, MAT_STATE.BLEND_SRC_RANGE, MAT_STATE.BLEND_SRC_SHIFT);
-        let dst_func = stateToBlendFunc(state, MAT_STATE.BLEND_DST_RANGE, MAT_STATE.BLEND_DST_SHIFT);
-        gl.blendFunc(src_func, dst_func);
-      }
-    }
   }
 
   waitForComplete() {
@@ -215,7 +167,7 @@ export class RenderMaterial {
   }
 
   get material_name() {
-    return '__BASE_MATERIAL__';
+    return '__BASE_MATERIAL';
   }
 
   get vertex_source() {
@@ -241,5 +193,27 @@ export class RenderMaterial {
   }
 
   onFirstProgramUse(gl, program) {
+  }
+
+  // Material State fetchers
+  get cull_face() { return !!(this._state & CAP.CULL_FACE); }
+  get blend() { return !!(this._state & CAP.BLEND); }
+  get depth_test() { return !!(this._state & CAP.DEPTH_TEST); }
+  get stencil_test() { return !!(this._state & CAP.STENCIL_TEST); }
+  get color_mask() { return !!(this._state & CAP.COLOR_MASK); }
+  get depth_mask() { return !!(this._state & CAP.DEPTH_MASK); }
+  get stencil_mask() { return !!(this._state & CAP.STENCIL_MASK); }
+  get blend_func_src() { return stateToBlendFunc(this._state, MAT_STATE.BLEND_SRC_RANGE, MAT_STATE.BLEND_SRC_SHIFT); }
+  get blend_func_dst() { return stateToBlendFunc(this._state, MAT_STATE.BLEND_DST_RANGE, MAT_STATE.BLEND_DST_SHIFT); }
+
+  // Only really for use from the renderer
+  _capsDiff(other_state) {
+    return (other_state & MAT_STATE.CAPS_RANGE) ^ (this._state & MAT_STATE.CAPS_RANGE)
+  }
+
+  _blendDiff(other_state) {
+    if (!(this._state & CAP.BLEND))
+      return 0;
+    return (other_state & MAT_STATE.BLEND_FUNC_RANGE) ^ (this._state & MAT_STATE.BLEND_FUNC_RANGE);
   }
 }

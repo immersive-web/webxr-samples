@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { PbrMaterial } from '../material/pbr.js'
+import { PbrMaterial } from '../materials/pbr.js'
 import { Node, MeshNode } from '../core/node.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
+
+const GL = WebGLRenderingContext; // For enums
 
 const GLB_MAGIC = 0x46546C67;
 const CHUNK_TYPE = {
@@ -213,7 +215,7 @@ export class GLTF2Loader {
 
           let glAttribute = new PrimitiveAttribute(
             name,
-            bufferView.renderBuffer(this.renderer, gl.ARRAY_BUFFER),
+            bufferView.renderBuffer(this.renderer, GL.ARRAY_BUFFER),
             getComponentCount(accessor.type),
             accessor.componentType,
             bufferView.byteStride || 0,
@@ -231,7 +233,7 @@ export class GLTF2Loader {
           let bufferView = bufferViews[accessor.bufferView];
 
           glPrimitive.setIndexBuffer(
-            bufferView.renderBuffer(this.renderer, gl.ELEMENT_ARRAY_BUFFER),
+            bufferView.renderBuffer(this.renderer, GL.ELEMENT_ARRAY_BUFFER),
             accessor.byteOffset || 0,
             accessor.componentType
           );

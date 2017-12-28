@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { Scene } from '../core/scene.js'
+import { Scene } from './scene.js'
 import { GLTF2Loader } from '../loaders/gltf2.js'
 
 export class GLTF2Scene extends Scene {
