@@ -49,6 +49,10 @@ export class Scene extends Node {
   setRenderer(renderer) {
     this._renderer = renderer;
 
+    // Set up a non-black clear color so that we can see if something renders
+    // wrong.
+    renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
+
     if (renderer) {
       //this.texture_loader = new WGLUTextureLoader(gl);
 
@@ -129,7 +133,7 @@ export class Scene extends Node {
 
     // Create the debug geometry renderer if needed.
     if (!this._debug_renderer && this._renderer) {
-      this._debug_renderer = new WGLUDebugGeometry(this._renderer._gl);
+      this._debug_renderer = new WGLUDebugGeometry(this._renderer.gl);
     }
 
     return geometry;
@@ -188,7 +192,7 @@ export class Scene extends Node {
       return;
     }
 
-    let gl = this._renderer._gl;
+    let gl = this._renderer.gl;
     let session = xr_frame.session;
     // Assumed to be a XRWebGLLayer for now.
     let layer = session.baseLayer;
@@ -271,7 +275,7 @@ export class Scene extends Node {
   onDrawViews(renderer, timestamp, views) {}
 
   _onDrawStats(views) {
-    let gl = this._renderer._gl;
+    let gl = this._renderer.gl;
     for (let view of views) {
       if (view.viewport) {
         let vp = view.viewport;
@@ -294,7 +298,7 @@ export class Scene extends Node {
   }
 
   _onDrawDebugGeometry(views) {
-    let gl = this._renderer._gl;
+    let gl = this._renderer.gl;
     if (this._debug_renderer && this._debug_geometries.length) {
       for (let view of views) {
         if (view.viewport) {

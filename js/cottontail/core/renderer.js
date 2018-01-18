@@ -51,6 +51,29 @@ void main() {
 }
 `;
 
+// Creates a WebGL context and initializes it with some common default state.
+export function createWebGLContext(glAttribs) {
+  glAttribs = glAttribs || { alpha: false };
+
+  let webglCanvas = document.createElement('canvas');
+  let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
+  let context = null;
+
+  for (let contextType of contextTypes) {
+    context = webglCanvas.getContext(contextType, glAttribs);
+    if (context)
+      break;
+  }
+
+  if (!context) {
+    let webglType = (glAttribs.webgl2 ? 'WebGL 2' : 'WebGL')
+    console.error('This browser does not support ' + webglType + '.');
+    return null;
+  }
+
+  return context;
+}
+
 export class RenderView {
   constructor(projection_matrix, view_matrix, viewport = null, eye = 'left') {
     this.projection_matrix = projection_matrix;
@@ -193,7 +216,7 @@ function setCap(gl, gl_enum, cap, prev_state, state) {
 
 export class Renderer {
   constructor(gl) {
-    this._gl = gl;
+    this._gl = gl || createWebGLContext();
     this._frame_id = -1;
     this._program_cache = {};
     this._render_primitives = [];
@@ -205,6 +228,10 @@ export class Renderer {
 
     let frag_high_precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
     this._default_frag_precision = frag_high_precision.precision > 0 ? 'highp' : 'mediump';
+  }
+
+  get gl() {
+    return this._gl;
   }
 
   createRenderBuffer(target, data, usage = WebGLRenderingContext.STATIC_DRAW) {
