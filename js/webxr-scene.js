@@ -92,7 +92,7 @@ class WebXRScene {
           // splash, in which case we've wasted a bit of time and won't display
           // the splash screen at all.
           if (!this._loaded) {
-            session.requestAnimationFrame((frame) => {
+            session.requestAnimationFrame((t, frame) => {
               gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
 
               let pose = frame.getDevicePose(frameOfRef);
