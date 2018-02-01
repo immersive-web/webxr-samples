@@ -22,6 +22,7 @@ found in the LICENSE file.
     <script src='js/third-party/wglu/wglu-stats.js'></script>
     <script src='js/third-party/wglu/wglu-texture.js'></script>
 
+    <script src='js/webxr-bounds-renderer.js'></script>
     <script src='js/webxr-button.js'></script>
     <script src='js/webxr-scene.js'></script>
     <script src='js/webxr-scene-gltf.js'></script>
@@ -34,7 +35,8 @@ found in the LICENSE file.
         <summary>Room Scale</summary>
         <p>
           This sample demonstrates using a 'stage' frame of reference to provide
-          room scale tracking.
+          room scale tracking. If stage bounds are provided by the XRDevice, they
+          will be represented as a green ground plane.
         </p>
       </summary>
     </header>
@@ -93,7 +95,7 @@ found in the LICENSE file.
 
         if (!gl) {
           gl = XRSamplesUtil.initWebGLContext({
-            compatibleXrDevice: session.device
+            compatibleXRDevice: session.device
           });
 
           scene.setWebGLContext(gl);
@@ -110,6 +112,7 @@ found in the LICENSE file.
         session.requestFrameOfReference('stage').then((frameOfRef) => {
           if (session.exclusive) {
             xrExclusiveFrameOfRef = frameOfRef;
+            scene.setBounds(frameOfRef.bounds);
           } else {
             xrNonExclusiveFrameOfRef = frameOfRef;
           }

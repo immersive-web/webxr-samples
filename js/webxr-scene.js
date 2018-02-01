@@ -165,6 +165,14 @@ class WebXRScene {
     return geometry;
   }
 
+  setBounds(xrStageBounds) {
+    if (!this._bounds_renderer && this._gl) {
+      this._bounds_renderer = new WebXRBoundsRenderer(this._gl);
+    }
+    this._bounds = xrStageBounds;
+    this._bounds_renderer.setBounds(xrStageBounds);
+  }
+
   pushLaserPointer(pointer_mat) {
     this._lasers.push(pointer_mat);
 
@@ -233,6 +241,10 @@ class WebXRScene {
     this._onDrawDebugGeometry(views);
 
     this.onDrawViews(this._gl, this._timestamp, views);
+
+    if (this._bounds) {
+      this._onDrawBounds(views);
+    }
 
     // Because of the blending used when drawing the lasers/cursors they should
     // always be drawn last.
@@ -331,6 +343,19 @@ class WebXRScene {
     if (this._pointer_renderer && (this._lasers.length || this._cursors.length)) {
       this._pointer_renderer.drawRays(views, this._lasers);
       this._pointer_renderer.drawCursors(views, this._cursors);
+    }
+  }
+
+  _onDrawBounds(views) {
+    let gl = this._gl;
+    if (this._bounds_renderer && this._gl) {
+      for (let view of views) {
+        if (view.viewport) {
+          let vp = view.viewport;
+          gl.viewport(vp.x, vp.y, vp.width, vp.height);
+        }
+        this._bounds_renderer.draw(view.projection_mat, view.view_mat);
+      }
     }
   }
 }
