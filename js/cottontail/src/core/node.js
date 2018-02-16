@@ -43,6 +43,56 @@ export class Node {
     this._render_primitives = null;
   }
 
+  // Create a clone of this node and all of it's children. Does not duplicate
+  // RenderPrimitives, the cloned nodes will be treated as new instances of the
+  // geometry.
+  clone() {
+    let clone_node = new Node();
+    clone_node.name = this.name;
+    clone_node.visible = this.visible;
+
+    clone_node._dirty_trs = this._dirty_trs;
+
+    if (this._translation) {
+      clone_node._translation = vec3.create();
+      vec3.copy(clone_node._translation, this._translation);
+    }
+
+    if (this._rotation) {
+      clone_node._rotation = quat.create();
+      quat.copy(clone_node._rotation, this._rotation);
+    }
+
+    if (this._scale) {
+      clone_node._scale = vec3.create();
+      vec3.copy(clone_node._scale, this._scale);
+    }
+
+    // Only copy the matrices if they're not already dirty.
+    if (!clone_node._dirty_trs && this._matrix) {
+      clone_node._matrix = mat4.create();
+      mat4.copy(clone_node._matrix, this._matrix);
+    }
+
+    clone_node._dirty_world_matrix = this._dirty_world_matrix;
+    if (!clone_node._dirty_world_matrix && this._world_matrix) {
+      clone_node._world_matrix = mat4.create();
+      mat4.copy(clone_node._world_matrix, this._world_matrix);
+    }
+
+    if (this._render_primitives) {
+      for (let primitive of this._render_primitives) {
+        clone_node.addRenderPrimitive(primitive);
+      }
+    }
+
+    for (let child of this.children) {
+      clone_node.addNode(child.clone());
+    }
+
+    return clone_node;
+  }
+
   markActive(frame_id) {
     if (this.visible && this._render_primitives) {
       this._active_frame_id = frame_id;

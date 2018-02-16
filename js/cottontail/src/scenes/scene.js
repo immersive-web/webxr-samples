@@ -20,7 +20,7 @@
 
 import { Renderer, RenderView } from '../core/renderer.js'
 import { BoundsRenderer } from '../nodes/bounds-renderer.js'
-import { InputRenderPrimitives } from '../nodes/input-renderer.js'
+import { InputRenderer } from '../nodes/input-renderer.js'
 import { Skybox } from '../nodes/skybox.js'
 import { StatsViewer } from '../nodes/stats-viewer.js'
 import { Program } from '../core/program.js'
@@ -52,17 +52,7 @@ export class Scene extends Node {
 
     this._renderer = null;
 
-    this.texture_loader = null;
-
-    this._debug_renderer = null;
-    this._debug_geometries = [];
-
     this._input_renderer = null;
-
-    this._last_laser = 0;
-    this._last_cursor = 0;
-    this._lasers = [];
-    this._cursors = [];
 
     this._skybox = null;
     this._gltf2_loader = null;
@@ -99,14 +89,9 @@ export class Scene extends Node {
         this._bounds_renderer = new BoundsRenderer(this._renderer);
         this._bounds_renderer.stage_bounds = this._stage_bounds;
       }
-      
-      /*if (this._debug_geometries.length) {
-        this._debug_renderer = new WGLUDebugGeometry(gl);
-      }*/
 
-      if (this._lasers.length || this._cursors.length) {
-        this._input_renderer = new InputRenderPrimitives(this._renderer);
-      }
+      this._input_renderer = new InputRenderer(this._renderer);
+      this.addNode(this._input_renderer);
 
       this.onLoadScene(this._renderer);
     }
@@ -137,6 +122,10 @@ export class Scene extends Node {
 
   get gltf2Loader() {
     return this._gltf2_loader;
+  }
+
+  get inputRenderer() {
+    return this._input_renderer;
   }
 
   enableStats(enable) {
@@ -177,59 +166,6 @@ export class Scene extends Node {
     if (this._bounds_renderer) {
       this._bounds_renderer.stage_bounds = stage_bounds;
     }
-  }
-
-  createDebugGeometry(type) {
-    let geometry = {
-      type: type,
-      transform: mat4.create(),
-      color: [1.0, 1.0, 1.0, 1.0],
-      visible: true
-    };
-    this._debug_geometries.push(geometry);
-
-    // Create the debug geometry renderer if needed.
-    if (!this._debug_renderer && this._renderer) {
-      this._debug_renderer = new WGLUDebugGeometry(this._renderer.gl);
-    }
-
-    return geometry;
-  }
-
-  pushLaserPointer(pointer_matrix) {
-    // Create the pointer renderer if needed.
-    if (!this._input_renderer && this._renderer) {
-      this._input_renderer = new InputRenderPrimitives(this._renderer);
-    }
-
-    if (this._last_laser < this._lasers.length) {
-      this._lasers[this._last_laser].matrix = pointer_matrix;
-      this._lasers[this._last_laser].visible = true;
-    } else {
-      let laser_node = this._input_renderer.getLaserNode();
-      laser_node.matrix = pointer_matrix;
-      this.addNode(laser_node);
-      this._lasers.push(laser_node);
-    }
-    this._last_laser++;
-  }
-
-  pushCursor(cursor_pos) {
-    // Create the pointer renderer if needed.
-    if (!this._input_renderer && this._renderer) {
-      this._input_renderer = new InputRenderPrimitives(this._renderer);
-    }
-
-    if (this._last_cursor < this._cursors.length) {
-      this._cursors[this._last_cursor].translation = cursor_pos;
-      this._cursors[this._last_cursor].visible = true;
-    } else {
-      let cursor_node = this._input_renderer.getCursorNode();
-      cursor_node.translation = cursor_pos;
-      this.addNode(cursor_node);
-      this._cursors.push(cursor_node);
-    }
-    this._last_cursor++;
   }
 
   draw(projection_mat, view_mat, eye) {
@@ -299,14 +235,9 @@ export class Scene extends Node {
   }
 
   endFrame() {
-    for (let laser of this._lasers) {
-      laser.visible = false;
+    if (this._input_renderer) {
+      this._input_renderer.reset();
     }
-    for (let cursor of this._cursors) {
-      cursor.visible = false;
-    }
-    this._last_laser = 0;
-    this._last_cursor = 0;
 
     if (this._stats) {
       this._stats.end();
@@ -321,67 +252,5 @@ export class Scene extends Node {
   // Override with custom scene rendering.
   onDrawViews(renderer, timestamp, views) {
     renderer.drawViews(views, this);
-  }
-
-  _onDrawStats(views) {
-    let gl = this._renderer.gl;
-    for (let view of views) {
-      if (view.viewport) {
-        let vp = view.viewport;
-        gl.viewport(vp.x, vp.y, vp.width, vp.height);
-      }
-
-      // To ensure that the FPS counter is visible in XR mode we have to
-      // render it as part of the scene.
-      if (this._stats_standing) {
-        mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);
-      } else {
-        mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
-      }
-      mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
-      mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
-      mat4.multiply(this._stats_mat, view.view_mat, this._stats_mat);
-
-      this._stats.render(view.projection_mat, this._stats_mat);
-    }
-  }
-
-  _onDrawDebugGeometry(views) {
-    let gl = this._renderer.gl;
-    if (this._debug_renderer && this._debug_geometries.length) {
-      for (let view of views) {
-        if (view.viewport) {
-          let vp = view.viewport;
-          gl.viewport(vp.x, vp.y, vp.width, vp.height);
-        }
-        this._debug_renderer.bind(view.projection_mat, view.view_mat);
-
-        for (let geom of this._debug_geometries) {
-          if (!geom.visible)
-            continue;
-
-          switch(geom.type) {
-            case "box":
-              this._debug_renderer.drawBoxWithMatrix(geom.transform, geom.color);
-              break;
-            case "cone":
-              this._debug_renderer.drawConeWithMatrix(geom.transform, geom.color);
-              break;
-            case "axes":
-              this._debug_renderer.drawCoordinateAxes(geom.transform);
-              break;
-            default:
-              break;
-          }
-        }
-      }
-    }
-  }
-
-  _onDrawPointers(views) {
-    if (this._pointer_renderer && (this._lasers.length || this._cursors.length)) {
-      this._pointer_renderer.drawRays(views, this._lasers);
-      this._pointer_renderer.drawCursors(views, this._cursors);
-    }
   }
 }

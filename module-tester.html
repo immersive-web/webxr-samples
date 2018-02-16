@@ -75,7 +75,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       document.body.appendChild(gl.canvas);
 
       let renderer = new Renderer(gl);
-      let controller_node = null;
 
       function setScene(new_scene) {
         scene = new_scene;
@@ -84,10 +83,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         //scene.setSkybox({ image_url: 'media/textures/chess_pano_4k.jpg', display_mode: 'stereoTopBottom' });
         scene.setRenderer(renderer);
 
-        scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((scene_node) => {
-          controller_node = scene_node;
-          controller_node.name = "Controller";
-          scene.addNode(controller_node);
+        scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
+          scene.inputRenderer.setControllerMesh(controller_mesh);
         });
       }
 
@@ -166,17 +163,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let frame_delta = scene.startFrame();
         updateView(frame_delta);
 
-        scene.pushLaserPointer(IDENTITY_MATRIX);
+        scene.inputRenderer.addLaserPointer(IDENTITY_MATRIX);
 
-        scene.pushCursor([0, 1.6, -1.0]);
-        scene.pushCursor([-0.2, 1.6, -1.0]);
-        scene.pushCursor([0.2, 1.6, -1.0]);
+        scene.inputRenderer.addCursor([0, 1.6, -1.0]);
+        scene.inputRenderer.addCursor([-0.2, 1.6, -1.0]);
+        scene.inputRenderer.addCursor([0.2, 1.6, -1.0]);
 
-        if (controller_node) {
-          let mat = controller_node.matrix;
-          mat4.identity(mat);
-          mat4.rotateY(mat, mat, t / 1000);
-        }
+        let mat = mat4.create();
+        mat4.identity(mat);
+        mat4.rotateY(mat, mat, t / 1000);
+        scene.inputRenderer.addController(mat);
 
         gl.clear(/*gl.COLOR_BUFFER_BIT |*/ gl.DEPTH_BUFFER_BIT);
 

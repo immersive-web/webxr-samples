@@ -1618,11 +1618,48 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._render_primitives = null;
 	  }
 	
+	  // Create a clone of this node and all of it's children. Does not duplicate
+	  // RenderPrimitives, the cloned nodes will be treated as new instances of the
+	  // geometry.
+	
+	
 	  _createClass(Node, [{
-	    key: "markActive",
-	    value: function markActive(frame_id) {
-	      if (this.visible && this._render_primitives) {
-	        this._active_frame_id = frame_id;
+	    key: "clone",
+	    value: function clone() {
+	      var clone_node = new Node();
+	      clone_node.name = this.name;
+	      clone_node.visible = this.visible;
+	
+	      clone_node._dirty_trs = this._dirty_trs;
+	
+	      if (this._translation) {
+	        clone_node._translation = vec3.create();
+	        vec3.copy(clone_node._translation, this._translation);
+	      }
+	
+	      if (this._rotation) {
+	        clone_node._rotation = quat.create();
+	        quat.copy(clone_node._rotation, this._rotation);
+	      }
+	
+	      if (this._scale) {
+	        clone_node._scale = vec3.create();
+	        vec3.copy(clone_node._scale, this._scale);
+	      }
+	
+	      // Only copy the matrices if they're not already dirty.
+	      if (!clone_node._dirty_trs && this._matrix) {
+	        clone_node._matrix = mat4.create();
+	        mat4.copy(clone_node._matrix, this._matrix);
+	      }
+	
+	      clone_node._dirty_world_matrix = this._dirty_world_matrix;
+	      if (!clone_node._dirty_world_matrix && this._world_matrix) {
+	        clone_node._world_matrix = mat4.create();
+	        mat4.copy(clone_node._world_matrix, this._world_matrix);
+	      }
+	
+	      if (this._render_primitives) {
 	        var _iteratorNormalCompletion = true;
 	        var _didIteratorError = false;
 	        var _iteratorError = undefined;
@@ -1631,7 +1668,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          for (var _iterator = this._render_primitives[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
 	            var primitive = _step.value;
 	
-	            primitive.markActive(frame_id);
+	            clone_node.addRenderPrimitive(primitive);
 	          }
 	        } catch (err) {
 	          _didIteratorError = true;
@@ -1657,9 +1694,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        for (var _iterator2 = this.children[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
 	          var child = _step2.value;
 	
-	          if (child.visible) {
-	            child.markActive(frame_id);
-	          }
+	          clone_node.addNode(child.clone());
 	        }
 	      } catch (err) {
 	        _didIteratorError2 = true;
@@ -1672,6 +1707,66 @@ return /******/ (function(modules) { // webpackBootstrap
 	        } finally {
 	          if (_didIteratorError2) {
 	            throw _iteratorError2;
+	          }
+	        }
+	      }
+	
+	      return clone_node;
+	    }
+	  }, {
+	    key: "markActive",
+	    value: function markActive(frame_id) {
+	      if (this.visible && this._render_primitives) {
+	        this._active_frame_id = frame_id;
+	        var _iteratorNormalCompletion3 = true;
+	        var _didIteratorError3 = false;
+	        var _iteratorError3 = undefined;
+	
+	        try {
+	          for (var _iterator3 = this._render_primitives[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var primitive = _step3.value;
+	
+	            primitive.markActive(frame_id);
+	          }
+	        } catch (err) {
+	          _didIteratorError3 = true;
+	          _iteratorError3 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	              _iterator3.return();
+	            }
+	          } finally {
+	            if (_didIteratorError3) {
+	              throw _iteratorError3;
+	            }
+	          }
+	        }
+	      }
+	
+	      var _iteratorNormalCompletion4 = true;
+	      var _didIteratorError4 = false;
+	      var _iteratorError4 = undefined;
+	
+	      try {
+	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	          var child = _step4.value;
+	
+	          if (child.visible) {
+	            child.markActive(frame_id);
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError4 = true;
+	        _iteratorError4 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
+	            _iterator4.return();
+	          }
+	        } finally {
+	          if (_didIteratorError4) {
+	            throw _iteratorError4;
 	          }
 	        }
 	      }
@@ -1704,27 +1799,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function setMatrixDirty() {
 	      if (!this._dirty_world_matrix) {
 	        this._dirty_world_matrix = true;
-	        var _iteratorNormalCompletion3 = true;
-	        var _didIteratorError3 = false;
-	        var _iteratorError3 = undefined;
+	        var _iteratorNormalCompletion5 = true;
+	        var _didIteratorError5 = false;
+	        var _iteratorError5 = undefined;
 	
 	        try {
-	          for (var _iterator3 = this.children[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	            var child = _step3.value;
+	          for (var _iterator5 = this.children[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+	            var child = _step5.value;
 	
 	            child.setMatrixDirty();
 	          }
 	        } catch (err) {
-	          _didIteratorError3 = true;
-	          _iteratorError3 = err;
+	          _didIteratorError5 = true;
+	          _iteratorError5 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	              _iterator3.return();
+	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
+	              _iterator5.return();
 	            }
 	          } finally {
-	            if (_didIteratorError3) {
-	              throw _iteratorError3;
+	            if (_didIteratorError5) {
+	              throw _iteratorError5;
 	            }
 	          }
 	        }
@@ -1750,53 +1845,53 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var _this = this;
 	
 	      var child_promises = [];
-	      var _iteratorNormalCompletion4 = true;
-	      var _didIteratorError4 = false;
-	      var _iteratorError4 = undefined;
+	      var _iteratorNormalCompletion6 = true;
+	      var _didIteratorError6 = false;
+	      var _iteratorError6 = undefined;
 	
 	      try {
-	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	          var child = _step4.value;
+	        for (var _iterator6 = this.children[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+	          var child = _step6.value;
 	
 	          child_promises.push(child.waitForComplete());
 	        }
 	      } catch (err) {
-	        _didIteratorError4 = true;
-	        _iteratorError4 = err;
+	        _didIteratorError6 = true;
+	        _iteratorError6 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	            _iterator4.return();
+	          if (!_iteratorNormalCompletion6 && _iterator6.return) {
+	            _iterator6.return();
 	          }
 	        } finally {
-	          if (_didIteratorError4) {
-	            throw _iteratorError4;
+	          if (_didIteratorError6) {
+	            throw _iteratorError6;
 	          }
 	        }
 	      }
 	
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion5 = true;
-	        var _didIteratorError5 = false;
-	        var _iteratorError5 = undefined;
+	        var _iteratorNormalCompletion7 = true;
+	        var _didIteratorError7 = false;
+	        var _iteratorError7 = undefined;
 	
 	        try {
-	          for (var _iterator5 = this._render_primitives[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-	            var primitive = _step5.value;
+	          for (var _iterator7 = this._render_primitives[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+	            var primitive = _step7.value;
 	
 	            child_promises.push(primitive.waitForComplete());
 	          }
 	        } catch (err) {
-	          _didIteratorError5 = true;
-	          _iteratorError5 = err;
+	          _didIteratorError7 = true;
+	          _iteratorError7 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-	              _iterator5.return();
+	            if (!_iteratorNormalCompletion7 && _iterator7.return) {
+	              _iterator7.return();
 	            }
 	          } finally {
-	            if (_didIteratorError5) {
-	              throw _iteratorError5;
+	            if (_didIteratorError7) {
+	              throw _iteratorError7;
 	            }
 	          }
 	        }
@@ -1832,13 +1927,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "clearRenderPrimitives",
 	    value: function clearRenderPrimitives() {
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion6 = true;
-	        var _didIteratorError6 = false;
-	        var _iteratorError6 = undefined;
+	        var _iteratorNormalCompletion8 = true;
+	        var _didIteratorError8 = false;
+	        var _iteratorError8 = undefined;
 	
 	        try {
-	          for (var _iterator6 = this._render_primitives[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-	            var primitive = _step6.value;
+	          for (var _iterator8 = this._render_primitives[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+	            var primitive = _step8.value;
 	
 	            var index = primitive._instances.indexOf(this);
 	            if (index > -1) {
@@ -1846,16 +1941,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        } catch (err) {
-	          _didIteratorError6 = true;
-	          _iteratorError6 = err;
+	          _didIteratorError8 = true;
+	          _iteratorError8 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion6 && _iterator6.return) {
-	              _iterator6.return();
+	            if (!_iteratorNormalCompletion8 && _iterator8.return) {
+	              _iterator8.return();
 	            }
 	          } finally {
-	            if (_didIteratorError6) {
-	              throw _iteratorError6;
+	            if (_didIteratorError8) {
+	              throw _iteratorError8;
 	            }
 	          }
 	        }
@@ -2446,17 +2541,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this2._renderer = null;
 	
-	    _this2.texture_loader = null;
-	
-	    _this2._debug_renderer = null;
-	    _this2._debug_geometries = [];
-	
 	    _this2._input_renderer = null;
-	
-	    _this2._last_laser = 0;
-	    _this2._last_cursor = 0;
-	    _this2._lasers = [];
-	    _this2._cursors = [];
 	
 	    _this2._skybox = null;
 	    _this2._gltf2_loader = null;
@@ -2497,13 +2582,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	          this._bounds_renderer.stage_bounds = this._stage_bounds;
 	        }
 	
-	        /*if (this._debug_geometries.length) {
-	          this._debug_renderer = new WGLUDebugGeometry(gl);
-	        }*/
-	
-	        if (this._lasers.length || this._cursors.length) {
-	          this._input_renderer = new _inputRenderer.InputRenderPrimitives(this._renderer);
-	        }
+	        this._input_renderer = new _inputRenderer.InputRenderer(this._renderer);
+	        this.addNode(this._input_renderer);
 	
 	        this.onLoadScene(this._renderer);
 	      }
@@ -2572,62 +2652,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (this._bounds_renderer) {
 	        this._bounds_renderer.stage_bounds = stage_bounds;
 	      }
-	    }
-	  }, {
-	    key: 'createDebugGeometry',
-	    value: function createDebugGeometry(type) {
-	      var geometry = {
-	        type: type,
-	        transform: mat4.create(),
-	        color: [1.0, 1.0, 1.0, 1.0],
-	        visible: true
-	      };
-	      this._debug_geometries.push(geometry);
-	
-	      // Create the debug geometry renderer if needed.
-	      if (!this._debug_renderer && this._renderer) {
-	        this._debug_renderer = new WGLUDebugGeometry(this._renderer.gl);
-	      }
-	
-	      return geometry;
-	    }
-	  }, {
-	    key: 'pushLaserPointer',
-	    value: function pushLaserPointer(pointer_matrix) {
-	      // Create the pointer renderer if needed.
-	      if (!this._input_renderer && this._renderer) {
-	        this._input_renderer = new _inputRenderer.InputRenderPrimitives(this._renderer);
-	      }
-	
-	      if (this._last_laser < this._lasers.length) {
-	        this._lasers[this._last_laser].matrix = pointer_matrix;
-	        this._lasers[this._last_laser].visible = true;
-	      } else {
-	        var laser_node = this._input_renderer.getLaserNode();
-	        laser_node.matrix = pointer_matrix;
-	        this.addNode(laser_node);
-	        this._lasers.push(laser_node);
-	      }
-	      this._last_laser++;
-	    }
-	  }, {
-	    key: 'pushCursor',
-	    value: function pushCursor(cursor_pos) {
-	      // Create the pointer renderer if needed.
-	      if (!this._input_renderer && this._renderer) {
-	        this._input_renderer = new _inputRenderer.InputRenderPrimitives(this._renderer);
-	      }
-	
-	      if (this._last_cursor < this._cursors.length) {
-	        this._cursors[this._last_cursor].translation = cursor_pos;
-	        this._cursors[this._last_cursor].visible = true;
-	      } else {
-	        var cursor_node = this._input_renderer.getCursorNode();
-	        cursor_node.translation = cursor_pos;
-	        this.addNode(cursor_node);
-	        this._cursors.push(cursor_node);
-	      }
-	      this._last_cursor++;
 	    }
 	  }, {
 	    key: 'draw',
@@ -2725,58 +2749,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'endFrame',
 	    value: function endFrame() {
-	      var _iteratorNormalCompletion2 = true;
-	      var _didIteratorError2 = false;
-	      var _iteratorError2 = undefined;
-	
-	      try {
-	        for (var _iterator2 = this._lasers[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	          var laser = _step2.value;
-	
-	          laser.visible = false;
-	        }
-	      } catch (err) {
-	        _didIteratorError2 = true;
-	        _iteratorError2 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
-	            _iterator2.return();
-	          }
-	        } finally {
-	          if (_didIteratorError2) {
-	            throw _iteratorError2;
-	          }
-	        }
+	      if (this._input_renderer) {
+	        this._input_renderer.reset();
 	      }
-	
-	      var _iteratorNormalCompletion3 = true;
-	      var _didIteratorError3 = false;
-	      var _iteratorError3 = undefined;
-	
-	      try {
-	        for (var _iterator3 = this._cursors[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	          var cursor = _step3.value;
-	
-	          cursor.visible = false;
-	        }
-	      } catch (err) {
-	        _didIteratorError3 = true;
-	        _iteratorError3 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	            _iterator3.return();
-	          }
-	        } finally {
-	          if (_didIteratorError3) {
-	            throw _iteratorError3;
-	          }
-	        }
-	      }
-	
-	      this._last_laser = 0;
-	      this._last_cursor = 0;
 	
 	      if (this._stats) {
 	        this._stats.end();
@@ -2799,136 +2774,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      renderer.drawViews(views, this);
 	    }
 	  }, {
-	    key: '_onDrawStats',
-	    value: function _onDrawStats(views) {
-	      var gl = this._renderer.gl;
-	      var _iteratorNormalCompletion4 = true;
-	      var _didIteratorError4 = false;
-	      var _iteratorError4 = undefined;
-	
-	      try {
-	        for (var _iterator4 = views[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	          var view = _step4.value;
-	
-	          if (view.viewport) {
-	            var vp = view.viewport;
-	            gl.viewport(vp.x, vp.y, vp.width, vp.height);
-	          }
-	
-	          // To ensure that the FPS counter is visible in XR mode we have to
-	          // render it as part of the scene.
-	          if (this._stats_standing) {
-	            mat4.fromTranslation(this._stats_mat, [0, 1.4, -0.75]);
-	          } else {
-	            mat4.fromTranslation(this._stats_mat, [0, -0.3, -0.5]);
-	          }
-	          mat4.scale(this._stats_mat, this._stats_mat, [0.3, 0.3, 0.3]);
-	          mat4.rotateX(this._stats_mat, this._stats_mat, -0.75);
-	          mat4.multiply(this._stats_mat, view.view_mat, this._stats_mat);
-	
-	          this._stats.render(view.projection_mat, this._stats_mat);
-	        }
-	      } catch (err) {
-	        _didIteratorError4 = true;
-	        _iteratorError4 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	            _iterator4.return();
-	          }
-	        } finally {
-	          if (_didIteratorError4) {
-	            throw _iteratorError4;
-	          }
-	        }
-	      }
-	    }
-	  }, {
-	    key: '_onDrawDebugGeometry',
-	    value: function _onDrawDebugGeometry(views) {
-	      var gl = this._renderer.gl;
-	      if (this._debug_renderer && this._debug_geometries.length) {
-	        var _iteratorNormalCompletion5 = true;
-	        var _didIteratorError5 = false;
-	        var _iteratorError5 = undefined;
-	
-	        try {
-	          for (var _iterator5 = views[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-	            var view = _step5.value;
-	
-	            if (view.viewport) {
-	              var vp = view.viewport;
-	              gl.viewport(vp.x, vp.y, vp.width, vp.height);
-	            }
-	            this._debug_renderer.bind(view.projection_mat, view.view_mat);
-	
-	            var _iteratorNormalCompletion6 = true;
-	            var _didIteratorError6 = false;
-	            var _iteratorError6 = undefined;
-	
-	            try {
-	              for (var _iterator6 = this._debug_geometries[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-	                var geom = _step6.value;
-	
-	                if (!geom.visible) continue;
-	
-	                switch (geom.type) {
-	                  case "box":
-	                    this._debug_renderer.drawBoxWithMatrix(geom.transform, geom.color);
-	                    break;
-	                  case "cone":
-	                    this._debug_renderer.drawConeWithMatrix(geom.transform, geom.color);
-	                    break;
-	                  case "axes":
-	                    this._debug_renderer.drawCoordinateAxes(geom.transform);
-	                    break;
-	                  default:
-	                    break;
-	                }
-	              }
-	            } catch (err) {
-	              _didIteratorError6 = true;
-	              _iteratorError6 = err;
-	            } finally {
-	              try {
-	                if (!_iteratorNormalCompletion6 && _iterator6.return) {
-	                  _iterator6.return();
-	                }
-	              } finally {
-	                if (_didIteratorError6) {
-	                  throw _iteratorError6;
-	                }
-	              }
-	            }
-	          }
-	        } catch (err) {
-	          _didIteratorError5 = true;
-	          _iteratorError5 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-	              _iterator5.return();
-	            }
-	          } finally {
-	            if (_didIteratorError5) {
-	              throw _iteratorError5;
-	            }
-	          }
-	        }
-	      }
-	    }
-	  }, {
-	    key: '_onDrawPointers',
-	    value: function _onDrawPointers(views) {
-	      if (this._pointer_renderer && (this._lasers.length || this._cursors.length)) {
-	        this._pointer_renderer.drawRays(views, this._lasers);
-	        this._pointer_renderer.drawCursors(views, this._cursors);
-	      }
-	    }
-	  }, {
 	    key: 'gltf2Loader',
 	    get: function get() {
 	      return this._gltf2_loader;
+	    }
+	  }, {
+	    key: 'inputRenderer',
+	    get: function get() {
+	      return this._input_renderer;
 	    }
 	  }]);
 
@@ -3158,7 +3011,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.InputRenderPrimitives = undefined;
+	exports.InputRenderer = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
@@ -3294,25 +3147,248 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return CursorMaterial;
 	}(_material.Material);
 	
-	var InputRenderPrimitives = exports.InputRenderPrimitives = function () {
-	  function InputRenderPrimitives(renderer) {
-	    _classCallCheck(this, InputRenderPrimitives);
+	var InputRenderer = exports.InputRenderer = function (_Node) {
+	  _inherits(InputRenderer, _Node);
 	
-	    this._renderer = renderer;
+	  function InputRenderer(renderer) {
+	    _classCallCheck(this, InputRenderer);
 	
-	    this._laser_render_primitive = null;
-	    this._cursor_render_primitive = null;
+	    var _this3 = _possibleConstructorReturn(this, (InputRenderer.__proto__ || Object.getPrototypeOf(InputRenderer)).call(this));
+	
+	    _this3._renderer = renderer;
+	
+	    _this3._controllers = null;
+	    _this3._lasers = null;
+	    _this3._cursors = null;
+	
+	    _this3._active_controllers = 0;
+	    _this3._active_lasers = 0;
+	    _this3._active_cursors = 0;
+	    return _this3;
 	  }
 	
-	  _createClass(InputRenderPrimitives, [{
-	    key: 'getLaserNode',
-	    value: function getLaserNode() {
-	      if (this._laser_render_primitive) {
-	        var _mesh_node = new _node.Node();
-	        _mesh_node.addRenderPrimitive(this._laser_render_primitive);
-	        return _mesh_node;
+	  _createClass(InputRenderer, [{
+	    key: 'setControllerMesh',
+	    value: function setControllerMesh(controller_node) {
+	      this._controllers = [controller_node];
+	      this._controllers[0].visible = false;
+	      this.addNode(this._controllers[0]);
+	    }
+	  }, {
+	    key: 'addController',
+	    value: function addController(grip_matrix) {
+	      if (!this._controllers) {
+	        return;
 	      }
 	
+	      var controller = null;
+	      if (this._active_controllers < this._controllers.length) {
+	        controller = this._controllers[this._active_controllers];
+	      } else {
+	        controller = this._controllers[0].clone();
+	        this.addNode(controller);
+	        this._controllers.push(controller);
+	      }
+	      this._active_controllers++;
+	
+	      controller.matrix = grip_matrix;
+	      controller.visible = true;
+	    }
+	  }, {
+	    key: 'addLaserPointer',
+	    value: function addLaserPointer(pointer_matrix) {
+	      // Create the laser pointer mesh if needed.
+	      if (!this._lasers) {
+	        this._lasers = [this._createLaserMesh()];
+	        this.addNode(this._lasers[0]);
+	      }
+	
+	      var laser = null;
+	      if (this._active_lasers < this._lasers.length) {
+	        laser = this._lasers[this._active_lasers];
+	      } else {
+	        laser = this._lasers[0].clone();
+	        this.addNode(laser);
+	        this._lasers.push(laser);
+	      }
+	      this._active_lasers++;
+	
+	      laser.matrix = pointer_matrix;
+	      laser.visible = true;
+	    }
+	  }, {
+	    key: 'addCursor',
+	    value: function addCursor(cursor_pos) {
+	      // Create the cursor mesh if needed.
+	      if (!this._cursors) {
+	        this._cursors = [this._createCursorMesh()];
+	        this.addNode(this._cursors[0]);
+	      }
+	
+	      var cursor = null;
+	      if (this._active_cursors < this._cursors.length) {
+	        cursor = this._cursors[this._active_cursors];
+	      } else {
+	        cursor = this._cursors[0].clone();
+	        this.addNode(cursor);
+	        this._cursors.push(cursor);
+	      }
+	      this._active_cursors++;
+	
+	      cursor.translation = cursor_pos;
+	      cursor.visible = true;
+	    }
+	
+	    // Helper function that automatically adds the appropriate visual elements for
+	    // all input sources.
+	
+	  }, {
+	    key: 'addInputSources',
+	    value: function addInputSources(frame, frame_of_ref) {
+	      var input_sources = frame.session.getInputSources();
+	
+	      var _iteratorNormalCompletion = true;
+	      var _didIteratorError = false;
+	      var _iteratorError = undefined;
+	
+	      try {
+	        for (var _iterator = input_sources[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+	          var input_source = _step.value;
+	
+	          var input_pose = frame.getInputPose(input_source, frame_of_ref);
+	
+	          if (!input_pose) {
+	            continue;
+	          }
+	
+	          if (input_pose.gripMatrix) {
+	            // Any time that we have a grip matrix, we'll render a controller.
+	            this.addController(input_pose.gripMatrix);
+	          }
+	
+	          if (input_pose.pointerMatrix) {
+	            if (input_source.pointerOrigin == "hand") {
+	              // If we have a pointer matrix and the pointer origin is the users
+	              // hand (as opposed to their head or the screen) use it to render
+	              // a ray coming out of the input device to indicate the pointer
+	              // direction.
+	              this.addLaserPointer(input_pose.pointerMatrix);
+	            }
+	
+	            // If we have a pointer matrix we can also use it to render a cursor
+	            // for both handheld and gaze-based input sources.
+	
+	            // Statically render the cursor 2 meters down the ray since we're
+	            // not calculating any intersections in this sample.
+	            var cursor_pos = vec3.fromValues(0, 0, -2.0);
+	            vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
+	            this.addCursor(cursor_pos);
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError = true;
+	        _iteratorError = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion && _iterator.return) {
+	            _iterator.return();
+	          }
+	        } finally {
+	          if (_didIteratorError) {
+	            throw _iteratorError;
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: 'reset',
+	    value: function reset() {
+	      if (this._controllers) {
+	        var _iteratorNormalCompletion2 = true;
+	        var _didIteratorError2 = false;
+	        var _iteratorError2 = undefined;
+	
+	        try {
+	          for (var _iterator2 = this._controllers[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	            var controller = _step2.value;
+	
+	            controller.visible = false;
+	          }
+	        } catch (err) {
+	          _didIteratorError2 = true;
+	          _iteratorError2 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	              _iterator2.return();
+	            }
+	          } finally {
+	            if (_didIteratorError2) {
+	              throw _iteratorError2;
+	            }
+	          }
+	        }
+	      }
+	      if (this._lasers) {
+	        var _iteratorNormalCompletion3 = true;
+	        var _didIteratorError3 = false;
+	        var _iteratorError3 = undefined;
+	
+	        try {
+	          for (var _iterator3 = this._lasers[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var laser = _step3.value;
+	
+	            laser.visible = false;
+	          }
+	        } catch (err) {
+	          _didIteratorError3 = true;
+	          _iteratorError3 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	              _iterator3.return();
+	            }
+	          } finally {
+	            if (_didIteratorError3) {
+	              throw _iteratorError3;
+	            }
+	          }
+	        }
+	      }
+	      if (this._cursors) {
+	        var _iteratorNormalCompletion4 = true;
+	        var _didIteratorError4 = false;
+	        var _iteratorError4 = undefined;
+	
+	        try {
+	          for (var _iterator4 = this._cursors[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	            var cursor = _step4.value;
+	
+	            cursor.visible = false;
+	          }
+	        } catch (err) {
+	          _didIteratorError4 = true;
+	          _iteratorError4 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion4 && _iterator4.return) {
+	              _iterator4.return();
+	            }
+	          } finally {
+	            if (_didIteratorError4) {
+	              throw _iteratorError4;
+	            }
+	          }
+	        }
+	      }
+	
+	      this._active_controllers = 0;
+	      this._active_lasers = 0;
+	      this._active_cursors = 0;
+	    }
+	  }, {
+	    key: '_createLaserMesh',
+	    value: function _createLaserMesh() {
 	      var gl = this._renderer._gl;
 	
 	      var lr = LASER_DIAMETER * 0.5;
@@ -3335,31 +3411,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      laser_primitive.setIndexBuffer(laser_index_buffer);
 	
 	      var laser_material = new LaserMaterial();
-	      //laser_material.laser_texture = DataTextureOfSomeSort
 	
-	      /*this._laserTexture = gl.createTexture();
-	      gl.bindTexture(gl.TEXTURE_2D, this._laserTexture);
-	      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 48, 1, 0, gl.RGBA,
-	                    gl.UNSIGNED_BYTE, LASER_TEXTURE_DATA);
-	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);*/
-	
-	      this._laser_render_primitive = this._renderer.createRenderPrimitive(laser_primitive, laser_material);
+	      var laser_render_primitive = this._renderer.createRenderPrimitive(laser_primitive, laser_material);
 	      var mesh_node = new _node.Node();
-	      mesh_node.addRenderPrimitive(this._laser_render_primitive);
+	      mesh_node.addRenderPrimitive(laser_render_primitive);
 	      return mesh_node;
 	    }
 	  }, {
-	    key: 'getCursorNode',
-	    value: function getCursorNode() {
-	      if (this._cursor_render_primitive) {
-	        var _mesh_node2 = new _node.Node();
-	        _mesh_node2.addRenderPrimitive(this._cursor_render_primitive);
-	        return _mesh_node2;
-	      }
-	
+	    key: '_createCursorMesh',
+	    value: function _createCursorMesh() {
 	      var gl = this._renderer._gl;
 	
 	      var cr = CURSOR_RADIUS;
@@ -3417,85 +3477,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      var cursor_material = new CursorMaterial();
 	
-	      this._cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
+	      var cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
 	      var mesh_node = new _node.Node();
-	      mesh_node.addRenderPrimitive(this._cursor_render_primitive);
+	      mesh_node.addRenderPrimitive(cursor_render_primitive);
 	      return mesh_node;
 	    }
-	
-	    /*drawRays(views, pointer_mats) {
-	      let gl = this._gl;
-	      let program = this._laserProgram;
-	       if (!pointer_mats.length) {
-	        return;
-	      }
-	       program.use();
-	       gl.enable(gl.BLEND);
-	      gl.blendFunc(gl.ONE, gl.ONE);
-	      gl.depthMask(false);
-	       gl.uniform4fv(program.uniform.laserColor, LASER_DEFAULT_COLOR);
-	       gl.bindBuffer(gl.ARRAY_BUFFER, this._laserVertexBuffer);
-	      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._laserIndexBuffer);
-	       gl.enableVertexAttribArray(program.attrib.position);
-	      gl.enableVertexAttribArray(program.attrib.texCoord);
-	       gl.vertexAttribPointer(program.attrib.position, 3, gl.FLOAT, false, 20, 0);
-	      gl.vertexAttribPointer(program.attrib.texCoord, 2, gl.FLOAT, false, 20, 12);
-	       gl.activeTexture(gl.TEXTURE0);
-	      gl.uniform1i(program.uniform.diffuse, 0);
-	      gl.bindTexture(gl.TEXTURE_2D, this._laserTexture);
-	       for (let view of views) {
-	        if (view.viewport) {
-	          let vp = view.viewport;
-	          gl.viewport(vp.x, vp.y, vp.width, vp.height);
-	        }
-	        gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
-	        gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
-	         for (let mat of pointer_mats) {
-	          gl.uniformMatrix4fv(program.uniform.modelMat, false, mat);
-	          gl.drawElements(gl.TRIANGLES, this._laserIndexCount, gl.UNSIGNED_SHORT, 0);
-	        }
-	      }
-	       gl.depthMask(true);
-	      gl.disable(gl.BLEND);
-	    }
-	     drawCursors(views, cursorPositions) {
-	      let gl = this._gl;
-	      let program = this._cursorProgram;
-	       if (!cursorPositions.length) {
-	        return;
-	      }
-	       program.use();
-	       // Generally you don't want the cursor ever occluded, so we're turning off
-	      // depth testing when rendering cursors.
-	      gl.disable(gl.DEPTH_TEST); 
-	      gl.enable(gl.BLEND);
-	      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-	       gl.uniform4fv(program.uniform.cursorColor, CURSOR_DEFAULT_COLOR);
-	       gl.bindBuffer(gl.ARRAY_BUFFER, this._cursorVertexBuffer);
-	      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._cursorIndexBuffer);
-	       gl.enableVertexAttribArray(program.attrib.position);
-	       gl.vertexAttribPointer(program.attrib.position, 4, gl.FLOAT, false, 16, 0);
-	       for (let view of views) {
-	        if (view.viewport) {
-	          let vp = view.viewport;
-	          gl.viewport(vp.x, vp.y, vp.width, vp.height);
-	        }
-	         gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
-	        gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
-	        
-	        for (let pos of cursorPositions) {
-	          gl.uniform3fv(program.uniform.cursorPos, pos);
-	          gl.drawElements(gl.TRIANGLES, this._cursorIndexCount, gl.UNSIGNED_SHORT, 0);
-	        }
-	      }
-	       gl.disable(gl.BLEND);
-	      gl.enable(gl.DEPTH_TEST);
-	    }*/
-
 	  }]);
 
-	  return InputRenderPrimitives;
-	}();
+	  return InputRenderer;
+	}(_node.Node);
 
 /***/ }),
 /* 10 */

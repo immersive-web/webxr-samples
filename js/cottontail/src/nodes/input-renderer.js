@@ -160,21 +160,149 @@ class CursorMaterial extends Material {
   }
 }
 
-export class InputRenderPrimitives {
+export class InputRenderer extends Node {
   constructor(renderer) {
+    super();
+
     this._renderer = renderer;
 
-    this._laser_render_primitive = null;
-    this._cursor_render_primitive = null;
+    this._controllers = null;
+    this._lasers = null;
+    this._cursors = null;
+
+    this._active_controllers = 0;
+    this._active_lasers = 0;
+    this._active_cursors = 0;
   }
 
-  getLaserNode() {
-    if (this._laser_render_primitive) {
-      let mesh_node = new Node();
-      mesh_node.addRenderPrimitive(this._laser_render_primitive);
-      return mesh_node;
+  setControllerMesh(controller_node) {
+    this._controllers = [controller_node];
+    this._controllers[0].visible = false;
+    this.addNode(this._controllers[0]);
+  }
+
+  addController(grip_matrix) {
+    if (!this._controllers) {
+      return;
     }
 
+    let controller = null;
+    if (this._active_controllers < this._controllers.length) {
+      controller = this._controllers[this._active_controllers];
+    } else {
+      controller = this._controllers[0].clone();
+      this.addNode(controller);
+      this._controllers.push(controller);
+    }
+    this._active_controllers++;
+
+    controller.matrix = grip_matrix;
+    controller.visible = true;
+  }
+
+  addLaserPointer(pointer_matrix) {
+    // Create the laser pointer mesh if needed.
+    if (!this._lasers) {
+      this._lasers = [this._createLaserMesh()];
+      this.addNode(this._lasers[0]);
+    }
+
+    let laser = null;
+    if (this._active_lasers < this._lasers.length) {
+      laser = this._lasers[this._active_lasers];
+    } else {
+      laser = this._lasers[0].clone();
+      this.addNode(laser);
+      this._lasers.push(laser);
+    }
+    this._active_lasers++;
+
+    laser.matrix = pointer_matrix;
+    laser.visible = true;
+  }
+
+  addCursor(cursor_pos) {
+    // Create the cursor mesh if needed.
+    if (!this._cursors) {
+      this._cursors = [this._createCursorMesh()];
+      this.addNode(this._cursors[0]);
+    }
+
+    let cursor = null;
+    if (this._active_cursors < this._cursors.length) {
+      cursor = this._cursors[this._active_cursors];
+    } else {
+      cursor = this._cursors[0].clone();
+      this.addNode(cursor);
+      this._cursors.push(cursor);
+    }
+    this._active_cursors++;
+
+    cursor.translation = cursor_pos;
+    cursor.visible = true;
+  }
+
+  // Helper function that automatically adds the appropriate visual elements for
+  // all input sources.
+  addInputSources(frame, frame_of_ref) {
+    let input_sources = frame.session.getInputSources();
+
+    for (let input_source of input_sources) {
+      let input_pose = frame.getInputPose(input_source, frame_of_ref);
+
+      if (!input_pose) {
+        continue;
+      }
+
+      if (input_pose.gripMatrix) {
+        // Any time that we have a grip matrix, we'll render a controller.
+        this.addController(input_pose.gripMatrix);
+      }
+
+      if (input_pose.pointerMatrix) {
+        if (input_source.pointerOrigin == "hand") {
+          // If we have a pointer matrix and the pointer origin is the users
+          // hand (as opposed to their head or the screen) use it to render
+          // a ray coming out of the input device to indicate the pointer
+          // direction.
+          this.addLaserPointer(input_pose.pointerMatrix);
+        }
+
+        // If we have a pointer matrix we can also use it to render a cursor
+        // for both handheld and gaze-based input sources.
+
+        // Statically render the cursor 2 meters down the ray since we're
+        // not calculating any intersections in this sample.
+        let cursor_pos = vec3.fromValues(0, 0, -2.0);
+        vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
+        this.addCursor(cursor_pos);
+      }
+    }
+  }
+
+  reset() {
+    if (this._controllers) {
+      for (let controller of this._controllers) {
+        controller.visible = false;
+      }
+    }
+    if (this._lasers) {
+      for (let laser of this._lasers) {
+        laser.visible = false;
+      }
+    }
+    if (this._cursors) {
+      for (let cursor of this._cursors) {
+        cursor.visible = false;
+      }
+    }
+
+    this._active_controllers = 0;
+    this._active_lasers = 0;
+    this._active_cursors = 0;
+  }
+
+  _createLaserMesh() {
     let gl = this._renderer._gl;
 
     let lr = LASER_DIAMETER * 0.5;
@@ -224,30 +352,14 @@ export class InputRenderPrimitives {
     laser_primitive.setIndexBuffer(laser_index_buffer);
 
     let laser_material = new LaserMaterial();
-    //laser_material.laser_texture = DataTextureOfSomeSort
 
-    /*this._laserTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this._laserTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 48, 1, 0, gl.RGBA,
-                  gl.UNSIGNED_BYTE, LASER_TEXTURE_DATA);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);*/
-
-    this._laser_render_primitive = this._renderer.createRenderPrimitive(laser_primitive, laser_material);
+    let laser_render_primitive = this._renderer.createRenderPrimitive(laser_primitive, laser_material);
     let mesh_node = new Node();
-    mesh_node.addRenderPrimitive(this._laser_render_primitive);
+    mesh_node.addRenderPrimitive(laser_render_primitive);
     return mesh_node;
   }
 
-  getCursorNode() {
-    if (this._cursor_render_primitive) {
-      let mesh_node = new Node();
-      mesh_node.addRenderPrimitive(this._cursor_render_primitive);
-      return mesh_node;
-    }
-
+  _createCursorMesh() {
     let gl = this._renderer._gl;
 
     let cr = CURSOR_RADIUS;
@@ -309,100 +421,9 @@ export class InputRenderPrimitives {
 
     let cursor_material = new CursorMaterial();
 
-    this._cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
+    let cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
     let mesh_node = new Node();
-    mesh_node.addRenderPrimitive(this._cursor_render_primitive);
+    mesh_node.addRenderPrimitive(cursor_render_primitive);
     return mesh_node;
   }
-
-  /*drawRays(views, pointer_mats) {
-    let gl = this._gl;
-    let program = this._laserProgram;
-
-    if (!pointer_mats.length) {
-      return;
-    }
-
-    program.use();
-
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.depthMask(false);
-
-    gl.uniform4fv(program.uniform.laserColor, LASER_DEFAULT_COLOR);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._laserVertexBuffer);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._laserIndexBuffer);
-
-    gl.enableVertexAttribArray(program.attrib.position);
-    gl.enableVertexAttribArray(program.attrib.texCoord);
-
-    gl.vertexAttribPointer(program.attrib.position, 3, gl.FLOAT, false, 20, 0);
-    gl.vertexAttribPointer(program.attrib.texCoord, 2, gl.FLOAT, false, 20, 12);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1i(program.uniform.diffuse, 0);
-    gl.bindTexture(gl.TEXTURE_2D, this._laserTexture);
-
-    for (let view of views) {
-      if (view.viewport) {
-        let vp = view.viewport;
-        gl.viewport(vp.x, vp.y, vp.width, vp.height);
-      }
-      gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
-      gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
-
-      for (let mat of pointer_mats) {
-        gl.uniformMatrix4fv(program.uniform.modelMat, false, mat);
-        gl.drawElements(gl.TRIANGLES, this._laserIndexCount, gl.UNSIGNED_SHORT, 0);
-      }
-    }
-
-    gl.depthMask(true);
-    gl.disable(gl.BLEND);
-  }
-
-  drawCursors(views, cursorPositions) {
-    let gl = this._gl;
-    let program = this._cursorProgram;
-
-    if (!cursorPositions.length) {
-      return;
-    }
-
-    program.use();
-
-    // Generally you don't want the cursor ever occluded, so we're turning off
-    // depth testing when rendering cursors.
-    gl.disable(gl.DEPTH_TEST); 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-    gl.uniform4fv(program.uniform.cursorColor, CURSOR_DEFAULT_COLOR);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._cursorVertexBuffer);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._cursorIndexBuffer);
-
-    gl.enableVertexAttribArray(program.attrib.position);
-
-    gl.vertexAttribPointer(program.attrib.position, 4, gl.FLOAT, false, 16, 0);
-
-    for (let view of views) {
-      if (view.viewport) {
-        let vp = view.viewport;
-        gl.viewport(vp.x, vp.y, vp.width, vp.height);
-      }
-
-      gl.uniformMatrix4fv(program.uniform.projectionMat, false, view.projection_mat);
-      gl.uniformMatrix4fv(program.uniform.viewMat, false, view.view_mat);
-      
-      for (let pos of cursorPositions) {
-        gl.uniform3fv(program.uniform.cursorPos, pos);
-        gl.drawElements(gl.TRIANGLES, this._cursorIndexCount, gl.UNSIGNED_SHORT, 0);
-      }
-    }
-
-    gl.disable(gl.BLEND);
-    gl.enable(gl.DEPTH_TEST);
-  }*/
 }
