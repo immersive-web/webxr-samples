@@ -29,5 +29,5 @@ export {
   WebXRView,
   Scene,
   CubeSeaScene,
-  GLTF2Scene,
+  GLTF2Scene
 };

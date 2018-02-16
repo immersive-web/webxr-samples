@@ -294,6 +294,8 @@ export class GLTF2Loader {
 
   processNodes(node, nodes, meshes) {
     let glNode = new Node();
+    glNode.name = node.name;
+
     if ('mesh' in node) {
       let mesh = meshes[node.mesh];
       for (let primitive of mesh.primitives) {

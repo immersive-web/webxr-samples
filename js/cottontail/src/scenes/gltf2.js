@@ -27,13 +27,10 @@ export class GLTF2Scene extends Scene {
 
     this.url = url;
     this.gltf_node = null;
-    this._loader = null;
   }
 
   onLoadScene(renderer) {
-    this._loader = new GLTF2Loader(renderer);
-
-    return this._loader.loadFromUrl(this.url).then((scene_node) => {
+    return this.gltf2Loader.loadFromUrl(this.url).then((scene_node) => {
       this.gltf_node = scene_node;
       this.addNode(this.gltf_node);
       return this.waitForComplete();

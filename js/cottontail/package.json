@@ -5,7 +5,9 @@
   "license": "MIT",
   "readme": "README.md",
   "babel": {
-    "presets": [ "env" ]
+    "presets": [
+      "env"
+    ]
   },
   "scripts": {
     "build": "webpack",

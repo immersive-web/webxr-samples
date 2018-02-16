@@ -24,6 +24,7 @@ const DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 
 export class Node {
   constructor() {
+    this.name = null; // Only for debugging
     this.children = [];
     this.parent = null;
     this.visible = true;
@@ -78,18 +79,16 @@ export class Node {
     }
   }
 
-  set matrix(value) {
-    this._matrix = value;
-    this._dirty_world_matrix = true;
-    this._dirty_trs = false;
-    this._translation = null;
-    this._rotation = null;
-    this._scale = null;
+  setMatrixDirty() {
+    if (!this._dirty_world_matrix) {
+      this._dirty_world_matrix = true;
+      for (let child of this.children) {
+        child.setMatrixDirty();
+      }
+    }
   }
 
-  get matrix() {
-    this._dirty_world_matrix = true;
-
+  _updateLocalMatrix() {
     if (!this._matrix) {
       this._matrix = mat4.create();
     }
@@ -106,19 +105,34 @@ export class Node {
     return this._matrix;
   }
 
+  set matrix(value) {
+    this._matrix = value;
+    this.setMatrixDirty();
+    this._dirty_trs = false;
+    this._translation = null;
+    this._rotation = null;
+    this._scale = null;
+  }
+
+  get matrix() {
+    this.setMatrixDirty();
+
+    return this._updateLocalMatrix();
+  }
+
   get world_matrix() {
     if (!this._world_matrix) {
       this._dirty_world_matrix = true;
       this._world_matrix = mat4.create();
     }
 
-    if (this._dirty_world_matrix) {
+    if (this._dirty_world_matrix || this._dirty_trs) {
       if (this.parent) {
         // TODO: Some optimizations that could be done here if the node matrix
         // is an identity matrix.
-        mat4.mul(this._world_matrix, this.parent.world_matrix, this.matrix);
+        mat4.mul(this._world_matrix, this.parent.world_matrix, this._updateLocalMatrix());
       } else {
-        mat4.copy(this._world_matrix, this.matrix);
+        mat4.copy(this._world_matrix, this._updateLocalMatrix());
       }
       this._dirty_world_matrix = false;
     }
@@ -130,12 +144,14 @@ export class Node {
   set translation(value) {
     if (value != null) {
       this._dirty_trs = true;
+      this.setMatrixDirty();
     }
     this._translation = value;
   }
 
   get translation() {
     this._dirty_trs = true;
+    this.setMatrixDirty();
     if (!this._translation) {
       this._translation = vec3.clone(DEFAULT_TRANSLATION);
     }
@@ -145,12 +161,14 @@ export class Node {
   set rotation(value) {
     if (value != null) {
       this._dirty_trs = true;
+      this.setMatrixDirty();
     }
     this._rotation = value;
   }
 
   get rotation() {
     this._dirty_trs = true;
+    this.setMatrixDirty();
     if (!this._rotation) {
       this._rotation = quat.clone(DEFAULT_ROTATION);
     }
@@ -160,12 +178,14 @@ export class Node {
   set scale(value) {
     if (value != null) {
       this._dirty_trs = true;
+      this.setMatrixDirty();
     }
     this._scale = value;
   }
 
   get scale() {
     this._dirty_trs = true;
+    this.setMatrixDirty();
     if (!this._scale) {
       this._scale = vec3.clone(DEFAULT_SCALE);
     }

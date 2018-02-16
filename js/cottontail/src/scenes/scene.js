@@ -25,6 +25,7 @@ import { Skybox } from '../nodes/skybox.js'
 import { StatsViewer } from '../nodes/stats-viewer.js'
 import { Program } from '../core/program.js'
 import { Node } from '../core/node.js'
+import { GLTF2Loader } from '../loaders/gltf2.js'
 
 export class WebXRView extends RenderView {
   constructor(view, pose, layer) {
@@ -64,6 +65,7 @@ export class Scene extends Node {
     this._cursors = [];
 
     this._skybox = null;
+    this._gltf2_loader = null;
   }
 
   setRenderer(renderer) {
@@ -74,7 +76,7 @@ export class Scene extends Node {
     renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 
     if (renderer) {
-      //this.texture_loader = new WGLUTextureLoader(gl);
+      this._gltf2_loader = new GLTF2Loader(renderer);
 
       if (this._skybox) {
         this._skybox.setRenderer(renderer);
@@ -131,6 +133,10 @@ export class Scene extends Node {
       this._renderer = null;
       this._input_renderer = null;
     }
+  }
+
+  get gltf2Loader() {
+    return this._gltf2_loader;
   }
 
   enableStats(enable) {

@@ -84,9 +84,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _scene = __webpack_require__(6);
 	
-	var _cubeSea = __webpack_require__(13);
+	var _cubeSea = __webpack_require__(15);
 	
-	var _gltf = __webpack_require__(14);
+	var _gltf = __webpack_require__(16);
 	
 	// Copyright 2018 The Immersive Web Community Group
 	//
@@ -1599,6 +1599,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function Node() {
 	    _classCallCheck(this, Node);
 	
+	    this.name = null; // Only for debugging
 	    this.children = [];
 	    this.parent = null;
 	    this.visible = true;
@@ -1699,58 +1700,103 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
+	    key: "setMatrixDirty",
+	    value: function setMatrixDirty() {
+	      if (!this._dirty_world_matrix) {
+	        this._dirty_world_matrix = true;
+	        var _iteratorNormalCompletion3 = true;
+	        var _didIteratorError3 = false;
+	        var _iteratorError3 = undefined;
+	
+	        try {
+	          for (var _iterator3 = this.children[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var child = _step3.value;
+	
+	            child.setMatrixDirty();
+	          }
+	        } catch (err) {
+	          _didIteratorError3 = true;
+	          _iteratorError3 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	              _iterator3.return();
+	            }
+	          } finally {
+	            if (_didIteratorError3) {
+	              throw _iteratorError3;
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: "_updateLocalMatrix",
+	    value: function _updateLocalMatrix() {
+	      if (!this._matrix) {
+	        this._matrix = mat4.create();
+	      }
+	
+	      if (this._dirty_trs) {
+	        this._dirty_trs = false;
+	        mat4.fromRotationTranslationScale(this._matrix, this._rotation || DEFAULT_ROTATION, this._translation || DEFAULT_TRANSLATION, this._scale || DEFAULT_SCALE);
+	      }
+	
+	      return this._matrix;
+	    }
+	  }, {
 	    key: "waitForComplete",
 	    value: function waitForComplete() {
 	      var _this = this;
 	
 	      var child_promises = [];
-	      var _iteratorNormalCompletion3 = true;
-	      var _didIteratorError3 = false;
-	      var _iteratorError3 = undefined;
+	      var _iteratorNormalCompletion4 = true;
+	      var _didIteratorError4 = false;
+	      var _iteratorError4 = undefined;
 	
 	      try {
-	        for (var _iterator3 = this.children[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	          var child = _step3.value;
+	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	          var child = _step4.value;
 	
 	          child_promises.push(child.waitForComplete());
 	        }
 	      } catch (err) {
-	        _didIteratorError3 = true;
-	        _iteratorError3 = err;
+	        _didIteratorError4 = true;
+	        _iteratorError4 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	            _iterator3.return();
+	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
+	            _iterator4.return();
 	          }
 	        } finally {
-	          if (_didIteratorError3) {
-	            throw _iteratorError3;
+	          if (_didIteratorError4) {
+	            throw _iteratorError4;
 	          }
 	        }
 	      }
 	
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion4 = true;
-	        var _didIteratorError4 = false;
-	        var _iteratorError4 = undefined;
+	        var _iteratorNormalCompletion5 = true;
+	        var _didIteratorError5 = false;
+	        var _iteratorError5 = undefined;
 	
 	        try {
-	          for (var _iterator4 = this._render_primitives[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	            var primitive = _step4.value;
+	          for (var _iterator5 = this._render_primitives[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+	            var primitive = _step5.value;
 	
 	            child_promises.push(primitive.waitForComplete());
 	          }
 	        } catch (err) {
-	          _didIteratorError4 = true;
-	          _iteratorError4 = err;
+	          _didIteratorError5 = true;
+	          _iteratorError5 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	              _iterator4.return();
+	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
+	              _iterator5.return();
 	            }
 	          } finally {
-	            if (_didIteratorError4) {
-	              throw _iteratorError4;
+	            if (_didIteratorError5) {
+	              throw _iteratorError5;
 	            }
 	          }
 	        }
@@ -1786,13 +1832,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "clearRenderPrimitives",
 	    value: function clearRenderPrimitives() {
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion5 = true;
-	        var _didIteratorError5 = false;
-	        var _iteratorError5 = undefined;
+	        var _iteratorNormalCompletion6 = true;
+	        var _didIteratorError6 = false;
+	        var _iteratorError6 = undefined;
 	
 	        try {
-	          for (var _iterator5 = this._render_primitives[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-	            var primitive = _step5.value;
+	          for (var _iterator6 = this._render_primitives[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+	            var primitive = _step6.value;
 	
 	            var index = primitive._instances.indexOf(this);
 	            if (index > -1) {
@@ -1800,16 +1846,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        } catch (err) {
-	          _didIteratorError5 = true;
-	          _iteratorError5 = err;
+	          _didIteratorError6 = true;
+	          _iteratorError6 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-	              _iterator5.return();
+	            if (!_iteratorNormalCompletion6 && _iterator6.return) {
+	              _iterator6.return();
 	            }
 	          } finally {
-	            if (_didIteratorError5) {
-	              throw _iteratorError5;
+	            if (_didIteratorError6) {
+	              throw _iteratorError6;
 	            }
 	          }
 	        }
@@ -1821,25 +1867,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "matrix",
 	    set: function set(value) {
 	      this._matrix = value;
-	      this._dirty_world_matrix = true;
+	      this.setMatrixDirty();
 	      this._dirty_trs = false;
 	      this._translation = null;
 	      this._rotation = null;
 	      this._scale = null;
 	    },
 	    get: function get() {
-	      this._dirty_world_matrix = true;
+	      this.setMatrixDirty();
 	
-	      if (!this._matrix) {
-	        this._matrix = mat4.create();
-	      }
-	
-	      if (this._dirty_trs) {
-	        this._dirty_trs = false;
-	        mat4.fromRotationTranslationScale(this._matrix, this._rotation || DEFAULT_ROTATION, this._translation || DEFAULT_TRANSLATION, this._scale || DEFAULT_SCALE);
-	      }
-	
-	      return this._matrix;
+	      return this._updateLocalMatrix();
 	    }
 	  }, {
 	    key: "world_matrix",
@@ -1849,13 +1886,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this._world_matrix = mat4.create();
 	      }
 	
-	      if (this._dirty_world_matrix) {
+	      if (this._dirty_world_matrix || this._dirty_trs) {
 	        if (this.parent) {
 	          // TODO: Some optimizations that could be done here if the node matrix
 	          // is an identity matrix.
-	          mat4.mul(this._world_matrix, this.parent.world_matrix, this.matrix);
+	          mat4.mul(this._world_matrix, this.parent.world_matrix, this._updateLocalMatrix());
 	        } else {
-	          mat4.copy(this._world_matrix, this.matrix);
+	          mat4.copy(this._world_matrix, this._updateLocalMatrix());
 	        }
 	        this._dirty_world_matrix = false;
 	      }
@@ -1870,11 +1907,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
+	        this.setMatrixDirty();
 	      }
 	      this._translation = value;
 	    },
 	    get: function get() {
 	      this._dirty_trs = true;
+	      this.setMatrixDirty();
 	      if (!this._translation) {
 	        this._translation = vec3.clone(DEFAULT_TRANSLATION);
 	      }
@@ -1885,11 +1924,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
+	        this.setMatrixDirty();
 	      }
 	      this._rotation = value;
 	    },
 	    get: function get() {
 	      this._dirty_trs = true;
+	      this.setMatrixDirty();
 	      if (!this._rotation) {
 	        this._rotation = quat.clone(DEFAULT_ROTATION);
 	      }
@@ -1900,11 +1941,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
+	        this.setMatrixDirty();
 	      }
 	      this._scale = value;
 	    },
 	    get: function get() {
 	      this._dirty_trs = true;
+	      this.setMatrixDirty();
 	      if (!this._scale) {
 	        this._scale = vec3.clone(DEFAULT_SCALE);
 	      }
@@ -2347,6 +2390,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _node = __webpack_require__(3);
 	
+	var _gltf = __webpack_require__(13);
+	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
@@ -2414,6 +2459,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2._cursors = [];
 	
 	    _this2._skybox = null;
+	    _this2._gltf2_loader = null;
 	    return _this2;
 	  }
 	
@@ -2427,7 +2473,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 	
 	      if (renderer) {
-	        //this.texture_loader = new WGLUTextureLoader(gl);
+	        this._gltf2_loader = new _gltf.GLTF2Loader(renderer);
 	
 	        if (this._skybox) {
 	          this._skybox.setRenderer(renderer);
@@ -2878,6 +2924,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this._pointer_renderer.drawRays(views, this._lasers);
 	        this._pointer_renderer.drawCursors(views, this._cursors);
 	      }
+	    }
+	  }, {
+	    key: 'gltf2Loader',
+	    get: function get() {
+	      return this._gltf2_loader;
 	    }
 	  }]);
 
@@ -4124,302 +4175,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.CubeSeaScene = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _scene = __webpack_require__(6);
-	
-	var _material = __webpack_require__(2);
-	
-	var _primitive = __webpack_require__(8);
-	
-	var _node = __webpack_require__(3);
-	
-	var _texture = __webpack_require__(5);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-	
-	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var CubeSeaMaterial = function (_Material) {
-	  _inherits(CubeSeaMaterial, _Material);
-	
-	  function CubeSeaMaterial() {
-	    _classCallCheck(this, CubeSeaMaterial);
-	
-	    var _this = _possibleConstructorReturn(this, (CubeSeaMaterial.__proto__ || Object.getPrototypeOf(CubeSeaMaterial)).call(this));
-	
-	    _this.base_color = _this.defineSampler("baseColor");
-	    return _this;
-	  }
-	
-	  _createClass(CubeSeaMaterial, [{
-	    key: 'material_name',
-	    get: function get() {
-	      return 'CUBE_SEA';
-	    }
-	  }, {
-	    key: 'vertex_source',
-	    get: function get() {
-	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    attribute vec3 NORMAL;\n\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    const vec3 lightDir = vec3(0.75, 0.5, 1.0);\n    const vec3 ambientColor = vec3(0.5, 0.5, 0.5);\n    const vec3 lightColor = vec3(0.75, 0.75, 0.75);\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec3 normalRotated = vec3(model * vec4(NORMAL, 0.0));\n      float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);\n      vLight = ambientColor + (lightColor * lightFactor);\n      vTexCoord = TEXCOORD_0;\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
-	    }
-	  }, {
-	    key: 'fragment_source',
-	    get: function get() {
-	      return '\n    precision mediump float;\n    uniform sampler2D baseColor;\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    vec4 fragment_main() {\n      return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n    }';
-	    }
-	  }]);
-	
-	  return CubeSeaMaterial;
-	}(_material.Material);
-	
-	var CubeSeaScene = exports.CubeSeaScene = function (_Scene) {
-	  _inherits(CubeSeaScene, _Scene);
-	
-	  function CubeSeaScene(gridSize) {
-	    _classCallCheck(this, CubeSeaScene);
-	
-	    var _this2 = _possibleConstructorReturn(this, (CubeSeaScene.__proto__ || Object.getPrototypeOf(CubeSeaScene)).call(this));
-	
-	    _this2.gridSize = gridSize ? gridSize : 10;
-	    return _this2;
-	  }
-	
-	  _createClass(CubeSeaScene, [{
-	    key: 'onLoadScene',
-	    value: function onLoadScene(renderer) {
-	      var gl = renderer._gl;
-	      var cubeVerts = [];
-	      var cubeIndices = [];
-	
-	      var cubeScale = 1.0;
-	
-	      // Build a single cube.
-	      function appendCube(x, y, z, size) {
-	        if (!x && !y && !z) {
-	          // Don't create a cube in the center.
-	          return;
-	        }
-	
-	        if (!size) size = 0.2;
-	        if (cubeScale) size *= cubeScale;
-	        // Bottom
-	        var idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        //             X         Y         Z         U    V    NX    NY   NZ
-	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z + size, 1.0, 0.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x - size, y - size, z + size, 0.0, 0.0, 0.0, -1.0, 0.0);
-	
-	        // Top
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z + size, 1.0, 1.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z + size, 0.0, 1.0, 0.0, 1.0, 0.0);
-	
-	        // Left
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z + size, 1.0, 0.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y - size, z + size, 1.0, 1.0, -1.0, 0.0, 0.0);
-	
-	        // Right
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z + size, 0.0, 0.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z + size, 0.0, 1.0, 1.0, 0.0, 0.0);
-	
-	        // Back
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y - size, z - size, 1.0, 1.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x + size, y - size, z - size, 0.0, 1.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x + size, y + size, z - size, 0.0, 0.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x - size, y + size, z - size, 1.0, 0.0, 0.0, 0.0, -1.0);
-	
-	        // Front
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        cubeVerts.push(x - size, y - size, z + size, 0.0, 1.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x + size, y - size, z + size, 1.0, 1.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x + size, y + size, z + size, 1.0, 0.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x - size, y + size, z + size, 0.0, 0.0, 0.0, 0.0, 1.0);
-	      }
-	
-	      // Build the cube sea
-	      for (var x = 0; x < this.gridSize; ++x) {
-	        for (var y = 0; y < this.gridSize; ++y) {
-	          for (var z = 0; z < this.gridSize; ++z) {
-	            appendCube(x - this.gridSize / 2, y - this.gridSize / 2, z - this.gridSize / 2);
-	          }
-	        }
-	      }
-	
-	      var indexCount = cubeIndices.length;
-	
-	      // Add some "hero cubes" for separate animation.
-	      var heroOffset = cubeIndices.length;
-	      appendCube(0, 0.25, -0.8, 0.05);
-	      appendCube(0.8, 0.25, 0, 0.05);
-	      appendCube(0, 0.25, 0.8, 0.05);
-	      appendCube(-0.8, 0.25, 0, 0.05);
-	      var heroCount = cubeIndices.length - heroOffset;
-	
-	      var vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cubeVerts));
-	      var index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices));
-	
-	      var attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0), new _primitive.PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, gl.FLOAT, 32, 12), new _primitive.PrimitiveAttribute("NORMAL", vertex_buffer, 3, gl.FLOAT, 32, 20)];
-	
-	      var cube_sea_primitive = new _primitive.Primitive(attribs, indexCount);
-	      cube_sea_primitive.setIndexBuffer(index_buffer);
-	
-	      var hero_primitive = new _primitive.Primitive(attribs, heroCount);
-	      hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
-	
-	      var material = new CubeSeaMaterial();
-	      material.base_color.texture = new _texture.UrlTexture('media/textures/cube-sea.png');
-	
-	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
-	      this.hero_node = renderer.createMesh(hero_primitive, material);
-	
-	      this.addNode(this.cube_sea_node);
-	      this.addNode(this.hero_node);
-	
-	      return this.waitForComplete();
-	    }
-	  }, {
-	    key: 'onDrawViews',
-	    value: function onDrawViews(renderer, timestamp, views) {
-	      mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
-	      renderer.drawViews(views, this);
-	    }
-	  }]);
-
-	  return CubeSeaScene;
-	}(_scene.Scene);
-
-/***/ }),
-/* 14 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	exports.GLTF2Scene = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _scene = __webpack_require__(6);
-	
-	var _gltf = __webpack_require__(15);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-	
-	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var GLTF2Scene = exports.GLTF2Scene = function (_Scene) {
-	  _inherits(GLTF2Scene, _Scene);
-	
-	  function GLTF2Scene(url) {
-	    _classCallCheck(this, GLTF2Scene);
-	
-	    var _this = _possibleConstructorReturn(this, (GLTF2Scene.__proto__ || Object.getPrototypeOf(GLTF2Scene)).call(this));
-	
-	    _this.url = url;
-	    _this.gltf_node = null;
-	    _this._loader = null;
-	    return _this;
-	  }
-	
-	  _createClass(GLTF2Scene, [{
-	    key: 'onLoadScene',
-	    value: function onLoadScene(renderer) {
-	      var _this2 = this;
-	
-	      this._loader = new _gltf.GLTF2Loader(renderer);
-	
-	      return this._loader.loadFromUrl(this.url).then(function (scene_node) {
-	        _this2.gltf_node = scene_node;
-	        _this2.addNode(_this2.gltf_node);
-	        return _this2.waitForComplete();
-	      });
-	    }
-	  }]);
-
-	  return GLTF2Scene;
-	}(_scene.Scene);
-
-/***/ }),
-/* 15 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
 	exports.GLTF2Loader = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
@@ -4442,7 +4197,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	var _pbr = __webpack_require__(16);
+	var _pbr = __webpack_require__(14);
 	
 	var _node2 = __webpack_require__(3);
 	
@@ -4889,6 +4644,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'processNodes',
 	    value: function processNodes(node, nodes, meshes) {
 	      var glNode = new _node2.Node();
+	      glNode.name = node.name;
+	
 	      if ('mesh' in node) {
 	        var mesh = meshes[node.mesh];
 	        var _iteratorNormalCompletion9 = true;
@@ -5070,7 +4827,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 16 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5196,6 +4953,299 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  return PbrMaterial;
 	}(_material.Material);
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.CubeSeaScene = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _scene = __webpack_require__(6);
+	
+	var _material = __webpack_require__(2);
+	
+	var _primitive = __webpack_require__(8);
+	
+	var _node = __webpack_require__(3);
+	
+	var _texture = __webpack_require__(5);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var CubeSeaMaterial = function (_Material) {
+	  _inherits(CubeSeaMaterial, _Material);
+	
+	  function CubeSeaMaterial() {
+	    _classCallCheck(this, CubeSeaMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (CubeSeaMaterial.__proto__ || Object.getPrototypeOf(CubeSeaMaterial)).call(this));
+	
+	    _this.base_color = _this.defineSampler("baseColor");
+	    return _this;
+	  }
+	
+	  _createClass(CubeSeaMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'CUBE_SEA';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    attribute vec3 NORMAL;\n\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    const vec3 lightDir = vec3(0.75, 0.5, 1.0);\n    const vec3 ambientColor = vec3(0.5, 0.5, 0.5);\n    const vec3 lightColor = vec3(0.75, 0.75, 0.75);\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec3 normalRotated = vec3(model * vec4(NORMAL, 0.0));\n      float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);\n      vLight = ambientColor + (lightColor * lightFactor);\n      vTexCoord = TEXCOORD_0;\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return '\n    precision mediump float;\n    uniform sampler2D baseColor;\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    vec4 fragment_main() {\n      return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n    }';
+	    }
+	  }]);
+	
+	  return CubeSeaMaterial;
+	}(_material.Material);
+	
+	var CubeSeaScene = exports.CubeSeaScene = function (_Scene) {
+	  _inherits(CubeSeaScene, _Scene);
+	
+	  function CubeSeaScene(gridSize) {
+	    _classCallCheck(this, CubeSeaScene);
+	
+	    var _this2 = _possibleConstructorReturn(this, (CubeSeaScene.__proto__ || Object.getPrototypeOf(CubeSeaScene)).call(this));
+	
+	    _this2.gridSize = gridSize ? gridSize : 10;
+	    return _this2;
+	  }
+	
+	  _createClass(CubeSeaScene, [{
+	    key: 'onLoadScene',
+	    value: function onLoadScene(renderer) {
+	      var gl = renderer._gl;
+	      var cubeVerts = [];
+	      var cubeIndices = [];
+	
+	      var cubeScale = 1.0;
+	
+	      // Build a single cube.
+	      function appendCube(x, y, z, size) {
+	        if (!x && !y && !z) {
+	          // Don't create a cube in the center.
+	          return;
+	        }
+	
+	        if (!size) size = 0.2;
+	        if (cubeScale) size *= cubeScale;
+	        // Bottom
+	        var idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 1, idx + 2);
+	        cubeIndices.push(idx, idx + 2, idx + 3);
+	
+	        //             X         Y         Z         U    V    NX    NY   NZ
+	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, 0.0, -1.0, 0.0);
+	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 0.0, -1.0, 0.0);
+	        cubeVerts.push(x + size, y - size, z + size, 1.0, 0.0, 0.0, -1.0, 0.0);
+	        cubeVerts.push(x - size, y - size, z + size, 0.0, 0.0, 0.0, -1.0, 0.0);
+	
+	        // Top
+	        idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 2, idx + 1);
+	        cubeIndices.push(idx, idx + 3, idx + 2);
+	
+	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, 0.0, 1.0, 0.0);
+	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 0.0, 1.0, 0.0);
+	        cubeVerts.push(x + size, y + size, z + size, 1.0, 1.0, 0.0, 1.0, 0.0);
+	        cubeVerts.push(x - size, y + size, z + size, 0.0, 1.0, 0.0, 1.0, 0.0);
+	
+	        // Left
+	        idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 2, idx + 1);
+	        cubeIndices.push(idx, idx + 3, idx + 2);
+	
+	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, -1.0, 0.0, 0.0);
+	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, -1.0, 0.0, 0.0);
+	        cubeVerts.push(x - size, y + size, z + size, 1.0, 0.0, -1.0, 0.0, 0.0);
+	        cubeVerts.push(x - size, y - size, z + size, 1.0, 1.0, -1.0, 0.0, 0.0);
+	
+	        // Right
+	        idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 1, idx + 2);
+	        cubeIndices.push(idx, idx + 2, idx + 3);
+	
+	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 1.0, 0.0, 0.0);
+	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 1.0, 0.0, 0.0);
+	        cubeVerts.push(x + size, y + size, z + size, 0.0, 0.0, 1.0, 0.0, 0.0);
+	        cubeVerts.push(x + size, y - size, z + size, 0.0, 1.0, 1.0, 0.0, 0.0);
+	
+	        // Back
+	        idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 2, idx + 1);
+	        cubeIndices.push(idx, idx + 3, idx + 2);
+	
+	        cubeVerts.push(x - size, y - size, z - size, 1.0, 1.0, 0.0, 0.0, -1.0);
+	        cubeVerts.push(x + size, y - size, z - size, 0.0, 1.0, 0.0, 0.0, -1.0);
+	        cubeVerts.push(x + size, y + size, z - size, 0.0, 0.0, 0.0, 0.0, -1.0);
+	        cubeVerts.push(x - size, y + size, z - size, 1.0, 0.0, 0.0, 0.0, -1.0);
+	
+	        // Front
+	        idx = cubeVerts.length / 8.0;
+	        cubeIndices.push(idx, idx + 1, idx + 2);
+	        cubeIndices.push(idx, idx + 2, idx + 3);
+	
+	        cubeVerts.push(x - size, y - size, z + size, 0.0, 1.0, 0.0, 0.0, 1.0);
+	        cubeVerts.push(x + size, y - size, z + size, 1.0, 1.0, 0.0, 0.0, 1.0);
+	        cubeVerts.push(x + size, y + size, z + size, 1.0, 0.0, 0.0, 0.0, 1.0);
+	        cubeVerts.push(x - size, y + size, z + size, 0.0, 0.0, 0.0, 0.0, 1.0);
+	      }
+	
+	      // Build the cube sea
+	      for (var x = 0; x < this.gridSize; ++x) {
+	        for (var y = 0; y < this.gridSize; ++y) {
+	          for (var z = 0; z < this.gridSize; ++z) {
+	            appendCube(x - this.gridSize / 2, y - this.gridSize / 2, z - this.gridSize / 2);
+	          }
+	        }
+	      }
+	
+	      var indexCount = cubeIndices.length;
+	
+	      // Add some "hero cubes" for separate animation.
+	      var heroOffset = cubeIndices.length;
+	      appendCube(0, 0.25, -0.8, 0.05);
+	      appendCube(0.8, 0.25, 0, 0.05);
+	      appendCube(0, 0.25, 0.8, 0.05);
+	      appendCube(-0.8, 0.25, 0, 0.05);
+	      var heroCount = cubeIndices.length - heroOffset;
+	
+	      var vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cubeVerts));
+	      var index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices));
+	
+	      var attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0), new _primitive.PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, gl.FLOAT, 32, 12), new _primitive.PrimitiveAttribute("NORMAL", vertex_buffer, 3, gl.FLOAT, 32, 20)];
+	
+	      var cube_sea_primitive = new _primitive.Primitive(attribs, indexCount);
+	      cube_sea_primitive.setIndexBuffer(index_buffer);
+	
+	      var hero_primitive = new _primitive.Primitive(attribs, heroCount);
+	      hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
+	
+	      var material = new CubeSeaMaterial();
+	      material.base_color.texture = new _texture.UrlTexture('media/textures/cube-sea.png');
+	
+	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
+	      this.hero_node = renderer.createMesh(hero_primitive, material);
+	
+	      this.addNode(this.cube_sea_node);
+	      this.addNode(this.hero_node);
+	
+	      return this.waitForComplete();
+	    }
+	  }, {
+	    key: 'onDrawViews',
+	    value: function onDrawViews(renderer, timestamp, views) {
+	      mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
+	      renderer.drawViews(views, this);
+	    }
+	  }]);
+
+	  return CubeSeaScene;
+	}(_scene.Scene);
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.GLTF2Scene = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _scene = __webpack_require__(6);
+	
+	var _gltf = __webpack_require__(13);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var GLTF2Scene = exports.GLTF2Scene = function (_Scene) {
+	  _inherits(GLTF2Scene, _Scene);
+	
+	  function GLTF2Scene(url) {
+	    _classCallCheck(this, GLTF2Scene);
+	
+	    var _this = _possibleConstructorReturn(this, (GLTF2Scene.__proto__ || Object.getPrototypeOf(GLTF2Scene)).call(this));
+	
+	    _this.url = url;
+	    _this.gltf_node = null;
+	    return _this;
+	  }
+	
+	  _createClass(GLTF2Scene, [{
+	    key: 'onLoadScene',
+	    value: function onLoadScene(renderer) {
+	      var _this2 = this;
+	
+	      return this.gltf2Loader.loadFromUrl(this.url).then(function (scene_node) {
+	        _this2.gltf_node = scene_node;
+	        _this2.addNode(_this2.gltf_node);
+	        return _this2.waitForComplete();
+	      });
+	    }
+	  }]);
+
+	  return GLTF2Scene;
+	}(_scene.Scene);
 
 /***/ })
 /******/ ])
