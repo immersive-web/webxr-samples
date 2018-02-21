@@ -3157,7 +3157,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this3._renderer = renderer;
 	
-	    _this3._controllers = null;
+	    _this3._controllers = [];
+	    _this3._controller_node = null;
+	    _this3._controller_node_handedness = null;
 	    _this3._lasers = null;
 	    _this3._cursors = null;
 	
@@ -3170,14 +3172,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(InputRenderer, [{
 	    key: 'setControllerMesh',
 	    value: function setControllerMesh(controller_node) {
-	      this._controllers = [controller_node];
-	      this._controllers[0].visible = false;
-	      this.addNode(this._controllers[0]);
+	      var handedness = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'right';
+	
+	      this._controller_node = controller_node;
+	      this._controller_node_handedness = handedness;
 	    }
 	  }, {
 	    key: 'addController',
 	    value: function addController(grip_matrix) {
-	      if (!this._controllers) {
+	      if (!this._controller_node) {
 	        return;
 	      }
 	
@@ -3185,7 +3188,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (this._active_controllers < this._controllers.length) {
 	        controller = this._controllers[this._active_controllers];
 	      } else {
-	        controller = this._controllers[0].clone();
+	        controller = this._controller_node.clone();
 	        this.addNode(controller);
 	        this._controllers.push(controller);
 	      }
@@ -3245,6 +3248,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'addInputSources',
 	    value: function addInputSources(frame, frame_of_ref) {
+	      // FIXME: Check for the existence of the API first. This check should be
+	      // removed once the input API is part of the official spec.
+	      if (!frame.session.getInputSources) return;
+	
 	      var input_sources = frame.session.getInputSources();
 	
 	      var _iteratorNormalCompletion = true;
@@ -3261,9 +3268,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	            continue;
 	          }
 	
+	          // Any time that we have a grip matrix, we'll render a controller.
 	          if (input_pose.gripMatrix) {
-	            // Any time that we have a grip matrix, we'll render a controller.
-	            this.addController(input_pose.gripMatrix);
+	            var controller_matrix = input_pose.gripMatrix;
+	
+	            // If the mesh need to be flipped to look correct for this hand do so.
+	            if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' || input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
+	              controller_matrix = mat4.create();
+	              mat4.scale(controller_matrix, controller_matrix, [-1.0, 0.0, 0.0]);
+	              mat4.multiply(controller_matrix, controller_matrix, input_pose.gripMatrix);
+	            }
+	
+	            this.addController(controller_matrix);
 	          }
 	
 	          if (input_pose.pointerMatrix) {
@@ -3449,10 +3465,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      // Cursor Skirt
 	      for (var _i = 0; _i < CURSOR_SEGMENTS; ++_i) {
 	        var _rad = _i * seg_rad;
-	        var _x = Math.cos(_rad);
+	        var _x2 = Math.cos(_rad);
 	        var _y = Math.sin(_rad);
-	        cursor_verts.push(_x * CURSOR_RADIUS, _y * CURSOR_RADIUS, CURSOR_SHADOW_INNER_LUMINANCE, CURSOR_SHADOW_INNER_OPACITY);
-	        cursor_verts.push(_x * CURSOR_SHADOW_RADIUS, _y * CURSOR_SHADOW_RADIUS, CURSOR_SHADOW_OUTER_LUMINANCE, CURSOR_SHADOW_OUTER_OPACITY);
+	        cursor_verts.push(_x2 * CURSOR_RADIUS, _y * CURSOR_RADIUS, CURSOR_SHADOW_INNER_LUMINANCE, CURSOR_SHADOW_INNER_OPACITY);
+	        cursor_verts.push(_x2 * CURSOR_SHADOW_RADIUS, _y * CURSOR_SHADOW_RADIUS, CURSOR_SHADOW_OUTER_LUMINANCE, CURSOR_SHADOW_OUTER_OPACITY);
 	
 	        if (_i > 0) {
 	          var _idx = index_offset + _i * 2;

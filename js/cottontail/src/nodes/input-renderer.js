@@ -166,7 +166,9 @@ export class InputRenderer extends Node {
 
     this._renderer = renderer;
 
-    this._controllers = null;
+    this._controllers = [];
+    this._controller_node = null;
+    this._controller_node_handedness = null;
     this._lasers = null;
     this._cursors = null;
 
@@ -175,22 +177,21 @@ export class InputRenderer extends Node {
     this._active_cursors = 0;
   }
 
-  setControllerMesh(controller_node) {
-    this._controllers = [controller_node];
-    this._controllers[0].visible = false;
-    this.addNode(this._controllers[0]);
+  setControllerMesh(controller_node, handedness = 'right') {
+    this._controller_node = controller_node;
+    this._controller_node_handedness = handedness;
   }
 
   addController(grip_matrix) {
-    if (!this._controllers) {
-      return;
+    if (!this._controller_node) {
+        return;
     }
 
     let controller = null;
     if (this._active_controllers < this._controllers.length) {
       controller = this._controllers[this._active_controllers];
     } else {
-      controller = this._controllers[0].clone();
+      controller = this._controller_node.clone();
       this.addNode(controller);
       this._controllers.push(controller);
     }
@@ -245,6 +246,11 @@ export class InputRenderer extends Node {
   // Helper function that automatically adds the appropriate visual elements for
   // all input sources.
   addInputSources(frame, frame_of_ref) {
+    // FIXME: Check for the existence of the API first. This check should be
+    // removed once the input API is part of the official spec.
+    if (!frame.session.getInputSources)
+      return;
+
     let input_sources = frame.session.getInputSources();
 
     for (let input_source of input_sources) {
@@ -254,9 +260,19 @@ export class InputRenderer extends Node {
         continue;
       }
 
+      // Any time that we have a grip matrix, we'll render a controller.
       if (input_pose.gripMatrix) {
-        // Any time that we have a grip matrix, we'll render a controller.
-        this.addController(input_pose.gripMatrix);
+        let controller_matrix = input_pose.gripMatrix;
+
+        // If the mesh need to be flipped to look correct for this hand do so.
+        if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' ||
+            input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
+          controller_matrix = mat4.create();
+          mat4.scale(controller_matrix, controller_matrix, [-1.0, 0.0, 0.0]);
+          mat4.multiply(controller_matrix, controller_matrix, input_pose.gripMatrix);
+        }
+
+        this.addController(controller_matrix);
       }
 
       if (input_pose.pointerMatrix) {

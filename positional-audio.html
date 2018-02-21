@@ -66,6 +66,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new GLTF2Scene('media/gltf/garage/garage.gltf');
       scene.standingStats(true);
 
+      let stereo = null;
+
       // Audio scene globals
       let audioContext = new AudioContext();
       let resonance = new ResonanceAudio(audioContext);
@@ -101,13 +103,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         analyser.fftSize = ANALYSER_FFT_SIZE;
         analyser.lastRMSdB = 0;
 
-        // Create a bit of debug geometry to indicate where in the world this
-        // audio source is.
-        /*let geom = scene.createDebugGeometry("box");
-        geom.center = pos;
-        geom.size = 0.3;
-        geom.color = options.color;*/
-
         return fetch(options.url)
           .then((response) => response.arrayBuffer())
           .then((buffer) => audioContext.decodeAudioData(buffer))
@@ -120,7 +115,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               bufferSource: bufferSource,
               source: source,
               analyser: analyser,
-              //geom: geom
+              position: pos,
+              rotateY: options.rotateY,
+              node: null
             };
           });
       }
@@ -161,23 +158,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Scaling by 1/30 is also experimentally determined. Max is to present
         // objects from disappearing entirely.
-        return Math.max(0.05, analyser.lastRMSdB / 30.0);
+        return Math.max(0.3, analyser.lastRMSdB / 30.0);
       }
 
       let audioSources = [];
 
-      /*function updateDebugGeometry() {
+      function updateAudioNodes() {
+        if (!stereo)
+          return;
+
         for (let source of audioSources) {
-          let geom = source.geom;
+          if (!source.node) {
+            source.node = stereo.clone();
+            scene.addNode(source.node);
+          }
 
-          // Give all the boxes a slow spin.
-          mat4.identity(geom.transform);
-          mat4.translate(geom.transform, geom.transform, geom.center);
+          let node = source.node;
+          let matrix = node.matrix;
 
-          let scale = geom.size * getLoudnessScale(source.analyser);
-          mat4.scale(geom.transform, geom.transform, [scale, scale, scale]);
+          // Move the node to the right location.
+          mat4.identity(matrix);
+          mat4.translate(matrix, matrix, source.position);
+          mat4.rotateY(matrix, matrix, source.rotateY);
+
+          // Scale it based on loudness of the audio channel
+          let scale = getLoudnessScale(source.analyser);
+          mat4.scale(matrix, matrix, [scale, scale, scale]);
         }
-      }*/
+      }
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -193,16 +201,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               createAudioSource({
                 url: 'media/sound/drums.ogg',
                 position: [0, DEFAULT_HEIGHT, 1],
+                rotateY: Math.PI,
                 color: [1.0, 0.0, 0.0, 1.0]
               }),
               createAudioSource({
                 url: 'media/sound/guitar.ogg',
                 position: [-1, DEFAULT_HEIGHT, 0],
+                rotateY: Math.PI * 0.5,
                 color: [0.0, 1.0, 0.0, 1.0]
               }),
               createAudioSource({
                 url: 'media/sound/perc.ogg',
                 position: [1, DEFAULT_HEIGHT, 0],
+                rotateY: Math.PI * -0.5,
                 color: [0.0, 0.0, 1.0, 1.0]
               }),
             ]).then((sources) => {
@@ -233,6 +244,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onSessionStarted(session);
         });
 
+        audioContext.resume();
+
         for (let source of audioSources) {
           source.bufferSource.start(0);
         }
@@ -249,6 +262,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
+
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
+            scene.inputRenderer.setControllerMesh(controller_mesh);
+          });
+
+          scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((stereo_mesh) => {
+            stereo = stereo_mesh;
+          });
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);
@@ -269,15 +290,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        console.log('onSessionEnded');
-        console.log('Session: ' + event.session);
-        console.log('Exclusive: ' + event.session.exclusive);
         if (event.session.exclusive) {
-          console.log('xrButton.setSession(null)');
           xrButton.setSession(null);
 
           // Stop the audio playback when we exit XR.
-          console.log('Stop Audio');
           for (let source of audioSources) {
             source.bufferSource.stop(0);
             source.bufferSource = createBufferSource(
@@ -297,7 +313,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        //updateDebugGeometry();
+        updateAudioNodes();
+
+        scene.inputRenderer.addInputSources(frame, frameOfRef);
 
         scene.drawXRFrame(frame, pose);
 

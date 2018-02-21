@@ -108,6 +108,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           renderer = new Renderer(gl);
           scene.setRenderer(renderer);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
+            scene.inputRenderer.setControllerMesh(controller_mesh);
+          });
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);
@@ -167,6 +170,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             render_view.eye = view.eye
             views.push(render_view);
           }
+
+          scene.inputRenderer.addInputSources(frame, frameOfRef);
 
           scene.drawViewArray(views);
         }
