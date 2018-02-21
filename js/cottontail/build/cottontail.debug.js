@@ -3270,16 +3270,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	          // Any time that we have a grip matrix, we'll render a controller.
 	          if (input_pose.gripMatrix) {
-	            var controller_matrix = input_pose.gripMatrix;
+	            this.addController(input_pose.gripMatrix);
 	
-	            // If the mesh need to be flipped to look correct for this hand do so.
-	            if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' || input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
+	            /*let controller_matrix = input_pose.gripMatrix;
+	             // If the mesh need to be flipped to look correct for this hand do so.
+	            if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' ||
+	                input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
 	              controller_matrix = mat4.create();
-	              mat4.scale(controller_matrix, controller_matrix, [-1.0, 0.0, 0.0]);
-	              mat4.multiply(controller_matrix, controller_matrix, input_pose.gripMatrix);
+	              mat4.scale(controller_matrix, controller_matrix, [-1.0, 1.0, 1.0]);
+	              mat4.multiply(controller_matrix, input_pose.gripMatrix, controller_matrix);
 	            }
-	
-	            this.addController(controller_matrix);
+	             this.addController(controller_matrix);*/
 	          }
 	
 	          if (input_pose.pointerMatrix) {
