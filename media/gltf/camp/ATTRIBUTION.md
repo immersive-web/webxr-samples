@@ -8,4 +8,6 @@ All models used in this scene are licensed under [CC-BY 3.0](https://creativecom
 
 "[Tent](https://poly.google.com/view/2tvQrMLf_tP)" model by Jarlan Perez.
 
-"[Pine Tree](https://poly.google.com/view/2Qo-fmVKuSG)" model by Danny Bittman.
+"[Pine Tree](https://poly.google.com/view/2Qo-fmVKuSG)" and "[Pastel Plume Flowers](https://poly.google.com/view/eLVv17bTyB-)" models by Danny Bittman.
+
+
