@@ -201,40 +201,37 @@
     ], 
     "materials" : [
         {
-            "alphaMode" : "BLEND", 
             "name" : "039BE5", 
             "pbrMetallicRoughness" : {
                 "baseColorFactor" : [
                     0.01176500041037798, 
                     0.6078429818153381, 
                     0.8980389833450317, 
-                    0.0
+                    1.0
                 ], 
                 "metallicFactor" : 0.0
             }
         }, 
         {
-            "alphaMode" : "BLEND", 
             "name" : "1A1A1A", 
             "pbrMetallicRoughness" : {
                 "baseColorFactor" : [
                     0.10196100175380707, 
                     0.10196100175380707, 
                     0.10196100175380707, 
-                    0.0
+                    1.0
                 ], 
                 "metallicFactor" : 0.0
             }
         }, 
         {
-            "alphaMode" : "BLEND", 
             "name" : "455A64", 
             "pbrMetallicRoughness" : {
                 "baseColorFactor" : [
                     0.2705880105495453, 
                     0.35294100642204285, 
                     0.3921569883823395, 
-                    0.0
+                    1.0
                 ], 
                 "metallicFactor" : 0.0
             }
