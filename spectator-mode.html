@@ -206,8 +206,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onResize () {
         if (spectatorMode) {
-          gl.canvas.width = gl.canvas.offsetWidth * window.devicePixelRatio;
-          gl.canvas.height = gl.canvas.offsetHeight * window.devicePixelRatio;
+          // The spectator view does take time to render, and can impact the
+          // performance of the in-headset view. To help mitigate that, we'll
+          // draw the spectator view at half the native resolution.
+          gl.canvas.width = (gl.canvas.offsetWidth * window.devicePixelRatio) / 2.0;
+          gl.canvas.height = (gl.canvas.offsetHeight * window.devicePixelRatio) / 2.0;
         }
       }
 
