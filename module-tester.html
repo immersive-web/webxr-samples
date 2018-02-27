@@ -86,6 +86,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
           scene.inputRenderer.setControllerMesh(controller_mesh);
         });
+
+        scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headset_mesh) => {
+          scene.addNode(headset_mesh);
+        });
       }
 
       function onResize () {
