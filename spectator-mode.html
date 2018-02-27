@@ -70,6 +70,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let spectatorButton = null;
       let spectatorProjectionMatrix = mat4.create();
       let spectatorViewMatrix = mat4.create();
+      let headset = null;
 
       let mainElement = document.querySelector('main');
 
@@ -193,6 +194,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           mainElement.removeChild(spectatorButton);
           spectatorButton = null;
         }
+
+        // Load up a mesh that we can use to visualize the headset's pose.
+        if (!headset) {
+          scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headset_mesh) => {
+            headset = headset_mesh;
+            scene.addNode(headset);
+          });
+        }
       }
 
       function onResize () {
@@ -242,10 +251,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           mat4.rotateX(spectatorViewMatrix, spectatorViewMatrix, Math.PI * -0.15);
           mat4.invert(spectatorViewMatrix, spectatorViewMatrix);
 
-          // TODO: Headset visualization.
+          // Update the headset's pose to match the user's and make it visible
+          // for this draw.
+          if (headset) {
+            headset.visible = true;
+            headset.matrix = pose.poseModelMatrix;
+          }
 
           // Draw the spectator view of the scene.
           scene.draw(spectatorProjectionMatrix, spectatorViewMatrix);
+
+          // Ensure the headset isn't visible in the VR view.
+          if (headset) {
+            headset.visible = false;
+          }
         }
 
         scene.endFrame();
