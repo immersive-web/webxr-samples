@@ -88,6 +88,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _gltf = __webpack_require__(16);
 	
+	// A very short-term polyfill to address a change in the location of the
+	// getViewport call. This should dissapear within a month or so.
 	// Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -107,6 +109,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
+	
+	if (XRWebGLLayer && !('getViewport' in XRWebGLLayer.prototype)) {
+	  XRWebGLLayer.prototype.getViewport = function (view) {
+	    return view.getViewport(this);
+	  };
+	}
 	
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
@@ -2517,7 +2525,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function WebXRView(view, pose, layer) {
 	    _classCallCheck(this, WebXRView);
 	
-	    return _possibleConstructorReturn(this, (WebXRView.__proto__ || Object.getPrototypeOf(WebXRView)).call(this, view ? view.projectionMatrix : null, pose && view ? pose.getViewMatrix(view) : null, layer && view ? view.getViewport(layer) : null, view ? view.eye : 'left'));
+	    return _possibleConstructorReturn(this, (WebXRView.__proto__ || Object.getPrototypeOf(WebXRView)).call(this, view ? view.projectionMatrix : null, pose && view ? pose.getViewMatrix(view) : null, layer && view ? layer.getViewport(view) : null, view ? view.eye : 'left'));
 	  }
 	
 	  return WebXRView;

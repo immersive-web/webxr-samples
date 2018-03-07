@@ -32,7 +32,7 @@ export class WebXRView extends RenderView {
     super(
       view ? view.projectionMatrix : null,
       (pose && view) ? pose.getViewMatrix(view) : null,
-      (layer && view) ? view.getViewport(layer) : null,
+      (layer && view) ? layer.getViewport(view) : null,
       view ? view.eye : 'left'
     );
   }

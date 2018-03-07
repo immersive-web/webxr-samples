@@ -177,7 +177,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // If we do have a valid pose, loop through each of the views reported
           // by the frame and draw them into the corresponding viewport.
           for (let view of frame.views) {
-            let viewport = view.getViewport(session.baseLayer);
+            let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 

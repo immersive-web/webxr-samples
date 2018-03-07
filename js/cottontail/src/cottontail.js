@@ -23,6 +23,14 @@ import { WebXRView, Scene } from './scenes/scene.js'
 import { CubeSeaScene } from './scenes/cube-sea.js'
 import { GLTF2Scene } from './scenes/gltf2.js'
 
+// A very short-term polyfill to address a change in the location of the
+// getViewport call. This should dissapear within a month or so.
+if (XRWebGLLayer && !('getViewport' in XRWebGLLayer.prototype)) {
+  XRWebGLLayer.prototype.getViewport = function(view) {
+    return view.getViewport(this);
+  };
+}
+
 export {
   Renderer,
   createWebGLContext,

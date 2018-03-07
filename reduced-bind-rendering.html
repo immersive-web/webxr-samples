@@ -199,7 +199,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // values internally.
             render_view.projection_matrix = view.projectionMatrix;
             render_view.view_matrix = pose.getViewMatrix(view);
-            render_view.viewport = view.getViewport(session.baseLayer);
+            render_view.viewport = session.baseLayer.getViewport(view);
             views.push(render_view);
           }
 
