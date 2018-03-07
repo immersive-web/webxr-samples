@@ -57,6 +57,12 @@ const CURSOR_OPACITY = 0.9;
 const CURSOR_SEGMENTS = 16;
 const CURSOR_DEFAULT_COLOR = [1.0, 1.0, 1.0, 1.0];
 
+const DEFAULT_RESET_OPTIONS = {
+  controllers: true,
+  lasers: true,
+  cursors: true
+};
+
 class LaserMaterial extends Material {
   constructor() {
     super();
@@ -166,6 +172,8 @@ export class InputRenderer extends Node {
 
     this._renderer = renderer;
 
+    this._max_input_elements = 32;
+
     this._controllers = [];
     this._controller_node = null;
     this._controller_node_handedness = null;
@@ -195,7 +203,7 @@ export class InputRenderer extends Node {
       this.addNode(controller);
       this._controllers.push(controller);
     }
-    this._active_controllers++;
+    this._active_controllers = (this._active_controllers + 1) % this._max_input_elements;
 
     controller.matrix = grip_matrix;
     controller.visible = true;
@@ -216,7 +224,7 @@ export class InputRenderer extends Node {
       this.addNode(laser);
       this._lasers.push(laser);
     }
-    this._active_lasers++;
+    this._active_lasers = (this._active_lasers + 1) % this._max_input_elements;
 
     laser.matrix = pointer_matrix;
     laser.visible = true;
@@ -237,7 +245,7 @@ export class InputRenderer extends Node {
       this.addNode(cursor);
       this._cursors.push(cursor);
     }
-    this._active_cursors++;
+    this._active_cursors = (this._active_cursors + 1) % this._max_input_elements;
 
     cursor.translation = cursor_pos;
     cursor.visible = true;
@@ -298,26 +306,28 @@ export class InputRenderer extends Node {
     }
   }
 
-  reset() {
-    if (this._controllers) {
+  reset(options) {
+    if (!options) {
+      options = DEFAULT_RESET_OPTIONS;
+    }
+    if (this._controllers && options.controllers) {
       for (let controller of this._controllers) {
         controller.visible = false;
       }
+      this._active_controllers = 0;
     }
-    if (this._lasers) {
+    if (this._lasers && options.lasers) {
       for (let laser of this._lasers) {
         laser.visible = false;
       }
+      this._active_lasers = 0;
     }
-    if (this._cursors) {
+    if (this._cursors && options.cursors) {
       for (let cursor of this._cursors) {
         cursor.visible = false;
       }
+      this._active_cursors = 0;
     }
-
-    this._active_controllers = 0;
-    this._active_lasers = 0;
-    this._active_cursors = 0;
   }
 
   _createLaserMesh() {

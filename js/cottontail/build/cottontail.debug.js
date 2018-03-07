@@ -2550,6 +2550,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2._renderer = null;
 	
 	    _this2._input_renderer = null;
+	    _this2._reset_input_end_frame = true;
 	
 	    _this2._skybox = null;
 	    _this2._gltf2_loader = null;
@@ -2757,7 +2758,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'endFrame',
 	    value: function endFrame() {
-	      if (this._input_renderer) {
+	      if (this._input_renderer && this._reset_input_end_frame) {
 	        this._input_renderer.reset();
 	      }
 	
@@ -3076,6 +3077,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	var CURSOR_SEGMENTS = 16;
 	var CURSOR_DEFAULT_COLOR = [1.0, 1.0, 1.0, 1.0];
 	
+	var DEFAULT_RESET_OPTIONS = {
+	  controllers: true,
+	  lasers: true,
+	  cursors: true
+	};
+	
 	var LaserMaterial = function (_Material) {
 	  _inherits(LaserMaterial, _Material);
 	
@@ -3165,6 +3172,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this3._renderer = renderer;
 	
+	    _this3._max_input_elements = 32;
+	
 	    _this3._controllers = [];
 	    _this3._controller_node = null;
 	    _this3._controller_node_handedness = null;
@@ -3200,7 +3209,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.addNode(controller);
 	        this._controllers.push(controller);
 	      }
-	      this._active_controllers++;
+	      this._active_controllers = (this._active_controllers + 1) % this._max_input_elements;
 	
 	      controller.matrix = grip_matrix;
 	      controller.visible = true;
@@ -3222,7 +3231,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.addNode(laser);
 	        this._lasers.push(laser);
 	      }
-	      this._active_lasers++;
+	      this._active_lasers = (this._active_lasers + 1) % this._max_input_elements;
 	
 	      laser.matrix = pointer_matrix;
 	      laser.visible = true;
@@ -3244,7 +3253,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.addNode(cursor);
 	        this._cursors.push(cursor);
 	      }
-	      this._active_cursors++;
+	      this._active_cursors = (this._active_cursors + 1) % this._max_input_elements;
 	
 	      cursor.translation = cursor_pos;
 	      cursor.visible = true;
@@ -3327,8 +3336,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  }, {
 	    key: 'reset',
-	    value: function reset() {
-	      if (this._controllers) {
+	    value: function reset(options) {
+	      if (!options) {
+	        options = DEFAULT_RESET_OPTIONS;
+	      }
+	      if (this._controllers && options.controllers) {
 	        var _iteratorNormalCompletion2 = true;
 	        var _didIteratorError2 = false;
 	        var _iteratorError2 = undefined;
@@ -3353,8 +3365,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        }
+	
+	        this._active_controllers = 0;
 	      }
-	      if (this._lasers) {
+	      if (this._lasers && options.lasers) {
 	        var _iteratorNormalCompletion3 = true;
 	        var _didIteratorError3 = false;
 	        var _iteratorError3 = undefined;
@@ -3379,8 +3393,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        }
+	
+	        this._active_lasers = 0;
 	      }
-	      if (this._cursors) {
+	      if (this._cursors && options.cursors) {
 	        var _iteratorNormalCompletion4 = true;
 	        var _didIteratorError4 = false;
 	        var _iteratorError4 = undefined;
@@ -3405,11 +3421,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        }
-	      }
 	
-	      this._active_controllers = 0;
-	      this._active_lasers = 0;
-	      this._active_cursors = 0;
+	        this._active_cursors = 0;
+	      }
 	    }
 	  }, {
 	    key: '_createLaserMesh',

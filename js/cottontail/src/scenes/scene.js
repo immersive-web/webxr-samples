@@ -53,6 +53,7 @@ export class Scene extends Node {
     this._renderer = null;
 
     this._input_renderer = null;
+    this._reset_input_end_frame = true;
 
     this._skybox = null;
     this._gltf2_loader = null;
@@ -235,7 +236,7 @@ export class Scene extends Node {
   }
 
   endFrame() {
-    if (this._input_renderer) {
+    if (this._input_renderer && this._reset_input_end_frame) {
       this._input_renderer.reset();
     }
 

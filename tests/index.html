@@ -9,8 +9,8 @@
     <meta name='twitter:title' content='WebXR Samples'>
     <meta name='twitter:description' content='Sample WebXR pages for testing and reference'>
 
-    <link rel='stylesheet' href='css/stylesheet.css'>
-    <link rel='stylesheet' href='css/pygment_trac.css'>
+    <link rel='stylesheet' href='../css/stylesheet.css'>
+    <link rel='stylesheet' href='../css/pygment_trac.css'>
 
     <style>
       article {
@@ -73,70 +73,31 @@
     <!--[if lt IE 9]>
     <script src='https://html5shiv.googlecode.com/svn/trunk/html5.js'></script>
     <![endif]-->
-    <title>WebXR - Samples</title>
+    <title>WebXR - Test Pages</title>
   </head>
   <body>
 
     <div class='container' id='container'>
       <header class='header'>
         <div id='nav'>
-            <a href='./' class='selected'>Samples</a>
-            <a href='tests/' class='selected'>Test Pages</a>
+            <a href='../'>Samples</a>
+            <a href='./' class='selected'>Test Pages</a>
         </div>
 
         <h1><a href='' class='wordmark'><span>WebXR</span></a></h1>
-        <h2 class='tagline'>Sample Pages</h2>
+        <h2 class='tagline'>Test Pages</h2>
       </header>
 
       <main class='main' id='main'>
-        <p>Sample pages demonstrating how to use various aspects of the WebXR API.<br/>
-        <a href="explainer.html">Learn More</a></p>
+        <p>These pages are useful for testing various aspects of WebXR
+           implementations, but aren't as well commented or straightforward as
+           the sample pages.<br/>
 
         <script>
           let pages = [
-            { title: 'XR Device Enumeration', category: 'Basics',
-              path: 'xr-device-enumeration.html',
-              description: 'Queries available XRDevices and prints out a brief summary of each.' },
-
-            { title: 'XR Presentation', category: 'Basics',
-              path: 'xr-presentation.html',
-              description: 'Demonstrates how to present a simple WebGL scene to a XRDevice.' },
-
-            { title: 'Mirroring', category: 'Basics',
-              path: 'mirroring.html',
-              description: 'Demonstrates how to mirroring exclusive session content to a canvas.' },
-
-            { title: 'Magic Window', category: 'Basics',
-              path: 'magic-window.html',
-              description: 'Demonstrates use of a non-exclusive XRSession to present "Magic Window" content.' },
-
-            { title: 'Reduced-Bind Rendering', category: 'Performance',
-              path: 'reduced-bind-rendering.html',
-              description: 'Demonstrates a technique to reduce the number of state changes made while rendering.' },
-
-            { title: 'Room Scale', category: 'Basics',
-              path: 'room-scale.html',
-              description: 'Demonstrates using a "stage" frame of reference to provide room scale tracking.' },
-
-            { title: 'Framebuffer Scaling', category: 'Performance',
-              path: 'framebuffer-scaling.html',
-              description: 'Demonstrates scaling a layer\'s framebuffer to statically control performance or quality.' },
-
-            { title: 'Viewport Scaling', category: 'Performance',
-              path: 'viewport-scaling.html',
-              description: 'Demonstrates scaling a layer\'s viewports to dynamically control performance or quality.' },
-
-            { title: '360 Stereo Photos', category: 'Content',
-              path: '360-photos.html',
-              description: 'Demonstrates displaying a 360 degree equirectangular stereo photo.' },
-
-            { title: 'Positional Audio', category: 'Content',
-              path: 'positional-audio.html',
-              description: 'Demonstrates playing audio that sounds as if it originates at a specific point in the space.' },
-
-            { title: 'Spectator Mode', category: 'Advanced Techniques',
-              path: 'spectator-mode.html',
-              description: 'Demonstrates rendering a 3rd person view of the scene to an external monitor.' },
+            { title: 'Pointer Painter', category: 'Input',
+              path: 'pointer-painter.html',
+              description: 'Leaves behind a trail of pointers and cursors on select events.' },
           ];
 
           let mainElement = document.getElementById("main");
@@ -173,7 +134,7 @@
             links.appendChild(liveLink);
 
             let sourceLink = document.createElement('a');
-            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/' + page.path;
+            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/tests/' + page.path;
             sourceLink.innerHTML = 'Source';
             links.appendChild(sourceLink);
 
@@ -186,7 +147,7 @@
 
       <br/>
 
-      <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View samples source on GitHub</a></h3>
+      <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View source on GitHub</a></h3>
 
       <footer class='footer'>
       </footer>
