@@ -72,6 +72,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           navigator.xr.requestDevice().then((device) => {
             xrButton.setDevice(device);
 
+            // Note: If you don't want dragging on the canvas to do things like
+            // scroll or pull-to-refresh, you'll want to set touch-action: none;
+            // on the canvas' CSS style, which this page does in common.css
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('xrpresent');
 
