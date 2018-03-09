@@ -40,8 +40,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <details open>
         <summary>Input Tracking</summary>
         <p>
-          This sample demonstrates basic tracking of XR input devices. It does
-          not respond to button presses or other controller interactions.
+          This sample demonstrates basic tracking and rendering of
+          XRInputSources. It does not respond to button presses or other
+          controller interactions.
         </p>
       </details>
     </header>
@@ -57,7 +58,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/garage/garage.gltf');
+      let scene = new GLTF2Scene('media/gltf/cave/cave.gltf');
+      scene.setSkybox({ image_url: 'media/textures/eilenriede_park_2k.png' });
 
       scene.standingStats(true);
 
