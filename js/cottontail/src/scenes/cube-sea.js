@@ -71,10 +71,11 @@ class CubeSeaMaterial extends Material {
 }
 
 export class CubeSeaScene extends Scene {
-  constructor(gridSize) {
+  constructor(options = {}) {
     super();
 
-    this.gridSize = gridSize ? gridSize : 10;
+    this._grid_size = options.grid_size ? options.grid_size : 10;
+    this._image_url = options.image_url ? options.image_url : 'media/textures/cube-sea.png';
   }
 
   onLoadScene(renderer) {
@@ -156,12 +157,12 @@ export class CubeSeaScene extends Scene {
     }
 
     // Build the cube sea
-    for (let x = 0; x < this.gridSize; ++x) {
-      for (let y = 0; y < this.gridSize; ++y) {
-        for (let z = 0; z < this.gridSize; ++z) {
-          appendCube(x - (this.gridSize / 2),
-                     y - (this.gridSize / 2),
-                     z - (this.gridSize / 2));
+    for (let x = 0; x < this._grid_size; ++x) {
+      for (let y = 0; y < this._grid_size; ++y) {
+        for (let z = 0; z < this._grid_size; ++z) {
+          appendCube(x - (this._grid_size / 2),
+                     y - (this._grid_size / 2),
+                     z - (this._grid_size / 2));
         }
       }
     }
@@ -192,7 +193,7 @@ export class CubeSeaScene extends Scene {
     hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
 
     let material = new CubeSeaMaterial();
-    material.base_color.texture = new UrlTexture('media/textures/cube-sea.png');
+    material.base_color.texture = new UrlTexture(this._image_url);
 
     this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
     this.hero_node = renderer.createMesh(hero_primitive, material);

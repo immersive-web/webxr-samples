@@ -5065,12 +5065,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	var CubeSeaScene = exports.CubeSeaScene = function (_Scene) {
 	  _inherits(CubeSeaScene, _Scene);
 	
-	  function CubeSeaScene(gridSize) {
+	  function CubeSeaScene() {
+	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+	
 	    _classCallCheck(this, CubeSeaScene);
 	
 	    var _this2 = _possibleConstructorReturn(this, (CubeSeaScene.__proto__ || Object.getPrototypeOf(CubeSeaScene)).call(this));
 	
-	    _this2.gridSize = gridSize ? gridSize : 10;
+	    _this2._grid_size = options.grid_size ? options.grid_size : 10;
+	    _this2._image_url = options.image_url ? options.image_url : 'media/textures/cube-sea.png';
 	    return _this2;
 	  }
 	
@@ -5155,10 +5158,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      // Build the cube sea
-	      for (var x = 0; x < this.gridSize; ++x) {
-	        for (var y = 0; y < this.gridSize; ++y) {
-	          for (var z = 0; z < this.gridSize; ++z) {
-	            appendCube(x - this.gridSize / 2, y - this.gridSize / 2, z - this.gridSize / 2);
+	      for (var x = 0; x < this._grid_size; ++x) {
+	        for (var y = 0; y < this._grid_size; ++y) {
+	          for (var z = 0; z < this._grid_size; ++z) {
+	            appendCube(x - this._grid_size / 2, y - this._grid_size / 2, z - this._grid_size / 2);
 	          }
 	        }
 	      }
@@ -5185,7 +5188,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
 	
 	      var material = new CubeSeaMaterial();
-	      material.base_color.texture = new _texture.UrlTexture('media/textures/cube-sea.png');
+	      material.base_color.texture = new _texture.UrlTexture(this._image_url);
 	
 	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
 	      this.hero_node = renderer.createMesh(hero_primitive, material);
