@@ -40,6 +40,24 @@ export const MAT_STATE = {
   BLEND_FUNC_RANGE: 0x0000FF00,
 };
 
+export const RENDER_ORDER = {
+  // Render opaque objects first.
+  OPAQUE:      0,
+
+  // Render the sky after all opaque object to save fill rate.
+  SKY:         1,
+
+  // Render transparent objects next so that the opaqe objects show through.
+  TRANSPARENT: 2,
+
+  // Finally render purely additive effects like pointer rays so that they
+  // can render without depth mask.
+  ADDITIVE:    3,
+
+  // Render order will be picked based on the material properties.
+  DEFAULT:     4,
+};
+
 export function stateToBlendFunc(state, mask, shift) {
   let value = (state & mask) >> shift;
   switch (value) {
@@ -198,6 +216,7 @@ class MaterialUniform {
 export class Material {
   constructor() {
     this.state = new MaterialState;
+    this.render_order = RENDER_ORDER.DEFAULT;
     this._samplers = [];
     this._uniforms = [];
   }

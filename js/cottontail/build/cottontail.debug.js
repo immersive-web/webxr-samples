@@ -110,7 +110,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	if (XRWebGLLayer && !('getViewport' in XRWebGLLayer.prototype)) {
+	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
 	  XRWebGLLayer.prototype.getViewport = function (view) {
 	    return view.getViewport(this);
 	  };
@@ -571,6 +571,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    this._complete_promise = null;
 	    this._first_bind = true;
+	
+	    this._render_order = material.render_order;
+	    if (this._render_order == _material.RENDER_ORDER.DEFAULT) {
+	      if (this._state & _material.CAP.BLEND) {
+	        this._render_order = _material.RENDER_ORDER.TRANSPARENT;
+	      } else {
+	        this._render_order = _material.RENDER_ORDER.OPAQUE;
+	      }
+	    }
 	  }
 	
 	  _createClass(RenderMaterial, [{
@@ -784,7 +793,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._frame_id = -1;
 	    this._program_cache = {};
 	    this._texture_cache = {};
-	    this._render_primitives = [];
+	    this._render_primitives = Array(_material.RENDER_ORDER.DEFAULT);
 	    this._camera_positions = [];
 	
 	    this._vao_ext = gl.getExtension("OES_vertex_array_object");
@@ -859,7 +868,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        });
 	      }
 	
-	      this._render_primitives.push(render_primitive);
+	      if (!this._render_primitives[render_material._render_order]) {
+	        this._render_primitives[render_material._render_order] = [];
+	      }
+	
+	      this._render_primitives[render_material._render_order].push(render_primitive);
 	
 	      return render_primitive;
 	    }
@@ -886,7 +899,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      // setting the viewport once.
 	      if (views.length == 1 && views[0].viewport) {
 	        var vp = views[0].viewport;
-	        gl.viewport(vp.x, vp.y, vp.width, vp.height);
+	        this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
 	      }
 	
 	      // Get the positions of the 'camera' for each view matrix.
@@ -901,18 +914,54 @@ return /******/ (function(modules) { // webpackBootstrap
 	        vec3.transformMat4(camera_position, camera_position, inverse_matrix);
 	      }
 	
-	      var program = null;
-	      var material = null;
-	      var attrib_mask = 0;
-	
-	      // Loop through every primitive known to the renderer.
+	      // Draw each set of render primitives in order
 	      var _iteratorNormalCompletion9 = true;
 	      var _didIteratorError9 = false;
 	      var _iteratorError9 = undefined;
 	
 	      try {
 	        for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-	          var primitive = _step9.value;
+	          var render_primitives = _step9.value;
+	
+	          if (render_primitives && render_primitives.length) {
+	            this._drawRenderPrimitiveSet(views, render_primitives);
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError9 = true;
+	        _iteratorError9 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion9 && _iterator9.return) {
+	            _iterator9.return();
+	          }
+	        } finally {
+	          if (_didIteratorError9) {
+	            throw _iteratorError9;
+	          }
+	        }
+	      }
+	
+	      if (this._vao_ext) {
+	        this._vao_ext.bindVertexArrayOES(null);
+	      }
+	    }
+	  }, {
+	    key: '_drawRenderPrimitiveSet',
+	    value: function _drawRenderPrimitiveSet(views, render_primitives) {
+	      var gl = this._gl;
+	      var program = null;
+	      var material = null;
+	      var attrib_mask = 0;
+	
+	      // Loop through every primitive known to the renderer.
+	      var _iteratorNormalCompletion10 = true;
+	      var _didIteratorError10 = false;
+	      var _iteratorError10 = undefined;
+	
+	      try {
+	        for (var _iterator10 = render_primitives[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+	          var primitive = _step10.value;
 	
 	          // Skip over those that haven't been marked as active for this frame.
 	          if (primitive._active_frame_id != this._frame_id) {
@@ -951,26 +1000,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	            attrib_mask = primitive._attribute_mask;
 	          }
 	
-	          for (var _i2 = 0; _i2 < views.length; ++_i2) {
-	            var view = views[_i2];
+	          for (var i = 0; i < views.length; ++i) {
+	            var view = views[i];
 	            if (views.length > 1) {
 	              if (view.viewport) {
-	                var _vp = view.viewport;
-	                gl.viewport(_vp.x, _vp.y, _vp.width, _vp.height);
+	                var vp = view.viewport;
+	                gl.viewport(vp.x, vp.y, vp.width, vp.height);
 	              }
 	              gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, view.projection_matrix);
 	              gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, view.view_matrix);
-	              gl.uniform3fv(program.uniform.CAMERA_POSITION, this._camera_positions[_i2]);
+	              gl.uniform3fv(program.uniform.CAMERA_POSITION, this._camera_positions[i]);
 	              gl.uniform1i(program.uniform.EYE_INDEX, view.eye_index);
 	            }
 	
-	            var _iteratorNormalCompletion10 = true;
-	            var _didIteratorError10 = false;
-	            var _iteratorError10 = undefined;
+	            var _iteratorNormalCompletion11 = true;
+	            var _didIteratorError11 = false;
+	            var _iteratorError11 = undefined;
 	
 	            try {
-	              for (var _iterator10 = primitive._instances[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-	                var instance = _step10.value;
+	              for (var _iterator11 = primitive._instances[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+	                var instance = _step11.value;
 	
 	                if (instance._active_frame_id != this._frame_id) {
 	                  continue;
@@ -985,38 +1034,34 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	              }
 	            } catch (err) {
-	              _didIteratorError10 = true;
-	              _iteratorError10 = err;
+	              _didIteratorError11 = true;
+	              _iteratorError11 = err;
 	            } finally {
 	              try {
-	                if (!_iteratorNormalCompletion10 && _iterator10.return) {
-	                  _iterator10.return();
+	                if (!_iteratorNormalCompletion11 && _iterator11.return) {
+	                  _iterator11.return();
 	                }
 	              } finally {
-	                if (_didIteratorError10) {
-	                  throw _iteratorError10;
+	                if (_didIteratorError11) {
+	                  throw _iteratorError11;
 	                }
 	              }
 	            }
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError9 = true;
-	        _iteratorError9 = err;
+	        _didIteratorError10 = true;
+	        _iteratorError10 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion9 && _iterator9.return) {
-	            _iterator9.return();
+	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
+	            _iterator10.return();
 	          }
 	        } finally {
-	          if (_didIteratorError9) {
-	            throw _iteratorError9;
+	          if (_didIteratorError10) {
+	            throw _iteratorError10;
 	          }
 	        }
-	      }
-	
-	      if (this._vao_ext) {
-	        this._vao_ext.bindVertexArrayOES(null);
 	      }
 	    }
 	  }, {
@@ -1156,51 +1201,51 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      // Bind the primitive attributes and indices.
-	      var _iteratorNormalCompletion11 = true;
-	      var _didIteratorError11 = false;
-	      var _iteratorError11 = undefined;
+	      var _iteratorNormalCompletion12 = true;
+	      var _didIteratorError12 = false;
+	      var _iteratorError12 = undefined;
 	
 	      try {
-	        for (var _iterator11 = primitive._attribute_buffers[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-	          var attribute_buffer = _step11.value;
+	        for (var _iterator12 = primitive._attribute_buffers[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+	          var attribute_buffer = _step12.value;
 	
 	          gl.bindBuffer(gl.ARRAY_BUFFER, attribute_buffer._buffer._buffer);
-	          var _iteratorNormalCompletion12 = true;
-	          var _didIteratorError12 = false;
-	          var _iteratorError12 = undefined;
+	          var _iteratorNormalCompletion13 = true;
+	          var _didIteratorError13 = false;
+	          var _iteratorError13 = undefined;
 	
 	          try {
-	            for (var _iterator12 = attribute_buffer._attributes[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
-	              var _attrib = _step12.value;
+	            for (var _iterator13 = attribute_buffer._attributes[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+	              var _attrib = _step13.value;
 	
 	              gl.vertexAttribPointer(_attrib._attrib_index, _attrib._component_count, _attrib._component_type, _attrib._normalized, _attrib._stride, _attrib._byte_offset);
 	            }
 	          } catch (err) {
-	            _didIteratorError12 = true;
-	            _iteratorError12 = err;
+	            _didIteratorError13 = true;
+	            _iteratorError13 = err;
 	          } finally {
 	            try {
-	              if (!_iteratorNormalCompletion12 && _iterator12.return) {
-	                _iterator12.return();
+	              if (!_iteratorNormalCompletion13 && _iterator13.return) {
+	                _iterator13.return();
 	              }
 	            } finally {
-	              if (_didIteratorError12) {
-	                throw _iteratorError12;
+	              if (_didIteratorError13) {
+	                throw _iteratorError13;
 	              }
 	            }
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError11 = true;
-	        _iteratorError11 = err;
+	        _didIteratorError12 = true;
+	        _iteratorError12 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
-	            _iterator11.return();
+	          if (!_iteratorNormalCompletion12 && _iterator12.return) {
+	            _iterator12.return();
 	          }
 	        } finally {
-	          if (_didIteratorError11) {
-	            throw _iteratorError11;
+	          if (_didIteratorError12) {
+	            throw _iteratorError12;
 	          }
 	        }
 	      }
@@ -1319,6 +1364,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	  BLEND_DST_SHIFT: 12,
 	  BLEND_DST_RANGE: 0x0000F000,
 	  BLEND_FUNC_RANGE: 0x0000FF00
+	};
+	
+	var RENDER_ORDER = exports.RENDER_ORDER = {
+	  // Render opaque objects first.
+	  OPAQUE: 0,
+	
+	  // Render the sky after all opaque object to save fill rate.
+	  SKY: 1,
+	
+	  // Render transparent objects next so that the opaqe objects show through.
+	  TRANSPARENT: 2,
+	
+	  // Finally render purely additive effects like pointer rays so that they
+	  // can render without depth mask.
+	  ADDITIVE: 3,
+	
+	  // Render order will be picked based on the material properties.
+	  DEFAULT: 4
 	};
 	
 	function stateToBlendFunc(state, mask, shift) {
@@ -1519,6 +1582,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _classCallCheck(this, Material);
 	
 	    this.state = new MaterialState();
+	    this.render_order = RENDER_ORDER.DEFAULT;
 	    this._samplers = [];
 	    this._uniforms = [];
 	  }
@@ -3091,10 +3155,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var _this = _possibleConstructorReturn(this, (LaserMaterial.__proto__ || Object.getPrototypeOf(LaserMaterial)).call(this));
 	
+	    _this.render_order = _material.RENDER_ORDER.ADDITIVE;
 	    _this.state.cull_face = false;
 	    _this.state.blend = true;
 	    _this.state.blend_func_src = WebGLRenderingContext.ONE;
 	    _this.state.blend_func_dst = WebGLRenderingContext.ONE;
+	    _this.state.depth_mask = false;
 	
 	    _this.laser = _this.defineSampler("diffuse");
 	    _this.laser.texture = new _texture.DataTexture(LASER_TEXTURE_DATA, 48, 1);
@@ -3137,6 +3203,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2.state.cull_face = false;
 	    _this2.state.blend = true;
 	    _this2.state.blend_func_src = WebGLRenderingContext.ONE;
+	    _this2.state.depth_test = false;
+	    _this2.state.depth_mask = false;
 	
 	    _this2.cursor_color = _this2.defineUniform("cursorColor", CURSOR_DEFAULT_COLOR);
 	    return _this2;

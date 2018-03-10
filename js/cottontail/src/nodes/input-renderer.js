@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Material } from '../core/material.js'
+import { Material, RENDER_ORDER } from '../core/material.js'
 import { Node } from '../core/node.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { DataTexture } from '../core/texture.js'
@@ -66,10 +66,12 @@ const DEFAULT_RESET_OPTIONS = {
 class LaserMaterial extends Material {
   constructor() {
     super();
+    this.render_order = RENDER_ORDER.ADDITIVE;
     this.state.cull_face = false;
     this.state.blend = true;
     this.state.blend_func_src = WebGLRenderingContext.ONE;
     this.state.blend_func_dst = WebGLRenderingContext.ONE;
+    this.state.depth_mask = false;
 
     this.laser = this.defineSampler("diffuse");
     this.laser.texture = new DataTexture(LASER_TEXTURE_DATA, 48, 1);
@@ -123,6 +125,8 @@ class CursorMaterial extends Material {
     this.state.cull_face = false;
     this.state.blend = true;
     this.state.blend_func_src = WebGLRenderingContext.ONE;
+    this.state.depth_test = false;
+    this.state.depth_mask = false;
 
     this.cursor_color = this.defineUniform("cursorColor", CURSOR_DEFAULT_COLOR);
   }

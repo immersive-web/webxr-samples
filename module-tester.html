@@ -53,6 +53,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           <option value='cube-sea'>Cube Sea</option>
           <option value='camp' selected>Camp (glTF)</option>
           <option value='garage'>Garage (glTF)</option>
+          <option value='cave'>Cave (glTF)</option>
         </select>
       </details>
     </header>
@@ -79,7 +80,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function setScene(new_scene) {
         scene = new_scene;
         scene.standingStats(true);
-        scene.setSkybox({ image_url: 'media/textures/milky_way_4k.png' });
+        scene.setSkybox({ image_url: 'media/textures/milky-way-4k.png' });
         //scene.setSkybox({ image_url: 'media/textures/chess_pano_4k.jpg', display_mode: 'stereoTopBottom' });
         scene.setRenderer(renderer);
 
@@ -197,6 +198,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
           case 'garage':
             setScene(new GLTF2Scene('media/gltf/garage/garage.gltf'));
+            return;
+          case 'cave':
+            setScene(new GLTF2Scene('media/gltf/cave/cave.gltf'));
             return;
           default:
             console.error(`Unknown Scene: ${sceneSelect.value}`);

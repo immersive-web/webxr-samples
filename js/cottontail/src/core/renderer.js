@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { CAP, MAT_STATE, stateToBlendFunc } from './material.js'
+import { CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc } from './material.js'
 import { Node } from './node.js'
 import { Program } from './program.js'
 import { DataTexture } from './texture.js'
@@ -305,6 +305,15 @@ class RenderMaterial {
 
     this._complete_promise = null;
     this._first_bind = true;
+
+    this._render_order = material.render_order;
+    if (this._render_order == RENDER_ORDER.DEFAULT) {
+      if (this._state & CAP.BLEND) {
+        this._render_order = RENDER_ORDER.TRANSPARENT;
+      } else {
+        this._render_order = RENDER_ORDER.OPAQUE;
+      }
+    }
   }
 
   bind(gl) {
@@ -398,7 +407,7 @@ export class Renderer {
     this._frame_id = -1;
     this._program_cache = {};
     this._texture_cache = {};
-    this._render_primitives = [];
+    this._render_primitives = Array(RENDER_ORDER.DEFAULT);
     this._camera_positions = [];
 
     this._vao_ext = gl.getExtension("OES_vertex_array_object");
@@ -465,7 +474,11 @@ export class Renderer {
       });
     }
 
-    this._render_primitives.push(render_primitive);
+    if (!this._render_primitives[render_material._render_order]) {
+      this._render_primitives[render_material._render_order] = [];
+    }
+
+    this._render_primitives[render_material._render_order].push(render_primitive);
 
     return render_primitive;
   }
@@ -490,7 +503,7 @@ export class Renderer {
     // setting the viewport once.
     if (views.length == 1 && views[0].viewport) {
       let vp = views[0].viewport;
-      gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      this._gl.viewport(vp.x, vp.y, vp.width, vp.height);
     }
 
     // Get the positions of the 'camera' for each view matrix.
@@ -505,12 +518,26 @@ export class Renderer {
       vec3.transformMat4(camera_position, camera_position, inverse_matrix);
     }
 
+    // Draw each set of render primitives in order
+    for (let render_primitives of this._render_primitives) {
+      if (render_primitives && render_primitives.length) {
+        this._drawRenderPrimitiveSet(views, render_primitives);
+      }
+    }
+
+    if (this._vao_ext) {
+      this._vao_ext.bindVertexArrayOES(null);
+    }
+  }
+
+  _drawRenderPrimitiveSet(views, render_primitives) {
+    let gl = this._gl;
     let program = null;
     let material = null;
     let attrib_mask = 0;
 
     // Loop through every primitive known to the renderer.
-    for (let primitive of this._render_primitives) {
+    for (let primitive of render_primitives) {
       // Skip over those that haven't been marked as active for this frame.
       if (primitive._active_frame_id != this._frame_id) {
         continue;
@@ -578,10 +605,6 @@ export class Renderer {
           }
         }
       }
-    }
-
-    if (this._vao_ext) {
-      this._vao_ext.bindVertexArrayOES(null);
     }
   }
 
