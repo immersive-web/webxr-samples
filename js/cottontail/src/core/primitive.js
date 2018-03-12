@@ -38,11 +38,18 @@ export class Primitive {
     this.index_buffer = null;
     this.index_byte_offset = 0;
     this.index_type = 0;
+    this._min = null;
+    this._max = null;
   }
 
   setIndexBuffer(index_buffer, byte_offset, index_type) {
     this.index_buffer = index_buffer;
     this.index_byte_offset = byte_offset || 0;
     this.index_type = index_type || 5123; // gl.UNSIGNED_SHORT;
+  }
+
+  setBounds(min, max) {
+    this._min = vec3.clone(min);
+    this._max = vec3.clone(max);
   }
 }

@@ -199,6 +199,14 @@ class RenderPrimitive {
       this._index_type = primitive.index_type;
       this._index_buffer = primitive.index_buffer;
     }
+
+    if (primitive._min) {
+      this._min = vec3.clone(primitive._min);
+      this._max = vec3.clone(primitive._max);
+    } else {
+      this._min = null;
+      this._max = null;
+    }
   }
 
   setRenderMaterial(material) {

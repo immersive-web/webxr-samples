@@ -204,8 +204,7 @@ export class PrimitiveStream {
   
     let primitive = new Primitive(attribs, this._indices.length);
     primitive.setIndexBuffer(index_buffer);
-
-    // TODO: Set the min and max here.
+    primitive.setBounds(this._min, this._max);
 
     return primitive;
   }

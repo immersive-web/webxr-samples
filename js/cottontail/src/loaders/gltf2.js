@@ -240,6 +240,9 @@ export class GLTF2Loader {
         /*let glPrimitive = new GLTF2Primitive(primitive, material);
         glMesh.primitives.push(glPrimitive);*/
 
+        let min = null;
+        let max = null;
+
         for (let name in primitive.attributes) {
           let accessor = accessors[primitive.attributes[name]];
           let bufferView = bufferViews[accessor.bufferView];
@@ -254,6 +257,11 @@ export class GLTF2Loader {
             accessor.byteOffset || 0
           );
           glAttribute.normalized = accessor.normalized || false;
+
+          if (name == "POSITION") {
+            min = accessor.max;
+            max = accessor.min;
+          }
           
           attributes.push(glAttribute);
         }
@@ -272,6 +280,10 @@ export class GLTF2Loader {
           glPrimitive.indexType = accessor.componentType;
           glPrimitive.indexByteOffset = accessor.byteOffset || 0;
           glPrimitive.element_count = accessor.count;
+        }
+
+        if (min && max) {
+          glPrimitive.setBounds(min, max);
         }
 
         // After all the attributes have been processed, get a program that is
