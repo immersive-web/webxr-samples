@@ -78,15 +78,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.createWebGLContext = exports.Renderer = undefined;
+	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = exports.AABB = exports.Ray = undefined;
 	
-	var _renderer = __webpack_require__(1);
+	var _intersect = __webpack_require__(1);
 	
-	var _scene = __webpack_require__(6);
+	var _renderer = __webpack_require__(2);
 	
-	var _cubeSea = __webpack_require__(15);
+	var _primitiveStream = __webpack_require__(7);
 	
-	var _gltf = __webpack_require__(16);
+	var _boxBuilder = __webpack_require__(9);
+	
+	var _pbr = __webpack_require__(10);
+	
+	var _scene = __webpack_require__(11);
+	
+	var _cubeSea = __webpack_require__(18);
+	
+	var _gltf = __webpack_require__(19);
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
@@ -116,8 +124,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
+	exports.Ray = _intersect.Ray;
+	exports.AABB = _intersect.AABB;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
+	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
+	exports.BoxBuilder = _boxBuilder.BoxBuilder;
+	exports.PbrMaterial = _pbr.PbrMaterial;
 	exports.WebXRView = _scene.WebXRView;
 	exports.Scene = _scene.Scene;
 	exports.CubeSeaScene = _cubeSea.CubeSeaScene;
@@ -125,6 +138,119 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 /* 1 */
+/***/ (function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	// Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var Ray = exports.Ray = function () {
+	  function Ray() {
+	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+	
+	    _classCallCheck(this, Ray);
+	
+	    this.origin = vec3.create();
+	
+	    this._dir = vec3.create();
+	    this._dir[2] = -1.0;
+	
+	    if (transform) {
+	      mat4.transformVec3(this.origin, this.origin, matrix);
+	      mat4.transformVec3(this._dir, this._dir, matrix);
+	      mat4.sub(this._dir, this._dir, this.origin);
+	    }
+	
+	    this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
+	
+	    this.sign = [this.inv_dir[0] < 0 ? 1 : -1, this.inv_dir[1] < 0 ? 1 : -1, this.inv_dir[2] < 0 ? 1 : -1];
+	  }
+	
+	  _createClass(Ray, [{
+	    key: "dir",
+	    get: function get() {
+	      return this._dir;
+	    },
+	    set: function set(value) {
+	      this._dir = vec3.copy(this._dir, value);
+	
+	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
+	
+	      this.sign = [this.inv_dir[0] < 0 ? 1 : -1, this.inv_dir[1] < 0 ? 1 : -1, this.inv_dir[2] < 0 ? 1 : -1];
+	    }
+	  }]);
+	
+	  return Ray;
+	}();
+	
+	var AABB = exports.AABB = function () {
+	  function AABB() {
+	    _classCallCheck(this, AABB);
+	
+	    this.min = vec3.create();
+	    this.max = vec3.create();
+	  }
+	
+	  // Borrowed from:
+	  // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+	
+	
+	  _createClass(AABB, [{
+	    key: "rayIntersect",
+	    value: function rayIntersect(r) {
+	      var bounds = [this.min, this.max];
+	
+	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	
+	      if (tmin > tymax || tymin > tmax) return -1;
+	      if (tymin > tmin) tmin = tymin;
+	      if (tymax < tmax) tmax = tymax;
+	
+	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	
+	      if (tmin > tzmax || tzmin > tmax) return -1;
+	      if (tzmin > tmin) tmin = tzmin;
+	      if (tzmax < tmax) tmax = tzmax;
+	
+	      return 1;
+	    }
+	  }]);
+
+	  return AABB;
+	}();
+
+/***/ }),
+/* 2 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -156,13 +282,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	exports.createWebGLContext = createWebGLContext;
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
-	var _program = __webpack_require__(4);
+	var _program = __webpack_require__(5);
 	
-	var _texture = __webpack_require__(5);
+	var _texture = __webpack_require__(6);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -1325,7 +1451,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 2 */
+/* 3 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -1660,7 +1786,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 3 */
+/* 4 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -2161,7 +2287,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 4 */
+/* 5 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -2320,7 +2446,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 5 */
+/* 6 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -2561,7 +2687,613 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(DataTexture);
 
 /***/ }),
-/* 6 */
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.GeometryBuilderBase = exports.PrimitiveStream = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var _primitive = __webpack_require__(8);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var GL = WebGLRenderingContext; // For enums
+	
+	var temp_vec3 = vec3.create();
+	
+	var PrimitiveStream = exports.PrimitiveStream = function () {
+	  function PrimitiveStream(options) {
+	    _classCallCheck(this, PrimitiveStream);
+	
+	    this._vertices = [];
+	    this._indices = [];
+	
+	    this._geometry_started = false;
+	
+	    this._vertex_offset = 0;
+	    this._vertex_index = 0;
+	    this._high_index = 0;
+	
+	    this._flip_winding = false;
+	    this._invert_normals = false;
+	    this._transform = null;
+	    this._normal_transform = null;
+	    this._min = null;
+	    this._max = null;
+	  }
+	
+	  _createClass(PrimitiveStream, [{
+	    key: "startGeometry",
+	    value: function startGeometry() {
+	      if (this._geometry_started) {
+	        throw new Error("Attempted to start a new geometry before the previous one was ended.");
+	      }
+	
+	      this._geometry_started = true;
+	      this._vertex_index = 0;
+	      this._high_index = 0;
+	    }
+	  }, {
+	    key: "endGeometry",
+	    value: function endGeometry() {
+	      if (!this._geometry_started) {
+	        throw new Error("Attempted to end a geometry before one was started.");
+	      }
+	
+	      if (this._high_index >= this._vertex_index) {
+	        throw new Error("Geometry contains indices that are out of bounds. (Contains an index of " + this._high_index + " when the vertex count is " + this._vertex_index + ")");
+	      }
+	
+	      this._geometry_started = false;
+	      this._vertex_offset += this._vertex_index;
+	
+	      // TODO: Anything else need to be done to finish processing here?
+	    }
+	  }, {
+	    key: "pushVertex",
+	    value: function pushVertex(x, y, z, u, v, nx, ny, nz) {
+	      if (!this._geometry_started) {
+	        throw new Error("Cannot push vertices before calling startGeometry().");
+	      }
+	
+	      // Transform the incoming vertex if we have a transformation matrix
+	      if (this._transform) {
+	        temp_vec3[0] = x;
+	        temp_vec3[1] = y;
+	        temp_vec3[2] = z;
+	        vec3.transformMat4(temp_vec3, temp_vec3, this._transform);
+	        x = temp_vec3[0];
+	        y = temp_vec3[1];
+	        z = temp_vec3[2];
+	
+	        temp_vec3[0] = nx;
+	        temp_vec3[1] = ny;
+	        temp_vec3[2] = nz;
+	        vec3.transformMat3(temp_vec3, temp_vec3, this._normal_transform);
+	        nx = temp_vec3[0];
+	        ny = temp_vec3[1];
+	        nz = temp_vec3[2];
+	      }
+	
+	      if (this._invert_normals) {
+	        nx *= -1.0;
+	        ny *= -1.0;
+	        nz *= -1.0;
+	      }
+	
+	      this._vertices.push(x, y, z, u, v, nx, ny, nz);
+	
+	      if (this._min) {
+	        this._min[0] = Math.min(this._min[0], x);
+	        this._min[1] = Math.min(this._min[1], y);
+	        this._min[2] = Math.min(this._min[2], z);
+	        this._max[0] = Math.max(this._max[0], x);
+	        this._max[1] = Math.max(this._max[1], y);
+	        this._max[2] = Math.max(this._max[2], z);
+	      } else {
+	        this._min = vec3.fromValues(x, y, z);
+	        this._max = vec3.fromValues(x, y, z);
+	      }
+	
+	      return this._vertex_index++;
+	    }
+	  }, {
+	    key: "pushTriangle",
+	    value: function pushTriangle(idx_a, idx_b, idx_c) {
+	      if (!this._geometry_started) {
+	        throw new Error("Cannot push triangles before calling startGeometry().");
+	      }
+	
+	      this._high_index = Math.max(this._high_index, idx_a, idx_b, idx_c);
+	
+	      idx_a += this._vertex_offset;
+	      idx_b += this._vertex_offset;
+	      idx_c += this._vertex_offset;
+	
+	      if (this._flip_winding) {
+	        this._indices.push(idx_c, idx_b, idx_a);
+	      } else {
+	        this._indices.push(idx_a, idx_b, idx_c);
+	      }
+	    }
+	  }, {
+	    key: "clear",
+	    value: function clear() {
+	      if (this._geometry_started) {
+	        throw new Error("Cannot clear before ending the current geometry.");
+	      }
+	
+	      this._vertices = [];
+	      this._indices = [];
+	      this._vertex_offset = 0;
+	      this._min = null;
+	      this._max = null;
+	    }
+	  }, {
+	    key: "finishPrimitive",
+	    value: function finishPrimitive(renderer) {
+	      if (!this._vertex_offset) {
+	        throw new Error("Attempted to call finishPrimitive() before creating any geometry.");
+	      }
+	
+	      var vertex_buffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(this._vertices));
+	      var index_buffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(this._indices));
+	
+	      var attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 3, GL.FLOAT, 32, 0), new _primitive.PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, GL.FLOAT, 32, 12), new _primitive.PrimitiveAttribute("NORMAL", vertex_buffer, 3, GL.FLOAT, 32, 20)];
+	
+	      var primitive = new _primitive.Primitive(attribs, this._indices.length);
+	      primitive.setIndexBuffer(index_buffer);
+	
+	      // TODO: Set the min and max here.
+	
+	      return primitive;
+	    }
+	  }, {
+	    key: "flip_winding",
+	    set: function set(value) {
+	      if (this._geometry_started) {
+	        throw new Error("Cannot change flip_winding before ending the current geometry.");
+	      }
+	      this._flip_winding = value;
+	    },
+	    get: function get() {
+	      this._flip_winding;
+	    }
+	  }, {
+	    key: "invert_normals",
+	    set: function set(value) {
+	      if (this._geometry_started) {
+	        throw new Error("Cannot change invert_normals before ending the current geometry.");
+	      }
+	      this._invert_normals = value;
+	    },
+	    get: function get() {
+	      this._invert_normals;
+	    }
+	  }, {
+	    key: "transform",
+	    set: function set(value) {
+	      if (this._geometry_started) {
+	        throw new Error("Cannot change transform before ending the current geometry.");
+	      }
+	      this._transform = value;
+	      if (this._transform) {
+	        if (!this._normal_transform) {
+	          this._normal_transform = mat3.create();
+	        }
+	        mat3.fromMat4(this._normal_transform, this._transform);
+	      }
+	    },
+	    get: function get() {
+	      this._transform;
+	    }
+	  }, {
+	    key: "next_vertex_index",
+	    get: function get() {
+	      return this._vertex_index;
+	    }
+	  }]);
+	
+	  return PrimitiveStream;
+	}();
+	
+	var GeometryBuilderBase = exports.GeometryBuilderBase = function () {
+	  function GeometryBuilderBase(primitive_stream) {
+	    _classCallCheck(this, GeometryBuilderBase);
+	
+	    if (primitive_stream) {
+	      this._stream = primitive_stream;
+	    } else {
+	      this._stream = new PrimitiveStream();
+	    }
+	  }
+	
+	  _createClass(GeometryBuilderBase, [{
+	    key: "finishPrimitive",
+	    value: function finishPrimitive(renderer) {
+	      this._stream.finishPrimitive(renderer);
+	    }
+	  }, {
+	    key: "primitive_stream",
+	    set: function set(value) {
+	      this._stream = value;
+	    },
+	    get: function get() {
+	      return this._stream;
+	    }
+	  }]);
+
+	  return GeometryBuilderBase;
+	}();
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	// Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var PrimitiveAttribute = exports.PrimitiveAttribute = function PrimitiveAttribute(name, buffer, component_count, component_type, stride, byte_offset) {
+	  _classCallCheck(this, PrimitiveAttribute);
+	
+	  this.name = name;
+	  this.buffer = buffer;
+	  this.component_count = component_count || 3;
+	  this.component_type = component_type || 5126; // gl.FLOAT;
+	  this.stride = stride || 0;
+	  this.byte_offset = byte_offset || 0;
+	  this.normalized = false;
+	};
+	
+	var Primitive = exports.Primitive = function () {
+	  function Primitive(attributes, element_count, mode) {
+	    _classCallCheck(this, Primitive);
+	
+	    this.attributes = attributes || [];
+	    this.element_count = element_count || 0;
+	    this.mode = mode || 4; // gl.TRIANGLES;
+	    this.index_buffer = null;
+	    this.index_byte_offset = 0;
+	    this.index_type = 0;
+	  }
+	
+	  _createClass(Primitive, [{
+	    key: "setIndexBuffer",
+	    value: function setIndexBuffer(index_buffer, byte_offset, index_type) {
+	      this.index_buffer = index_buffer;
+	      this.index_byte_offset = byte_offset || 0;
+	      this.index_type = index_type || 5123; // gl.UNSIGNED_SHORT;
+	    }
+	  }]);
+
+	  return Primitive;
+	}();
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.BoxBuilder = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _primitiveStream = __webpack_require__(7);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var BoxBuilder = exports.BoxBuilder = function (_GeometryBuilderBase) {
+	  _inherits(BoxBuilder, _GeometryBuilderBase);
+	
+	  function BoxBuilder() {
+	    _classCallCheck(this, BoxBuilder);
+	
+	    return _possibleConstructorReturn(this, (BoxBuilder.__proto__ || Object.getPrototypeOf(BoxBuilder)).apply(this, arguments));
+	  }
+	
+	  _createClass(BoxBuilder, [{
+	    key: 'pushBox',
+	    value: function pushBox(min, max) {
+	      var stream = this.primitive_stream;
+	
+	      var w = max[0] - min[0];
+	      var h = max[1] - min[1];
+	      var d = max[2] - min[2];
+	
+	      var wh = w * 0.5;
+	      var hh = h * 0.5;
+	      var dh = d * 0.5;
+	
+	      var cx = min[0] + wh;
+	      var cy = min[1] + hh;
+	      var cz = min[2] + dh;
+	
+	      stream.startGeometry();
+	
+	      // Bottom
+	      var idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 1, idx + 2);
+	      stream.pushTriangle(idx, idx + 2, idx + 3);
+	
+	      //                 X       Y       Z       U    V     NX    NY   NZ 
+	      stream.pushVertex(-wh + cx, -hh + cy, -dh + cz, 0.0, 1.0, 0.0, -1.0, 0.0);
+	      stream.pushVertex(+wh + cx, -hh + cy, -dh + cz, 1.0, 1.0, 0.0, -1.0, 0.0);
+	      stream.pushVertex(+wh + cx, -hh + cy, +dh + cz, 1.0, 0.0, 0.0, -1.0, 0.0);
+	      stream.pushVertex(-wh + cx, -hh + cy, +dh + cz, 0.0, 0.0, 0.0, -1.0, 0.0);
+	
+	      // Top
+	      idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 2, idx + 1);
+	      stream.pushTriangle(idx, idx + 3, idx + 2);
+	
+	      stream.pushVertex(-wh + cx, +hh + cy, -dh + cz, 0.0, 0.0, 0.0, 1.0, 0.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, -dh + cz, 1.0, 0.0, 0.0, 1.0, 0.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, +dh + cz, 1.0, 1.0, 0.0, 1.0, 0.0);
+	      stream.pushVertex(-wh + cx, +hh + cy, +dh + cz, 0.0, 1.0, 0.0, 1.0, 0.0);
+	
+	      // Left
+	      idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 2, idx + 1);
+	      stream.pushTriangle(idx, idx + 3, idx + 2);
+	
+	      stream.pushVertex(-wh + cx, -hh + cy, -dh + cz, 0.0, 1.0, -1.0, 0.0, 0.0);
+	      stream.pushVertex(-wh + cx, +hh + cy, -dh + cz, 0.0, 0.0, -1.0, 0.0, 0.0);
+	      stream.pushVertex(-wh + cx, +hh + cy, +dh + cz, 1.0, 0.0, -1.0, 0.0, 0.0);
+	      stream.pushVertex(-wh + cx, -hh + cy, +dh + cz, 1.0, 1.0, -1.0, 0.0, 0.0);
+	
+	      // Right
+	      idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 1, idx + 2);
+	      stream.pushTriangle(idx, idx + 2, idx + 3);
+	
+	      stream.pushVertex(+wh + cx, -hh + cy, -dh + cz, 1.0, 1.0, 1.0, 0.0, 0.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, -dh + cz, 1.0, 0.0, 1.0, 0.0, 0.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, +dh + cz, 0.0, 0.0, 1.0, 0.0, 0.0);
+	      stream.pushVertex(+wh + cx, -hh + cy, +dh + cz, 0.0, 1.0, 1.0, 0.0, 0.0);
+	
+	      // Back
+	      idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 2, idx + 1);
+	      stream.pushTriangle(idx, idx + 3, idx + 2);
+	
+	      stream.pushVertex(-wh + cx, -hh + cy, -dh + cz, 1.0, 1.0, 0.0, 0.0, -1.0);
+	      stream.pushVertex(+wh + cx, -hh + cy, -dh + cz, 0.0, 1.0, 0.0, 0.0, -1.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, -dh + cz, 0.0, 0.0, 0.0, 0.0, -1.0);
+	      stream.pushVertex(-wh + cx, +hh + cy, -dh + cz, 1.0, 0.0, 0.0, 0.0, -1.0);
+	
+	      // Front
+	      idx = stream.next_vertex_index;
+	      stream.pushTriangle(idx, idx + 1, idx + 2);
+	      stream.pushTriangle(idx, idx + 2, idx + 3);
+	
+	      stream.pushVertex(-wh + cx, -hh + cy, +dh + cz, 0.0, 1.0, 0.0, 0.0, 1.0);
+	      stream.pushVertex(+wh + cx, -hh + cy, +dh + cz, 1.0, 1.0, 0.0, 0.0, 1.0);
+	      stream.pushVertex(+wh + cx, +hh + cy, +dh + cz, 1.0, 0.0, 0.0, 0.0, 1.0);
+	      stream.pushVertex(-wh + cx, +hh + cy, +dh + cz, 0.0, 0.0, 0.0, 0.0, 1.0);
+	
+	      stream.endGeometry();
+	    }
+	  }, {
+	    key: 'pushCube',
+	    value: function pushCube() {
+	      var center = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 0, 0];
+	      var size = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1.0;
+	
+	      var hs = size * 0.5;
+	      this.pushBox([center[0] - hs, center[1] - hs, center[2] - hs], [center[0] + hs, center[1] + hs, center[2] + hs]);
+	    }
+	  }]);
+
+	  return BoxBuilder;
+	}(_primitiveStream.GeometryBuilderBase);
+
+/***/ }),
+/* 10 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.PbrMaterial = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _material = __webpack_require__(3);
+	
+	var _renderer = __webpack_require__(2);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var VERTEX_SOURCE = '\nattribute vec3 POSITION, NORMAL;\nattribute vec2 TEXCOORD_0, TEXCOORD_1;\n\nuniform vec3 CAMERA_POSITION;\nuniform vec3 LIGHT_DIRECTION;\n\nvarying vec3 vLight; // Vector from vertex to light.\nvarying vec3 vView; // Vector from vertex to camera.\nvarying vec2 vTex;\n\n#ifdef USE_NORMAL_MAP\nattribute vec4 TANGENT;\nvarying mat3 vTBN;\n#else\nvarying vec3 vNorm;\n#endif\n\n#ifdef USE_VERTEX_COLOR\nattribute vec4 COLOR_0;\nvarying vec4 vCol;\n#endif\n\nvec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n  vec3 n = normalize(vec3(model * vec4(NORMAL, 0.0)));\n#ifdef USE_NORMAL_MAP\n  vec3 t = normalize(vec3(model * vec4(TANGENT.xyz, 0.0)));\n  vec3 b = cross(n, t) * TANGENT.w;\n  vTBN = mat3(t, b, n);\n#else\n  vNorm = n;\n#endif\n\n#ifdef USE_VERTEX_COLOR\n  vCol = COLOR_0;\n#endif\n\n  vTex = TEXCOORD_0;\n  vec4 mPos = model * vec4(POSITION, 1.0);\n  vLight = -LIGHT_DIRECTION;\n  vView = CAMERA_POSITION - mPos.xyz;\n  return proj * view * mPos;\n}';
+	
+	// These equations are borrowed with love from this docs from Epic because I
+	// just don't have anything novel to bring to the PBR scene.
+	// http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
+	var EPIC_PBR_FUNCTIONS = '\nvec3 lambertDiffuse(vec3 cDiff) {\n  return cDiff / M_PI;\n}\n\nfloat specD(float a, float nDotH) {\n  float aSqr = a * a;\n  float f = ((nDotH * nDotH) * (aSqr - 1.0) + 1.0);\n  return aSqr / (M_PI * f * f);\n}\n\nfloat specG(float roughness, float nDotL, float nDotV) {\n  float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;\n  float gl = nDotL / (nDotL * (1.0 - k) + k);\n  float gv = nDotV / (nDotV * (1.0 - k) + k);\n  return gl * gv;\n}\n\nvec3 specF(float vDotH, vec3 F0) {\n  float exponent = (-5.55473 * vDotH - 6.98316) * vDotH;\n  float base = 2.0;\n  return F0 + (1.0 - F0) * pow(base, exponent);\n}';
+	
+	var FRAGMENT_SOURCE = '\n#define M_PI 3.14159265\n\nuniform vec4 baseColorFactor;\n#ifdef USE_BASE_COLOR_MAP\nuniform sampler2D baseColorTex;\n#endif\n\nvarying vec3 vLight;\nvarying vec3 vView;\nvarying vec2 vTex;\n\n#ifdef USE_VERTEX_COLOR\nvarying vec4 vCol;\n#endif\n\n#ifdef USE_NORMAL_MAP\nuniform sampler2D normalTex;\nvarying mat3 vTBN;\n#else\nvarying vec3 vNorm;\n#endif\n\n#ifdef USE_METAL_ROUGH_MAP\nuniform sampler2D metallicRoughnessTex;\n#endif\nuniform vec2 metallicRoughnessFactor;\n\n#ifdef USE_OCCLUSION\nuniform sampler2D occlusionTex;\nuniform float occlusionStrength;\n#endif\n\n#ifdef USE_EMISSIVE\nuniform sampler2D emissiveTex;\nuniform vec3 emissiveFactor;\n#endif\n\nuniform vec3 LIGHT_COLOR;\n\nconst vec3 dielectricSpec = vec3(0.04);\nconst vec3 black = vec3(0.0);\n\n' + EPIC_PBR_FUNCTIONS + '\n\nvec4 fragment_main() {\n#ifdef USE_BASE_COLOR_MAP\n  vec4 baseColor = texture2D(baseColorTex, vTex) * baseColorFactor;\n#else\n  vec4 baseColor = baseColorFactor;\n#endif\n\n#ifdef USE_VERTEX_COLOR\n  baseColor *= vCol;\n#endif\n\n#ifdef USE_NORMAL_MAP\n  vec3 n = texture2D(normalTex, vTex).rgb;\n  n = normalize(vTBN * (2.0 * n - 1.0));\n#else\n  vec3 n = normalize(vNorm);\n#endif\n\n#ifdef FULLY_ROUGH\n  float metallic = 0.0;\n#else\n  float metallic = metallicRoughnessFactor.x;\n#endif\n\n  float roughness = metallicRoughnessFactor.y;\n\n#ifdef USE_METAL_ROUGH_MAP\n  vec4 metallicRoughness = texture2D(metallicRoughnessTex, vTex);\n  metallic *= metallicRoughness.b;\n  roughness *= metallicRoughness.g;\n#endif\n  \n  vec3 l = normalize(vLight);\n  vec3 v = normalize(vView);\n  vec3 h = normalize(l+v);\n\n  float nDotL = clamp(dot(n, l), 0.001, 1.0);\n  float nDotV = abs(dot(n, v)) + 0.001;\n  float nDotH = max(dot(n, h), 0.0);\n  float vDotH = max(dot(v, h), 0.0);\n\n  // From GLTF Spec\n  vec3 cDiff = mix(baseColor.rgb * (1.0 - dielectricSpec.r), black, metallic); // Diffuse color\n  vec3 F0 = mix(dielectricSpec, baseColor.rgb, metallic); // Specular color\n  float a = roughness * roughness;\n\n#ifdef FULLY_ROUGH\n  vec3 specular = F0 * 0.45;\n#else\n  vec3 F = specF(vDotH, F0);\n  float D = specD(a, nDotH);\n  float G = specG(roughness, nDotL, nDotV);\n  vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);\n#endif\n  float halfLambert = dot(n, l) * 0.5 + 0.5;\n  halfLambert *= halfLambert;\n\n  vec3 color = (halfLambert * LIGHT_COLOR * lambertDiffuse(cDiff)) + specular;\n\n#ifdef USE_OCCLUSION\n  float occlusion = texture2D(occlusionTex, vTex).r;\n  color = mix(color, color * occlusion, occlusionStrength);\n#endif\n\n#ifdef USE_EMISSIVE\n  color += texture2D(emissiveTex, vTex).rgb * emissiveFactor;\n#endif\n\n  // gamma correction\n  color = pow(color, vec3(1.0/2.2));\n\n  return vec4(color, baseColor.a);\n}';
+	
+	var PbrMaterial = exports.PbrMaterial = function (_Material) {
+	  _inherits(PbrMaterial, _Material);
+	
+	  function PbrMaterial() {
+	    _classCallCheck(this, PbrMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (PbrMaterial.__proto__ || Object.getPrototypeOf(PbrMaterial)).call(this));
+	
+	    _this.base_color = _this.defineSampler("baseColorTex");
+	    _this.metallic_roughness = _this.defineSampler("metallicRoughnessTex");
+	    _this.normal = _this.defineSampler("normalTex");
+	    _this.occlusion = _this.defineSampler("occlusionTex");
+	    _this.emissive = _this.defineSampler("emissiveTex");
+	
+	    _this.base_color_factor = _this.defineUniform("baseColorFactor", [1.0, 1.0, 1.0, 1.0]);
+	    _this.metallic_roughness_factor = _this.defineUniform("metallicRoughnessFactor", [1.0, 1.0]);
+	    _this.occlusion_strength = _this.defineUniform("occlusionStrength", 1.0);
+	    _this.emissive_factor = _this.defineUniform("emissiveFactor", [0, 0, 0]);
+	    return _this;
+	  }
+	
+	  _createClass(PbrMaterial, [{
+	    key: 'getProgramDefines',
+	    value: function getProgramDefines(render_primitive) {
+	      var program_defines = {};
+	
+	      if (render_primitive._attribute_mask & _renderer.ATTRIB_MASK.COLOR_0) {
+	        program_defines['USE_VERTEX_COLOR'] = 1;
+	      }
+	
+	      if (render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TEXCOORD_0) {
+	        if (this.base_color.texture) {
+	          program_defines['USE_BASE_COLOR_MAP'] = 1;
+	        }
+	
+	        if (this.normal.texture && render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TANGENT) {
+	          program_defines['USE_NORMAL_MAP'] = 1;
+	        }
+	
+	        if (this.metallic_roughness.texture) {
+	          program_defines['USE_METAL_ROUGH_MAP'] = 1;
+	        }
+	
+	        if (this.occlusion.texture) {
+	          program_defines['USE_OCCLUSION'] = 1;
+	        }
+	
+	        if (this.emissive.texture) {
+	          program_defines['USE_EMISSIVE'] = 1;
+	        }
+	      }
+	
+	      if ((!this.metallic_roughness.texture || !(render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TEXCOORD_0)) && this.metallic_roughness_factor.value[1] == 1.0) {
+	        program_defines['FULLY_ROUGH'] = 1;
+	      }
+	
+	      return program_defines;
+	    }
+	  }, {
+	    key: 'material_name',
+	    get: function get() {
+	      return 'PBR';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return VERTEX_SOURCE;
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return FRAGMENT_SOURCE;
+	    }
+	  }]);
+
+	  return PbrMaterial;
+	}(_material.Material);
+
+/***/ }),
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -2573,21 +3305,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _renderer = __webpack_require__(1);
+	var _renderer = __webpack_require__(2);
 	
-	var _boundsRenderer = __webpack_require__(7);
+	var _boundsRenderer = __webpack_require__(12);
 	
-	var _inputRenderer = __webpack_require__(9);
+	var _inputRenderer = __webpack_require__(13);
 	
-	var _skybox = __webpack_require__(10);
+	var _skybox = __webpack_require__(14);
 	
-	var _statsViewer = __webpack_require__(11);
+	var _statsViewer = __webpack_require__(15);
 	
-	var _program = __webpack_require__(4);
+	var _program = __webpack_require__(5);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
-	var _gltf = __webpack_require__(13);
+	var _gltf = __webpack_require__(17);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -2892,7 +3624,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 7 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -2904,9 +3636,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -3036,77 +3768,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 8 */
-/***/ (function(module, exports) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	// Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var PrimitiveAttribute = exports.PrimitiveAttribute = function PrimitiveAttribute(name, buffer, component_count, component_type, stride, byte_offset) {
-	  _classCallCheck(this, PrimitiveAttribute);
-	
-	  this.name = name;
-	  this.buffer = buffer;
-	  this.component_count = component_count || 3;
-	  this.component_type = component_type || 5126; // gl.FLOAT;
-	  this.stride = stride || 0;
-	  this.byte_offset = byte_offset || 0;
-	  this.normalized = false;
-	};
-	
-	var Primitive = exports.Primitive = function () {
-	  function Primitive(attributes, element_count, mode) {
-	    _classCallCheck(this, Primitive);
-	
-	    this.attributes = attributes || [];
-	    this.element_count = element_count || 0;
-	    this.mode = mode || 4; // gl.TRIANGLES;
-	    this.index_buffer = null;
-	    this.index_byte_offset = 0;
-	    this.index_type = 0;
-	  }
-	
-	  _createClass(Primitive, [{
-	    key: "setIndexBuffer",
-	    value: function setIndexBuffer(index_buffer, byte_offset, index_type) {
-	      this.index_buffer = index_buffer;
-	      this.index_byte_offset = byte_offset || 0;
-	      this.index_type = index_type || 5123; // gl.UNSIGNED_SHORT;
-	    }
-	  }]);
-
-	  return Primitive;
-	}();
-
-/***/ }),
-/* 9 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -3118,13 +3780,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _texture = __webpack_require__(5);
+	var _texture = __webpack_require__(6);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3625,7 +4287,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 10 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -3637,13 +4299,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
-	var _texture = __webpack_require__(5);
+	var _texture = __webpack_require__(6);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3799,7 +4461,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 11 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -3811,13 +4473,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _sevenSegmentText = __webpack_require__(12);
+	var _sevenSegmentText = __webpack_require__(16);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -4071,7 +4733,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 12 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4083,9 +4745,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4296,7 +4958,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 13 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4326,13 +4988,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	var _pbr = __webpack_require__(14);
+	var _pbr = __webpack_require__(10);
 	
-	var _node2 = __webpack_require__(3);
+	var _node2 = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _texture = __webpack_require__(5);
+	var _texture = __webpack_require__(6);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -4956,135 +5618,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 14 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	exports.PbrMaterial = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _material = __webpack_require__(2);
-	
-	var _renderer = __webpack_require__(1);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-	
-	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var VERTEX_SOURCE = '\nattribute vec3 POSITION, NORMAL;\nattribute vec2 TEXCOORD_0, TEXCOORD_1;\n\nuniform vec3 CAMERA_POSITION;\nuniform vec3 LIGHT_DIRECTION;\n\nvarying vec3 vLight; // Vector from vertex to light.\nvarying vec3 vView; // Vector from vertex to camera.\nvarying vec2 vTex;\n\n#ifdef USE_NORMAL_MAP\nattribute vec4 TANGENT;\nvarying mat3 vTBN;\n#else\nvarying vec3 vNorm;\n#endif\n\n#ifdef USE_VERTEX_COLOR\nattribute vec4 COLOR_0;\nvarying vec4 vCol;\n#endif\n\nvec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n  vec3 n = normalize(vec3(model * vec4(NORMAL, 0.0)));\n#ifdef USE_NORMAL_MAP\n  vec3 t = normalize(vec3(model * vec4(TANGENT.xyz, 0.0)));\n  vec3 b = cross(n, t) * TANGENT.w;\n  vTBN = mat3(t, b, n);\n#else\n  vNorm = n;\n#endif\n\n#ifdef USE_VERTEX_COLOR\n  vCol = COLOR_0;\n#endif\n\n  vTex = TEXCOORD_0;\n  vec4 mPos = model * vec4(POSITION, 1.0);\n  vLight = -LIGHT_DIRECTION;\n  vView = CAMERA_POSITION - mPos.xyz;\n  return proj * view * mPos;\n}';
-	
-	// These equations are borrowed with love from this docs from Epic because I
-	// just don't have anything novel to bring to the PBR scene.
-	// http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
-	var EPIC_PBR_FUNCTIONS = '\nvec3 lambertDiffuse(vec3 cDiff) {\n  return cDiff / M_PI;\n}\n\nfloat specD(float a, float nDotH) {\n  float aSqr = a * a;\n  float f = ((nDotH * nDotH) * (aSqr - 1.0) + 1.0);\n  return aSqr / (M_PI * f * f);\n}\n\nfloat specG(float roughness, float nDotL, float nDotV) {\n  float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;\n  float gl = nDotL / (nDotL * (1.0 - k) + k);\n  float gv = nDotV / (nDotV * (1.0 - k) + k);\n  return gl * gv;\n}\n\nvec3 specF(float vDotH, vec3 F0) {\n  float exponent = (-5.55473 * vDotH - 6.98316) * vDotH;\n  float base = 2.0;\n  return F0 + (1.0 - F0) * pow(base, exponent);\n}';
-	
-	var FRAGMENT_SOURCE = '\n#define M_PI 3.14159265\n\nuniform vec4 baseColorFactor;\n#ifdef USE_BASE_COLOR_MAP\nuniform sampler2D baseColorTex;\n#endif\n\nvarying vec3 vLight;\nvarying vec3 vView;\nvarying vec2 vTex;\n\n#ifdef USE_VERTEX_COLOR\nvarying vec4 vCol;\n#endif\n\n#ifdef USE_NORMAL_MAP\nuniform sampler2D normalTex;\nvarying mat3 vTBN;\n#else\nvarying vec3 vNorm;\n#endif\n\n#ifdef USE_METAL_ROUGH_MAP\nuniform sampler2D metallicRoughnessTex;\n#endif\nuniform vec2 metallicRoughnessFactor;\n\n#ifdef USE_OCCLUSION\nuniform sampler2D occlusionTex;\nuniform float occlusionStrength;\n#endif\n\n#ifdef USE_EMISSIVE\nuniform sampler2D emissiveTex;\nuniform vec3 emissiveFactor;\n#endif\n\nuniform vec3 LIGHT_COLOR;\n\nconst vec3 dielectricSpec = vec3(0.04);\nconst vec3 black = vec3(0.0);\n\n' + EPIC_PBR_FUNCTIONS + '\n\nvec4 fragment_main() {\n#ifdef USE_BASE_COLOR_MAP\n  vec4 baseColor = texture2D(baseColorTex, vTex) * baseColorFactor;\n#else\n  vec4 baseColor = baseColorFactor;\n#endif\n\n#ifdef USE_VERTEX_COLOR\n  baseColor *= vCol;\n#endif\n\n#ifdef USE_NORMAL_MAP\n  vec3 n = texture2D(normalTex, vTex).rgb;\n  n = normalize(vTBN * (2.0 * n - 1.0));\n#else\n  vec3 n = normalize(vNorm);\n#endif\n\n#ifdef FULLY_ROUGH\n  float metallic = 0.0;\n#else\n  float metallic = metallicRoughnessFactor.x;\n#endif\n\n  float roughness = metallicRoughnessFactor.y;\n\n#ifdef USE_METAL_ROUGH_MAP\n  vec4 metallicRoughness = texture2D(metallicRoughnessTex, vTex);\n  metallic *= metallicRoughness.b;\n  roughness *= metallicRoughness.g;\n#endif\n  \n  vec3 l = normalize(vLight);\n  vec3 v = normalize(vView);\n  vec3 h = normalize(l+v);\n\n  float nDotL = clamp(dot(n, l), 0.001, 1.0);\n  float nDotV = abs(dot(n, v)) + 0.001;\n  float nDotH = max(dot(n, h), 0.0);\n  float vDotH = max(dot(v, h), 0.0);\n\n  // From GLTF Spec\n  vec3 cDiff = mix(baseColor.rgb * (1.0 - dielectricSpec.r), black, metallic); // Diffuse color\n  vec3 F0 = mix(dielectricSpec, baseColor.rgb, metallic); // Specular color\n  float a = roughness * roughness;\n\n#ifdef FULLY_ROUGH\n  vec3 specular = F0 * 0.45;\n#else\n  vec3 F = specF(vDotH, F0);\n  float D = specD(a, nDotH);\n  float G = specG(roughness, nDotL, nDotV);\n  vec3 specular = (D * F * G) / (4.0 * nDotL * nDotV);\n#endif\n  float halfLambert = dot(n, l) * 0.5 + 0.5;\n  halfLambert *= halfLambert;\n\n  vec3 color = (halfLambert * LIGHT_COLOR * lambertDiffuse(cDiff)) + specular;\n\n#ifdef USE_OCCLUSION\n  float occlusion = texture2D(occlusionTex, vTex).r;\n  color = mix(color, color * occlusion, occlusionStrength);\n#endif\n\n#ifdef USE_EMISSIVE\n  color += texture2D(emissiveTex, vTex).rgb * emissiveFactor;\n#endif\n\n  // gamma correction\n  color = pow(color, vec3(1.0/2.2));\n\n  return vec4(color, baseColor.a);\n}';
-	
-	var PbrMaterial = exports.PbrMaterial = function (_Material) {
-	  _inherits(PbrMaterial, _Material);
-	
-	  function PbrMaterial() {
-	    _classCallCheck(this, PbrMaterial);
-	
-	    var _this = _possibleConstructorReturn(this, (PbrMaterial.__proto__ || Object.getPrototypeOf(PbrMaterial)).call(this));
-	
-	    _this.base_color = _this.defineSampler("baseColorTex");
-	    _this.metallic_roughness = _this.defineSampler("metallicRoughnessTex");
-	    _this.normal = _this.defineSampler("normalTex");
-	    _this.occlusion = _this.defineSampler("occlusionTex");
-	    _this.emissive = _this.defineSampler("emissiveTex");
-	
-	    _this.base_color_factor = _this.defineUniform("baseColorFactor", [1.0, 1.0, 1.0, 1.0]);
-	    _this.metallic_roughness_factor = _this.defineUniform("metallicRoughnessFactor", [1.0, 1.0]);
-	    _this.occlusion_strength = _this.defineUniform("occlusionStrength", 1.0);
-	    _this.emissive_factor = _this.defineUniform("emissiveFactor", [0, 0, 0]);
-	    return _this;
-	  }
-	
-	  _createClass(PbrMaterial, [{
-	    key: 'getProgramDefines',
-	    value: function getProgramDefines(render_primitive) {
-	      var program_defines = {};
-	
-	      if (render_primitive._attribute_mask & _renderer.ATTRIB_MASK.COLOR_0) {
-	        program_defines['USE_VERTEX_COLOR'] = 1;
-	      }
-	
-	      if (render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TEXCOORD_0) {
-	        if (this.base_color.texture) {
-	          program_defines['USE_BASE_COLOR_MAP'] = 1;
-	        }
-	
-	        if (this.normal.texture && render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TANGENT) {
-	          program_defines['USE_NORMAL_MAP'] = 1;
-	        }
-	
-	        if (this.metallic_roughness.texture) {
-	          program_defines['USE_METAL_ROUGH_MAP'] = 1;
-	        }
-	
-	        if (this.occlusion.texture) {
-	          program_defines['USE_OCCLUSION'] = 1;
-	        }
-	
-	        if (this.emissive.texture) {
-	          program_defines['USE_EMISSIVE'] = 1;
-	        }
-	      }
-	
-	      if ((!this.metallic_roughness.texture || !(render_primitive._attribute_mask & _renderer.ATTRIB_MASK.TEXCOORD_0)) && this.metallic_roughness_factor.value[1] == 1.0) {
-	        program_defines['FULLY_ROUGH'] = 1;
-	      }
-	
-	      return program_defines;
-	    }
-	  }, {
-	    key: 'material_name',
-	    get: function get() {
-	      return 'PBR';
-	    }
-	  }, {
-	    key: 'vertex_source',
-	    get: function get() {
-	      return VERTEX_SOURCE;
-	    }
-	  }, {
-	    key: 'fragment_source',
-	    get: function get() {
-	      return FRAGMENT_SOURCE;
-	    }
-	  }]);
-
-	  return PbrMaterial;
-	}(_material.Material);
-
-/***/ }),
-/* 15 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5096,15 +5630,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(6);
+	var _scene = __webpack_require__(11);
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(4);
 	
-	var _texture = __webpack_require__(5);
+	var _texture = __webpack_require__(6);
+	
+	var _boxBuilder = __webpack_require__(9);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -5180,112 +5716,33 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(CubeSeaScene, [{
 	    key: 'onLoadScene',
 	    value: function onLoadScene(renderer) {
-	      var gl = renderer._gl;
-	      var cubeVerts = [];
-	      var cubeIndices = [];
-	
-	      var cubeScale = 1.0;
-	
-	      // Build a single cube.
-	      function appendCube(x, y, z, size) {
-	        if (!x && !y && !z) {
-	          // Don't create a cube in the center.
-	          return;
-	        }
-	
-	        if (!size) size = 0.2;
-	        if (cubeScale) size *= cubeScale;
-	        // Bottom
-	        var idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        //             X         Y         Z         U    V    NX    NY   NZ
-	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z + size, 1.0, 0.0, 0.0, -1.0, 0.0);
-	        cubeVerts.push(x - size, y - size, z + size, 0.0, 0.0, 0.0, -1.0, 0.0);
-	
-	        // Top
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z + size, 1.0, 1.0, 0.0, 1.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z + size, 0.0, 1.0, 0.0, 1.0, 0.0);
-	
-	        // Left
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y + size, z + size, 1.0, 0.0, -1.0, 0.0, 0.0);
-	        cubeVerts.push(x - size, y - size, z + size, 1.0, 1.0, -1.0, 0.0, 0.0);
-	
-	        // Right
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y + size, z + size, 0.0, 0.0, 1.0, 0.0, 0.0);
-	        cubeVerts.push(x + size, y - size, z + size, 0.0, 1.0, 1.0, 0.0, 0.0);
-	
-	        // Back
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 2, idx + 1);
-	        cubeIndices.push(idx, idx + 3, idx + 2);
-	
-	        cubeVerts.push(x - size, y - size, z - size, 1.0, 1.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x + size, y - size, z - size, 0.0, 1.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x + size, y + size, z - size, 0.0, 0.0, 0.0, 0.0, -1.0);
-	        cubeVerts.push(x - size, y + size, z - size, 1.0, 0.0, 0.0, 0.0, -1.0);
-	
-	        // Front
-	        idx = cubeVerts.length / 8.0;
-	        cubeIndices.push(idx, idx + 1, idx + 2);
-	        cubeIndices.push(idx, idx + 2, idx + 3);
-	
-	        cubeVerts.push(x - size, y - size, z + size, 0.0, 1.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x + size, y - size, z + size, 1.0, 1.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x + size, y + size, z + size, 1.0, 0.0, 0.0, 0.0, 1.0);
-	        cubeVerts.push(x - size, y + size, z + size, 0.0, 0.0, 0.0, 0.0, 1.0);
-	      }
+	      var box_builder = new _boxBuilder.BoxBuilder();
 	
 	      // Build the cube sea
+	      var half_grid = this._grid_size * 0.5;
 	      for (var x = 0; x < this._grid_size; ++x) {
 	        for (var y = 0; y < this._grid_size; ++y) {
 	          for (var z = 0; z < this._grid_size; ++z) {
-	            appendCube(x - this._grid_size / 2, y - this._grid_size / 2, z - this._grid_size / 2);
+	            var pos = [x - half_grid, y - half_grid, z - half_grid];
+	            // Don't place a cube in the center of the grid.
+	            if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
+	              box_builder.pushCube(pos, 0.4);
+	            }
 	          }
 	        }
 	      }
 	
-	      var indexCount = cubeIndices.length;
+	      var cube_sea_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
 	
-	      // Add some "hero cubes" for separate animation.
-	      var heroOffset = cubeIndices.length;
-	      appendCube(0, 0.25, -0.8, 0.05);
-	      appendCube(0.8, 0.25, 0, 0.05);
-	      appendCube(0, 0.25, 0.8, 0.05);
-	      appendCube(-0.8, 0.25, 0, 0.05);
-	      var heroCount = cubeIndices.length - heroOffset;
+	      box_builder.primitive_stream.clear();
 	
-	      var vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cubeVerts));
-	      var index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices));
+	      // Build the spinning "hero" cubes
+	      box_builder.pushCube([0, 0.25, -0.8], 0.1);
+	      box_builder.pushCube([0.8, 0.25, 0], 0.1);
+	      box_builder.pushCube([0, 0.25, 0.8], 0.1);
+	      box_builder.pushCube([-0.8, 0.25, 0], 0.1);
 	
-	      var attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0), new _primitive.PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, gl.FLOAT, 32, 12), new _primitive.PrimitiveAttribute("NORMAL", vertex_buffer, 3, gl.FLOAT, 32, 20)];
-	
-	      var cube_sea_primitive = new _primitive.Primitive(attribs, indexCount);
-	      cube_sea_primitive.setIndexBuffer(index_buffer);
-	
-	      var hero_primitive = new _primitive.Primitive(attribs, heroCount);
-	      hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
+	      var hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
 	
 	      var material = new CubeSeaMaterial();
 	      material.base_color.texture = new _texture.UrlTexture(this._image_url);
@@ -5310,7 +5767,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_scene.Scene);
 
 /***/ }),
-/* 16 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5322,9 +5779,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(6);
+	var _scene = __webpack_require__(11);
 	
-	var _gltf = __webpack_require__(13);
+	var _gltf = __webpack_require__(17);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	

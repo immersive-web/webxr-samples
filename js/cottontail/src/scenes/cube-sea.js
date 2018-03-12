@@ -23,6 +23,7 @@ import { Material } from '../core/material.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { Node } from '../core/node.js'
 import { UrlTexture } from '../core/texture.js'
+import { BoxBuilder } from '../geometry/box-builder.js'
 
 class CubeSeaMaterial extends Material {
   constructor() {
@@ -79,118 +80,33 @@ export class CubeSeaScene extends Scene {
   }
 
   onLoadScene(renderer) {
-    let gl = renderer._gl;
-    let cubeVerts = [];
-    let cubeIndices = [];
-
-    let cubeScale = 1.0;
-
-    // Build a single cube.
-    function appendCube (x, y, z, size) {
-      if (!x && !y && !z) {
-        // Don't create a cube in the center.
-        return;
-      }
-
-      if (!size) size = 0.2;
-      if (cubeScale) size *= cubeScale;
-      // Bottom
-      let idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 1, idx + 2);
-      cubeIndices.push(idx, idx + 2, idx + 3);
-
-      //             X         Y         Z         U    V    NX    NY   NZ
-      cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, 0.0, -1.0, 0.0);
-      cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 0.0, -1.0, 0.0);
-      cubeVerts.push(x + size, y - size, z + size, 1.0, 0.0, 0.0, -1.0, 0.0);
-      cubeVerts.push(x - size, y - size, z + size, 0.0, 0.0, 0.0, -1.0, 0.0);
-
-      // Top
-      idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 2, idx + 1);
-      cubeIndices.push(idx, idx + 3, idx + 2);
-
-      cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, 0.0, 1.0, 0.0);
-      cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 0.0, 1.0, 0.0);
-      cubeVerts.push(x + size, y + size, z + size, 1.0, 1.0, 0.0, 1.0, 0.0);
-      cubeVerts.push(x - size, y + size, z + size, 0.0, 1.0, 0.0, 1.0, 0.0);
-
-      // Left
-      idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 2, idx + 1);
-      cubeIndices.push(idx, idx + 3, idx + 2);
-
-      cubeVerts.push(x - size, y - size, z - size, 0.0, 1.0, -1.0, 0.0, 0.0);
-      cubeVerts.push(x - size, y + size, z - size, 0.0, 0.0, -1.0, 0.0, 0.0);
-      cubeVerts.push(x - size, y + size, z + size, 1.0, 0.0, -1.0, 0.0, 0.0);
-      cubeVerts.push(x - size, y - size, z + size, 1.0, 1.0, -1.0, 0.0, 0.0);
-
-      // Right
-      idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 1, idx + 2);
-      cubeIndices.push(idx, idx + 2, idx + 3);
-
-      cubeVerts.push(x + size, y - size, z - size, 1.0, 1.0, 1.0, 0.0, 0.0);
-      cubeVerts.push(x + size, y + size, z - size, 1.0, 0.0, 1.0, 0.0, 0.0);
-      cubeVerts.push(x + size, y + size, z + size, 0.0, 0.0, 1.0, 0.0, 0.0);
-      cubeVerts.push(x + size, y - size, z + size, 0.0, 1.0, 1.0, 0.0, 0.0);
-
-      // Back
-      idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 2, idx + 1);
-      cubeIndices.push(idx, idx + 3, idx + 2);
-
-      cubeVerts.push(x - size, y - size, z - size, 1.0, 1.0, 0.0, 0.0, -1.0);
-      cubeVerts.push(x + size, y - size, z - size, 0.0, 1.0, 0.0, 0.0, -1.0);
-      cubeVerts.push(x + size, y + size, z - size, 0.0, 0.0, 0.0, 0.0, -1.0);
-      cubeVerts.push(x - size, y + size, z - size, 1.0, 0.0, 0.0, 0.0, -1.0);
-
-      // Front
-      idx = cubeVerts.length / 8.0;
-      cubeIndices.push(idx, idx + 1, idx + 2);
-      cubeIndices.push(idx, idx + 2, idx + 3);
-
-      cubeVerts.push(x - size, y - size, z + size, 0.0, 1.0, 0.0, 0.0, 1.0);
-      cubeVerts.push(x + size, y - size, z + size, 1.0, 1.0, 0.0, 0.0, 1.0);
-      cubeVerts.push(x + size, y + size, z + size, 1.0, 0.0, 0.0, 0.0, 1.0);
-      cubeVerts.push(x - size, y + size, z + size, 0.0, 0.0, 0.0, 0.0, 1.0);
-    }
+    let box_builder = new BoxBuilder();
 
     // Build the cube sea
+    let half_grid = this._grid_size * 0.5;
     for (let x = 0; x < this._grid_size; ++x) {
       for (let y = 0; y < this._grid_size; ++y) {
         for (let z = 0; z < this._grid_size; ++z) {
-          appendCube(x - (this._grid_size / 2),
-                     y - (this._grid_size / 2),
-                     z - (this._grid_size / 2));
+          let pos = [x - half_grid, y - half_grid, z - half_grid];
+          // Don't place a cube in the center of the grid.
+          if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
+            box_builder.pushCube(pos, 0.4);
+          }
         }
       }
     }
 
-    let indexCount = cubeIndices.length;
+    let cube_sea_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
 
-    // Add some "hero cubes" for separate animation.
-    let heroOffset = cubeIndices.length;
-    appendCube(0, 0.25, -0.8, 0.05);
-    appendCube(0.8, 0.25, 0, 0.05);
-    appendCube(0, 0.25, 0.8, 0.05);
-    appendCube(-0.8, 0.25, 0, 0.05);
-    let heroCount = cubeIndices.length - heroOffset;
+    box_builder.primitive_stream.clear();
 
-    let vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(cubeVerts));
-    let index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices));
+    // Build the spinning "hero" cubes
+    box_builder.pushCube([0, 0.25, -0.8], 0.1);
+    box_builder.pushCube([0.8, 0.25, 0], 0.1);
+    box_builder.pushCube([0, 0.25, 0.8], 0.1);
+    box_builder.pushCube([-0.8, 0.25, 0], 0.1);
 
-    let attribs = [
-      new PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 32, 0),
-      new PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, gl.FLOAT, 32, 12),
-      new PrimitiveAttribute("NORMAL", vertex_buffer, 3, gl.FLOAT, 32, 20),
-    ];
-  
-    let cube_sea_primitive = new Primitive(attribs, indexCount);
-    cube_sea_primitive.setIndexBuffer(index_buffer);
-
-    let hero_primitive = new Primitive(attribs, heroCount);
-    hero_primitive.setIndexBuffer(index_buffer, heroOffset * 2);
+    let hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
 
     let material = new CubeSeaMaterial();
     material.base_color.texture = new UrlTexture(this._image_url);

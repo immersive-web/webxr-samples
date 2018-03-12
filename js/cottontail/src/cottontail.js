@@ -18,7 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import { Ray, AABB } from './core/intersect.js'
 import { Renderer, createWebGLContext } from './core/renderer.js'
+
+import { PrimitiveStream } from './geometry/primitive-stream.js'
+import { BoxBuilder } from './geometry/box-builder.js'
+
+import { PbrMaterial } from './materials/pbr.js'
+
 import { WebXRView, Scene } from './scenes/scene.js'
 import { CubeSeaScene } from './scenes/cube-sea.js'
 import { GLTF2Scene } from './scenes/gltf2.js'
@@ -32,8 +39,15 @@ if (('XRWebGLLayer' in window) && !('getViewport' in XRWebGLLayer.prototype)) {
 }
 
 export {
+  Ray, AABB,
   Renderer,
   createWebGLContext,
+
+  PrimitiveStream,
+  BoxBuilder,
+
+  PbrMaterial,
+
   WebXRView,
   Scene,
   CubeSeaScene,

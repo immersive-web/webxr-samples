@@ -63,6 +63,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import { GLTF2Scene } from './js/cottontail/src/scenes/gltf2.js'
       import { Renderer, createWebGLContext } from './js/cottontail/src/core/renderer.js'
 
+      import { BoxBuilder } from './js/cottontail/src/geometry/box-builder.js'
+      import { PbrMaterial } from './js/cottontail/src/materials/pbr.js'
+
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
                                                 0, 1, 0, 0,
                                                 0, 0, 1, 0,
@@ -76,6 +79,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       document.body.appendChild(gl.canvas);
 
       let renderer = new Renderer(gl);
+      let box_node = null;
 
       function setScene(new_scene) {
         scene = new_scene;
@@ -91,6 +95,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headset_mesh) => {
           scene.addNode(headset_mesh);
         });
+
+
+        let box_builder = new BoxBuilder();
+        box_builder.pushCube([0, 1.6, -1.6], 0.3);
+        let box_primitve = box_builder.primitive_stream.finishPrimitive(renderer);
+
+        let box_material = new PbrMaterial();
+        box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
+
+        box_node = renderer.createMesh(box_primitve, box_material);
+        scene.addNode(box_node);
       }
 
       function onResize () {
@@ -178,6 +193,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mat4.identity(mat);
         mat4.rotateY(mat, mat, t / 1000);
         scene.inputRenderer.addController(mat);
+
+        if (box_node) {
+          box_node.matrix = mat;
+        }
 
         gl.clear(/*gl.COLOR_BUFFER_BIT |*/ gl.DEPTH_BUFFER_BIT);
 
