@@ -736,6 +736,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return other_state & _material.MAT_STATE.BLEND_FUNC_RANGE ^ this._state & _material.MAT_STATE.BLEND_FUNC_RANGE;
 	    }
 	  }, {
+	    key: '_depthFuncDiff',
+	    value: function _depthFuncDiff(other_state) {
+	      if (!(this._state & _material.CAP.DEPTH_TEST)) return 0;
+	      return other_state & _material.MAT_STATE.DEPTH_FUNC_RANGE ^ this._state & _material.MAT_STATE.DEPTH_FUNC_RANGE;
+	    }
+	  }, {
 	    key: 'cull_face',
 	    get: function get() {
 	      return !!(this._state & _material.CAP.CULL_FACE);
@@ -769,6 +775,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'stencil_mask',
 	    get: function get() {
 	      return !!(this._state & _material.CAP.STENCIL_MASK);
+	    }
+	  }, {
+	    key: 'depth_func',
+	    get: function get() {
+	      return ((this._state & _material.MAT_STATE.DEPTH_FUNC_RANGE) >> _material.MAT_STATE.DEPTH_FUNC_SHIFT) + WebGLRenderingContext.NEVER;
 	    }
 	  }, {
 	    key: 'blend_func_src',
@@ -1297,6 +1308,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (material._blendDiff(prev_state)) {
 	        gl.blendFunc(material.blend_func_src, material.blend_func_dst);
 	      }
+	
+	      // Depth testing enabled and depth func changed?
+	      if (material._depthFuncDiff(prev_state)) {
+	        gl.depthFunc(material.depth_func);
+	      }
 	    }
 	  }, {
 	    key: 'gl',
@@ -1363,7 +1379,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  BLEND_SRC_RANGE: 0x00000F00,
 	  BLEND_DST_SHIFT: 12,
 	  BLEND_DST_RANGE: 0x0000F000,
-	  BLEND_FUNC_RANGE: 0x0000FF00
+	  BLEND_FUNC_RANGE: 0x0000FF00,
+	  DEPTH_FUNC_SHIFT: 16,
+	  DEPTH_FUNC_RANGE: 0x000F0000
 	};
 	
 	var RENDER_ORDER = exports.RENDER_ORDER = {
@@ -1404,6 +1422,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // Use a fairly commonly desired blend func as the default.
 	    this.blend_func_src = GL.SRC_ALPHA;
 	    this.blend_func_dst = GL.ONE_MINUS_SRC_ALPHA;
+	
+	    this.depth_func = GL.LESS;
 	  }
 	
 	  _createClass(MaterialState, [{
@@ -1477,6 +1497,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	      } else {
 	        this._state &= ~CAP.DEPTH_MASK;
 	      }
+	    }
+	  }, {
+	    key: "depth_func",
+	    get: function get() {
+	      return ((this._state & MAT_STATE.DEPTH_FUNC_RANGE) >> MAT_STATE.DEPTH_FUNC_SHIFT) + WebGLRenderingContext.NEVER;
+	    },
+	    set: function set(value) {
+	      value = value - WebGLRenderingContext.NEVER;
+	      this._state &= ~MAT_STATE.DEPTH_FUNC_RANGE;
+	      this._state |= value << MAT_STATE.DEPTH_FUNC_SHIFT;
 	    }
 	  }, {
 	    key: "stencil_mask",
@@ -3653,7 +3683,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var _this = _possibleConstructorReturn(this, (SkyboxMaterial.__proto__ || Object.getPrototypeOf(SkyboxMaterial)).call(this));
 	
-	    _this.depth_mask = false;
+	    _this.render_order = _material.RENDER_ORDER.SKY;
+	    _this.state.depth_func = GL.LEQUAL;
+	    _this.state.depth_mask = false;
 	
 	    _this.image = _this.defineSampler("diffuse");
 	
@@ -3669,7 +3701,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'vertex_source',
 	    get: function get() {
-	      return '\n    uniform int EYE_INDEX;\n    uniform vec4 texCoordScaleOffset[2];\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec4 scaleOffset = texCoordScaleOffset[EYE_INDEX];\n      vTexCoord = (TEXCOORD_0 * scaleOffset.xy) + scaleOffset.zw;\n      // Drop the translation portion of the view matrix\n      view[3].xyz = vec3(0.0, 0.0, 0.0);\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
+	      return '\n    uniform int EYE_INDEX;\n    uniform vec4 texCoordScaleOffset[2];\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec4 scaleOffset = texCoordScaleOffset[EYE_INDEX];\n      vTexCoord = (TEXCOORD_0 * scaleOffset.xy) + scaleOffset.zw;\n      // Drop the translation portion of the view matrix\n      view[3].xyz = vec3(0.0, 0.0, 0.0);\n      vec4 out_vec = proj * view * model * vec4(POSITION, 1.0);\n\n      // Returning the W component for both Z and W forces the geometry depth to\n      // the far plane. When combined with a depth func of LEQUAL this makes the\n      // sky write to any depth fragment that has not been written to yet.\n      return out_vec.xyww;\n    }';
 	    }
 	  }, {
 	    key: 'fragment_source',
@@ -3702,8 +3734,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var vertices = [];
 	      var indices = [];
 	
-	      // 100 meter radius sphere. TODO: There's better ways to handle this.
-	      var radius = 100;
 	      var lat_segments = 40;
 	      var lon_segments = 40;
 	
@@ -3724,7 +3754,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          var u = j / lon_segments;
 	          var v = i / lat_segments;
 	
-	          vertices.push(x * radius, y * radius, z * radius, u, v);
+	          // Vertex shader will force the geometry to the far plane, so the
+	          // radius of the sphere is immaterial.
+	          vertices.push(x, y, z, u, v);
 	
 	          if (i < lat_segments && j < lon_segments) {
 	            var idx_a = idx_offset_a + j;

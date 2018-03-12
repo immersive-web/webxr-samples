@@ -22,7 +22,7 @@
 Node for displaying 360 equirect images as a skybox.
 */
 
-import { Material } from '../core/material.js'
+import { Material, RENDER_ORDER } from '../core/material.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { Node } from '../core/node.js'
 import { UrlTexture } from '../core/texture.js'
@@ -32,8 +32,9 @@ const GL = WebGLRenderingContext; // For enums
 class SkyboxMaterial extends Material {
   constructor() {
     super();
-
-    this.depth_mask = false;
+    this.render_order = RENDER_ORDER.SKY;
+    this.state.depth_func = GL.LEQUAL;
+    this.state.depth_mask = false;
 
     this.image = this.defineSampler("diffuse");
 
@@ -59,7 +60,12 @@ class SkyboxMaterial extends Material {
       vTexCoord = (TEXCOORD_0 * scaleOffset.xy) + scaleOffset.zw;
       // Drop the translation portion of the view matrix
       view[3].xyz = vec3(0.0, 0.0, 0.0);
-      return proj * view * model * vec4(POSITION, 1.0);
+      vec4 out_vec = proj * view * model * vec4(POSITION, 1.0);
+
+      // Returning the W component for both Z and W forces the geometry depth to
+      // the far plane. When combined with a depth func of LEQUAL this makes the
+      // sky write to any depth fragment that has not been written to yet.
+      return out_vec.xyww;
     }`;
   }
 
@@ -88,8 +94,6 @@ export class Skybox extends Node {
     let vertices = [];
     let indices = [];
 
-    // 100 meter radius sphere. TODO: There's better ways to handle this.
-    let radius = 100; 
     let lat_segments = 40;
     let lon_segments = 40;
 
@@ -110,7 +114,9 @@ export class Skybox extends Node {
         let u = (j / lon_segments);
         let v = (i / lat_segments);
 
-        vertices.push(x * radius, y * radius, z * radius, u, v);
+        // Vertex shader will force the geometry to the far plane, so the
+        // radius of the sphere is immaterial.
+        vertices.push(x, y, z, u, v);
 
         if (i < lat_segments && j < lon_segments) {
           let idx_a = idx_offset_a+j;

@@ -386,6 +386,7 @@ class RenderMaterial {
   get color_mask() { return !!(this._state & CAP.COLOR_MASK); }
   get depth_mask() { return !!(this._state & CAP.DEPTH_MASK); }
   get stencil_mask() { return !!(this._state & CAP.STENCIL_MASK); }
+  get depth_func() { return ((this._state & MAT_STATE.DEPTH_FUNC_RANGE) >> MAT_STATE.DEPTH_FUNC_SHIFT) + WebGLRenderingContext.NEVER; }
   get blend_func_src() { return stateToBlendFunc(this._state, MAT_STATE.BLEND_SRC_RANGE, MAT_STATE.BLEND_SRC_SHIFT); }
   get blend_func_dst() { return stateToBlendFunc(this._state, MAT_STATE.BLEND_DST_RANGE, MAT_STATE.BLEND_DST_SHIFT); }
 
@@ -398,6 +399,12 @@ class RenderMaterial {
     if (!(this._state & CAP.BLEND))
       return 0;
     return (other_state & MAT_STATE.BLEND_FUNC_RANGE) ^ (this._state & MAT_STATE.BLEND_FUNC_RANGE);
+  }
+
+  _depthFuncDiff(other_state) {
+    if (!(this._state & CAP.DEPTH_TEST))
+      return 0;
+    return (other_state & MAT_STATE.DEPTH_FUNC_RANGE) ^ (this._state & MAT_STATE.DEPTH_FUNC_RANGE);
   }
 }
 
@@ -791,6 +798,11 @@ export class Renderer {
     // Blending enabled and blend func changed?
     if (material._blendDiff(prev_state)) {
       gl.blendFunc(material.blend_func_src, material.blend_func_dst);
+    }
+
+    // Depth testing enabled and depth func changed?
+    if (material._depthFuncDiff(prev_state)) {
+      gl.depthFunc(material.depth_func);
     }
   }
 }
