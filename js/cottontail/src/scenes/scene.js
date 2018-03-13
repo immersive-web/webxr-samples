@@ -75,6 +75,7 @@ export class Scene extends Node {
 
       if (this._stats_enabled) {
         this._stats = new StatsViewer(this._renderer);
+        this._stats.selectable = true;
         this.addNode(this._stats);
 
         if (this._stats_standing) {
@@ -188,6 +189,7 @@ export class Scene extends Node {
 
     if (enable && this._renderer) {
       this._stats = new StatsViewer(this._renderer);
+      this._stats.selectable = true;
       this.addNode(this._stats);
 
       if (this._stats_standing) {

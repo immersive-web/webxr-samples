@@ -155,6 +155,7 @@ export class StatsViewer extends Node {
   
     let fps_primitive = new Primitive(fps_attribs, fps_indices.length);
     fps_primitive.setIndexBuffer(fps_index_buffer);
+    fps_primitive.setBounds([-0.5, -0.5, 0.0], [0.5, 0.5, 0.015]);
 
     this._fps_render_primitive = this._renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
     this._fps_node = new Node();

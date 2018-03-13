@@ -3554,6 +3554,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	        if (this._stats_enabled) {
 	          this._stats = new _statsViewer.StatsViewer(this._renderer);
+	          this._stats.selectable = true;
 	          this.addNode(this._stats);
 	
 	          if (this._stats_standing) {
@@ -3683,6 +3684,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      if (enable && this._renderer) {
 	        this._stats = new _statsViewer.StatsViewer(this._renderer);
+	        this._stats.selectable = true;
 	        this.addNode(this._stats);
 	
 	        if (this._stats_standing) {
@@ -4842,6 +4844,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var fps_primitive = new _primitive.Primitive(fps_attribs, fps_indices.length);
 	    fps_primitive.setIndexBuffer(fps_index_buffer);
+	    fps_primitive.setBounds([-0.5, -0.5, 0.0], [0.5, 0.5, 0.015]);
 	
 	    _this2._fps_render_primitive = _this2._renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
 	    _this2._fps_node = new _node.Node();
