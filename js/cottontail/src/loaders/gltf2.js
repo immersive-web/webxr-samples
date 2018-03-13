@@ -259,8 +259,8 @@ export class GLTF2Loader {
           glAttribute.normalized = accessor.normalized || false;
 
           if (name == "POSITION") {
-            min = accessor.max;
-            max = accessor.min;
+            min = accessor.min;
+            max = accessor.max;
           }
           
           attributes.push(glAttribute);

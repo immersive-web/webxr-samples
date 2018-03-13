@@ -50,8 +50,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           WASD + Mouse Click/Drag to move.
         </p>
         <select id='scene-select'>
+          <option value='void' selected>Void</option>
           <option value='cube-sea'>Cube Sea</option>
-          <option value='camp' selected>Camp (glTF)</option>
+          <option value='camp'>Camp (glTF)</option>
           <option value='garage'>Garage (glTF)</option>
           <option value='cave'>Cave (glTF)</option>
         </select>
@@ -59,6 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </header>
 
     <script type="module">
+      import { Scene } from './js/cottontail/src/scenes/scene.js'
       import { CubeSeaScene } from './js/cottontail/src/scenes/cube-sea.js'
       import { GLTF2Scene } from './js/cottontail/src/scenes/gltf2.js'
       import { Renderer, createWebGLContext } from './js/cottontail/src/core/renderer.js'
@@ -79,33 +81,43 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       document.body.appendChild(gl.canvas);
 
       let renderer = new Renderer(gl);
-      let box_node = null;
+      let box_nodes = [];
 
       function setScene(new_scene) {
         scene = new_scene;
         scene.standingStats(true);
         scene.setSkybox({ image_url: 'media/textures/milky-way-4k.png' });
-        //scene.setSkybox({ image_url: 'media/textures/chess_pano_4k.jpg', display_mode: 'stereoTopBottom' });
         scene.setRenderer(renderer);
 
-        scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-          scene.inputRenderer.setControllerMesh(controller_mesh);
+        scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((node) => {
+          scene.addNode(node);
+          box_nodes.push(node);
         });
-
-        scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headset_mesh) => {
-          scene.addNode(headset_mesh);
-        });
-
 
         let box_builder = new BoxBuilder();
-        box_builder.pushCube([0, 1.6, -1.6], 0.3);
-        let box_primitve = box_builder.primitive_stream.finishPrimitive(renderer);
 
-        let box_material = new PbrMaterial();
-        box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
+        function addBox(x, y, z) {
+          box_builder.pushCube([x, y, z], 0.3);
+          let box_primitve = box_builder.primitive_stream.finishPrimitive(renderer);
 
-        box_node = renderer.createMesh(box_primitve, box_material);
-        scene.addNode(box_node);
+          let box_material = new PbrMaterial();
+          box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
+
+          let node = renderer.createMesh(box_primitve, box_material);
+          scene.addNode(node);
+          box_nodes.push(node);
+          box_builder.clear();
+        }
+        
+        addBox(0, 0, -1.0);
+        addBox(-0.7, 0, -1.0);
+        addBox(0.7, 0, -1.0);
+        addBox(0, -0.7, -1.0);
+        addBox(0, 0.7, -1.0);
+        addBox(-0.7, -0.7, -1.0);
+        addBox(0.7, -0.7, -1.0);
+        addBox(-0.7, 0.7, -1.0);
+        addBox(0.7, 0.7, -1.0);
       }
 
       function onResize () {
@@ -174,6 +186,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mat4.translate(view_mat, view_mat, look_pos);
       };
 
+      function checkRay(pointer_matrix) {
+        for (let box_node of box_nodes) {
+          if (box_node.rayIntersects(pointer_matrix) >= 0) {
+            box_node.visible = false;
+          } else {
+            box_node.visible = true;
+          }
+        }
+      }
+
+      let pointer_matrix = mat4.create();
       function onGLFrame(t) {
         window.requestAnimationFrame(onGLFrame);
 
@@ -183,22 +206,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let frame_delta = scene.startFrame();
         updateView(frame_delta);
 
-        scene.inputRenderer.addLaserPointer(IDENTITY_MATRIX);
+        let cursorPos = vec3.fromValues(0, 0, -2.0);
+        mat4.invert(pointer_matrix, view_mat);
+        vec3.transformMat4(cursorPos, cursorPos, pointer_matrix);
 
-        scene.inputRenderer.addCursor([0, 1.6, -1.0]);
-        scene.inputRenderer.addCursor([-0.2, 1.6, -1.0]);
-        scene.inputRenderer.addCursor([0.2, 1.6, -1.0]);
+        scene.inputRenderer.addCursor(cursorPos);
 
         let mat = mat4.create();
         mat4.identity(mat);
+        mat4.translate(mat, mat, [Math.sin(t / 1000), 0, Math.cos(t / 1000)]);
         mat4.rotateY(mat, mat, t / 1000);
-        scene.inputRenderer.addController(mat);
 
-        if (box_node) {
+        for (let box_node of box_nodes) {
           box_node.matrix = mat;
         }
 
-        gl.clear(/*gl.COLOR_BUFFER_BIT |*/ gl.DEPTH_BUFFER_BIT);
+        checkRay(pointer_matrix);
+
+        gl.clear(gl.DEPTH_BUFFER_BIT);
 
         scene.draw(projection_mat, view_mat);
 
@@ -209,6 +234,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let sceneSelect = document.getElementById('scene-select');
       function onSceneSelected() {
         switch(sceneSelect.value) {
+          case 'void':
+            setScene(new Scene());
+            return;
           case 'cube-sea':
             setScene(new CubeSeaScene());
             return;

@@ -33,7 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script src="https://cdn.jsdelivr.net/npm/resonance-audio/build/resonance-audio.min.js"></script>
 
     <script src='js/third-party/gl-matrix-min.js'></script>
-    <script src='js/cottontail/build/cottontail.js'></script>
+    <script src='js/cottontail/build/cottontail.debug.js'></script>
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -254,6 +254,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
+        session.addEventListener('selectstart', onSelectStart);
+        session.addEventListener('selectend', onSelectEnd);
+        //session.addEventListener('select', onSelect);
+
         if (!gl) {
           gl = createWebGLContext({
             compatibleXRDevice: session.device
@@ -302,6 +306,49 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
+      let dragging_source = null;
+      let dragging_input = null;
+      let dragging_transform = mat4.create();
+
+      function hitTest(frame, frameOfRef) {
+        let inputSources = frame.session.getInputSources();
+
+        for (let inputSource of inputSources) {
+          let inputPose = frame.getInputPose(inputSource, frameOfRef);
+          if (!inputPose) {
+            continue;
+          }
+
+          if (inputPose.pointerMatrix) {
+            for (let source of audioSources) {
+              let node = source.node;
+              if (node && node.rayIntersects(inputPose.pointerMatrix)) {
+                dragging_source = source;
+                dragging_input = inputSource;
+                mat4.invert(dragging_transform, inputPose.pointerMatrix);
+                mat4.multiply(dragging_transform, dragging_transform, node.matrix);
+                //dragging_transform = node.matrix
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      function onSelectStart(ev) {
+        let frameOfRef = ev.frame.session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        hitTest(ev.frame, frameOfRef);
+      }
+
+      function onSelectEnd(ev) {
+        dragging_source =  null;
+        dragging_input = null;
+      }
+
+      let tmp_matrix = mat4.create();
       function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
@@ -313,9 +360,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        updateAudioNodes();
-
         scene.inputRenderer.addInputSources(frame, frameOfRef);
+
+        if (dragging_source) {
+          let dragging_pose = frame.getInputPose(dragging_input, frameOfRef);
+          if (dragging_pose) {
+            let pos = dragging_source.position;
+            mat4.multiply(tmp_matrix, dragging_pose.pointerMatrix, dragging_transform);
+            vec3.transformMat4(pos, [0, 0, 0], tmp_matrix);
+            dragging_source.source.setPosition(pos[0], pos[1], pos[2]);
+          }
+        }
+
+        updateAudioNodes();
 
         scene.drawXRFrame(frame, pose);
 

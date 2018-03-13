@@ -18,9 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import { Ray } from './ray.js'
+
 const DEFAULT_TRANSLATION = new Float32Array([0, 0, 0]);
 const DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 const DEFAULT_SCALE = new Float32Array([1, 1, 1]);
+
+let tmp_ray_matrix = mat4.create();
 
 export class Node {
   constructor() {
@@ -294,6 +298,31 @@ export class Node {
         }
       }
       this._render_primitives = null;
+    }
+  }
+
+  rayIntersects(ray_matrix) {
+    if (this._render_primitives) {
+      let ray = null;
+      for (let primitive of this._render_primitives) {
+        if (primitive._min) {
+          if (!ray) {
+            mat4.invert(tmp_ray_matrix, this.world_matrix);
+            mat4.multiply(tmp_ray_matrix, tmp_ray_matrix, ray_matrix);
+            ray = new Ray(tmp_ray_matrix);
+          }
+          let intersection = ray.intersectsAABB(primitive._min, primitive._max);
+          if (intersection >= 0) {
+            return intersection;
+          }
+        }
+      }
+    }
+    for (let child of this.children) {
+      let intersection = child.rayIntersects(ray_matrix);
+      if (intersection >= 0) {
+        return intersection;
+      }
     }
   }
 }

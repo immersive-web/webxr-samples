@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+let normal_mat = mat3.create();
+
 export class Ray {
   constructor(matrix = null) {
     this.origin = vec3.create();
@@ -25,22 +27,15 @@ export class Ray {
     this._dir = vec3.create();
     this._dir[2] = -1.0;
 
-    if (transform) {
-      mat4.transformVec3(this.origin, this.origin, matrix);
-      mat4.transformVec3(this._dir, this._dir, matrix);
-      mat4.sub(this._dir, this._dir, this.origin);
+    if (matrix) {
+      vec3.transformMat4(this.origin, this.origin, matrix);
+      mat3.fromMat4(normal_mat, matrix);
+      vec3.transformMat3(this._dir, this._dir, normal_mat);
+      vec3.normalize(this._dir, this._dir);
     }
 
-    this.inv_dir = vec3.fromValues(
-      1.0 / this._dir[0],
-      1.0 / this._dir[1],
-      1.0 / this._dir[2]);
-
-    this.sign = [
-      (this.inv_dir[0] < 0) ? 1 : -1,
-      (this.inv_dir[1] < 0) ? 1 : -1,
-      (this.inv_dir[2] < 0) ? 1 : -1
-    ];
+    // To force the inverse and sign calculations.
+    this.dir = this._dir;
   }
 
   get dir() {
@@ -56,23 +51,17 @@ export class Ray {
       1.0 / this._dir[2]);
 
     this.sign = [
-      (this.inv_dir[0] < 0) ? 1 : -1,
-      (this.inv_dir[1] < 0) ? 1 : -1,
-      (this.inv_dir[2] < 0) ? 1 : -1
+      (this.inv_dir[0] < 0) ? 1 : 0,
+      (this.inv_dir[1] < 0) ? 1 : 0,
+      (this.inv_dir[2] < 0) ? 1 : 0
     ];
-  }
-}
-
-export class AABB {
-  constructor() {
-    this.min = vec3.create();
-    this.max = vec3.create();
   }
 
   // Borrowed from:
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-  rayIntersect(r) {
-    let bounds = [this.min, this.max];
+  intersectsAABB(min, max) {
+    let r = this;
+    let bounds = [min, max];
 
     let tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
     let tmax = (bounds[1-r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];

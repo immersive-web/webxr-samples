@@ -78,11 +78,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = exports.AABB = exports.Ray = undefined;
+	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = undefined;
 	
-	var _intersect = __webpack_require__(1);
-	
-	var _renderer = __webpack_require__(2);
+	var _renderer = __webpack_require__(1);
 	
 	var _primitiveStream = __webpack_require__(7);
 	
@@ -98,7 +96,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
-	// Copyright 2018 The Immersive Web Community Group
+	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
+	  XRWebGLLayer.prototype.getViewport = function (view) {
+	    return view.getViewport(this);
+	  };
+	} // Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
 	// of this software and associated documentation files (the "Software"), to deal
@@ -118,14 +120,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
-	  XRWebGLLayer.prototype.getViewport = function (view) {
-	    return view.getViewport(this);
-	  };
-	}
-	
-	exports.Ray = _intersect.Ray;
-	exports.AABB = _intersect.AABB;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
 	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
@@ -138,119 +132,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	// Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var Ray = exports.Ray = function () {
-	  function Ray() {
-	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
-	
-	    _classCallCheck(this, Ray);
-	
-	    this.origin = vec3.create();
-	
-	    this._dir = vec3.create();
-	    this._dir[2] = -1.0;
-	
-	    if (transform) {
-	      mat4.transformVec3(this.origin, this.origin, matrix);
-	      mat4.transformVec3(this._dir, this._dir, matrix);
-	      mat4.sub(this._dir, this._dir, this.origin);
-	    }
-	
-	    this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
-	
-	    this.sign = [this.inv_dir[0] < 0 ? 1 : -1, this.inv_dir[1] < 0 ? 1 : -1, this.inv_dir[2] < 0 ? 1 : -1];
-	  }
-	
-	  _createClass(Ray, [{
-	    key: "dir",
-	    get: function get() {
-	      return this._dir;
-	    },
-	    set: function set(value) {
-	      this._dir = vec3.copy(this._dir, value);
-	
-	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
-	
-	      this.sign = [this.inv_dir[0] < 0 ? 1 : -1, this.inv_dir[1] < 0 ? 1 : -1, this.inv_dir[2] < 0 ? 1 : -1];
-	    }
-	  }]);
-	
-	  return Ray;
-	}();
-	
-	var AABB = exports.AABB = function () {
-	  function AABB() {
-	    _classCallCheck(this, AABB);
-	
-	    this.min = vec3.create();
-	    this.max = vec3.create();
-	  }
-	
-	  // Borrowed from:
-	  // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-	
-	
-	  _createClass(AABB, [{
-	    key: "rayIntersect",
-	    value: function rayIntersect(r) {
-	      var bounds = [this.min, this.max];
-	
-	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-	      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-	
-	      if (tmin > tymax || tymin > tmax) return -1;
-	      if (tymin > tmin) tmin = tymin;
-	      if (tymax < tmax) tmax = tymax;
-	
-	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-	
-	      if (tmin > tzmax || tzmin > tmax) return -1;
-	      if (tzmin > tmin) tmin = tzmin;
-	      if (tzmax < tmax) tmax = tzmax;
-	
-	      return 1;
-	    }
-	  }]);
-
-	  return AABB;
-	}();
-
-/***/ }),
-/* 2 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -282,9 +163,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	exports.createWebGLContext = createWebGLContext;
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _program = __webpack_require__(5);
 	
@@ -538,6 +419,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this._index_byte_offset = primitive.index_byte_offset;
 	      this._index_type = primitive.index_type;
 	      this._index_buffer = primitive.index_buffer;
+	    }
+	
+	    if (primitive._min) {
+	      this._min = vec3.clone(primitive._min);
+	      this._max = vec3.clone(primitive._max);
+	    } else {
+	      this._min = null;
+	      this._max = null;
 	    }
 	  }
 	
@@ -1451,7 +1340,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 3 */
+/* 2 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -1786,20 +1675,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 4 */
-/***/ (function(module, exports) {
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
 
-	"use strict";
+	'use strict';
 	
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.Node = undefined;
 	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	// Copyright 2018 The Immersive Web Community Group
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
 	// of this software and associated documentation files (the "Software"), to deal
@@ -1819,9 +1705,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
+	var _ray = __webpack_require__(4);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
 	var DEFAULT_TRANSLATION = new Float32Array([0, 0, 0]);
 	var DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 	var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
+	
+	var tmp_ray_matrix = mat4.create();
 	
 	var Node = exports.Node = function () {
 	  function Node() {
@@ -1852,7 +1744,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	
 	  _createClass(Node, [{
-	    key: "clone",
+	    key: 'clone',
 	    value: function clone() {
 	      var clone_node = new Node();
 	      clone_node.name = this.name;
@@ -1942,7 +1834,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return clone_node;
 	    }
 	  }, {
-	    key: "markActive",
+	    key: 'markActive',
 	    value: function markActive(frame_id) {
 	      if (this.visible && this._render_primitives) {
 	        this._active_frame_id = frame_id;
@@ -2000,7 +1892,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: "addNode",
+	    key: 'addNode',
 	    value: function addNode(value) {
 	      if (!value || value.parent == this) {
 	        return;
@@ -2014,7 +1906,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.children.push(value);
 	    }
 	  }, {
-	    key: "removeNode",
+	    key: 'removeNode',
 	    value: function removeNode(value) {
 	      var i = this.children.indexOf(value);
 	      if (i > -1) {
@@ -2023,7 +1915,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: "setMatrixDirty",
+	    key: 'setMatrixDirty',
 	    value: function setMatrixDirty() {
 	      if (!this._dirty_world_matrix) {
 	        this._dirty_world_matrix = true;
@@ -2054,7 +1946,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: "_updateLocalMatrix",
+	    key: '_updateLocalMatrix',
 	    value: function _updateLocalMatrix() {
 	      if (!this._matrix) {
 	        this._matrix = mat4.create();
@@ -2068,7 +1960,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._matrix;
 	    }
 	  }, {
-	    key: "waitForComplete",
+	    key: 'waitForComplete',
 	    value: function waitForComplete() {
 	      var _this = this;
 	
@@ -2129,13 +2021,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      });
 	    }
 	  }, {
-	    key: "addRenderPrimitive",
+	    key: 'addRenderPrimitive',
 	    value: function addRenderPrimitive(primitive) {
 	      if (!this._render_primitives) this._render_primitives = [primitive];else this._render_primitives.push(primitive);
 	      primitive._instances.push(this);
 	    }
 	  }, {
-	    key: "removeRenderPrimitive",
+	    key: 'removeRenderPrimitive',
 	    value: function removeRenderPrimitive(primitive) {
 	      if (!this._render_primitives) return;
 	
@@ -2152,7 +2044,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: "clearRenderPrimitives",
+	    key: 'clearRenderPrimitives',
 	    value: function clearRenderPrimitives() {
 	      if (this._render_primitives) {
 	        var _iteratorNormalCompletion8 = true;
@@ -2187,7 +2079,75 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: "matrix",
+	    key: 'rayIntersects',
+	    value: function rayIntersects(ray_matrix) {
+	      if (this._render_primitives) {
+	        var ray = null;
+	        var _iteratorNormalCompletion9 = true;
+	        var _didIteratorError9 = false;
+	        var _iteratorError9 = undefined;
+	
+	        try {
+	          for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+	            var primitive = _step9.value;
+	
+	            if (primitive._min) {
+	              if (!ray) {
+	                mat4.invert(tmp_ray_matrix, this.world_matrix);
+	                mat4.multiply(tmp_ray_matrix, tmp_ray_matrix, ray_matrix);
+	                ray = new _ray.Ray(tmp_ray_matrix);
+	              }
+	              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
+	              if (intersection >= 0) {
+	                return intersection;
+	              }
+	            }
+	          }
+	        } catch (err) {
+	          _didIteratorError9 = true;
+	          _iteratorError9 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion9 && _iterator9.return) {
+	              _iterator9.return();
+	            }
+	          } finally {
+	            if (_didIteratorError9) {
+	              throw _iteratorError9;
+	            }
+	          }
+	        }
+	      }
+	      var _iteratorNormalCompletion10 = true;
+	      var _didIteratorError10 = false;
+	      var _iteratorError10 = undefined;
+	
+	      try {
+	        for (var _iterator10 = this.children[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+	          var child = _step10.value;
+	
+	          var _intersection = child.rayIntersects(ray_matrix);
+	          if (_intersection >= 0) {
+	            return _intersection;
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError10 = true;
+	        _iteratorError10 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
+	            _iterator10.return();
+	          }
+	        } finally {
+	          if (_didIteratorError10) {
+	            throw _iteratorError10;
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: 'matrix',
 	    set: function set(value) {
 	      this._matrix = value;
 	      this.setMatrixDirty();
@@ -2202,7 +2162,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._updateLocalMatrix();
 	    }
 	  }, {
-	    key: "world_matrix",
+	    key: 'world_matrix',
 	    get: function get() {
 	      if (!this._world_matrix) {
 	        this._dirty_world_matrix = true;
@@ -2226,7 +2186,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // TODO: Decompose matrix when fetching these?
 	
 	  }, {
-	    key: "translation",
+	    key: 'translation',
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
@@ -2243,7 +2203,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._translation;
 	    }
 	  }, {
-	    key: "rotation",
+	    key: 'rotation',
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
@@ -2260,7 +2220,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._rotation;
 	    }
 	  }, {
-	    key: "scale",
+	    key: 'scale',
 	    set: function set(value) {
 	      if (value != null) {
 	        this._dirty_trs = true;
@@ -2277,13 +2237,116 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._scale;
 	    }
 	  }, {
-	    key: "renderPrimitives",
+	    key: 'renderPrimitives',
 	    get: function get() {
 	      return this._render_primitives;
 	    }
 	  }]);
 
 	  return Node;
+	}();
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	// Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var normal_mat = mat3.create();
+	
+	var Ray = exports.Ray = function () {
+	  function Ray() {
+	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+	
+	    _classCallCheck(this, Ray);
+	
+	    this.origin = vec3.create();
+	
+	    this._dir = vec3.create();
+	    this._dir[2] = -1.0;
+	
+	    if (matrix) {
+	      vec3.transformMat4(this.origin, this.origin, matrix);
+	      mat3.fromMat4(normal_mat, matrix);
+	      vec3.transformMat3(this._dir, this._dir, normal_mat);
+	      vec3.normalize(this._dir, this._dir);
+	    }
+	
+	    // To force the inverse and sign calculations.
+	    this.dir = this._dir;
+	  }
+	
+	  _createClass(Ray, [{
+	    key: "intersectsAABB",
+	
+	
+	    // Borrowed from:
+	    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+	    value: function intersectsAABB(min, max) {
+	      var r = this;
+	      var bounds = [min, max];
+	
+	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	
+	      if (tmin > tymax || tymin > tmax) return -1;
+	      if (tymin > tmin) tmin = tymin;
+	      if (tymax < tmax) tmax = tymax;
+	
+	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	
+	      if (tmin > tzmax || tzmin > tmax) return -1;
+	      if (tzmin > tmin) tmin = tzmin;
+	      if (tzmax < tmax) tmax = tzmax;
+	
+	      return 1;
+	    }
+	  }, {
+	    key: "dir",
+	    get: function get() {
+	      return this._dir;
+	    },
+	    set: function set(value) {
+	      this._dir = vec3.copy(this._dir, value);
+	
+	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
+	
+	      this.sign = [this.inv_dir[0] < 0 ? 1 : 0, this.inv_dir[1] < 0 ? 1 : 0, this.inv_dir[2] < 0 ? 1 : 0];
+	    }
+	  }]);
+
+	  return Ray;
 	}();
 
 /***/ }),
@@ -2867,8 +2930,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      var primitive = new _primitive.Primitive(attribs, this._indices.length);
 	      primitive.setIndexBuffer(index_buffer);
-	
-	      // TODO: Set the min and max here.
+	      primitive.setBounds(this._min, this._max);
 	
 	      return primitive;
 	    }
@@ -2936,6 +2998,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: "finishPrimitive",
 	    value: function finishPrimitive(renderer) {
 	      this._stream.finishPrimitive(renderer);
+	    }
+	  }, {
+	    key: "clear",
+	    value: function clear() {
+	      this._stream.clear();
 	    }
 	  }, {
 	    key: "primitive_stream",
@@ -3006,6 +3073,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.index_buffer = null;
 	    this.index_byte_offset = 0;
 	    this.index_type = 0;
+	    this._min = null;
+	    this._max = null;
 	  }
 	
 	  _createClass(Primitive, [{
@@ -3014,6 +3083,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this.index_buffer = index_buffer;
 	      this.index_byte_offset = byte_offset || 0;
 	      this.index_type = index_type || 5123; // gl.UNSIGNED_SHORT;
+	    }
+	  }, {
+	    key: "setBounds",
+	    value: function setBounds(min, max) {
+	      this._min = vec3.clone(min);
+	      this._max = vec3.clone(max);
 	    }
 	  }]);
 
@@ -3177,9 +3252,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _renderer = __webpack_require__(2);
+	var _renderer = __webpack_require__(1);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3305,7 +3380,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _renderer = __webpack_require__(2);
+	var _renderer = __webpack_require__(1);
 	
 	var _boundsRenderer = __webpack_require__(12);
 	
@@ -3317,7 +3392,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _program = __webpack_require__(5);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _gltf = __webpack_require__(17);
 	
@@ -3636,9 +3711,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -3780,9 +3855,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4299,11 +4374,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _texture = __webpack_require__(6);
 	
@@ -4473,9 +4548,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4745,9 +4820,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4990,7 +5065,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _pbr = __webpack_require__(10);
 	
-	var _node2 = __webpack_require__(4);
+	var _node2 = __webpack_require__(3);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -5344,6 +5419,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	              /*let glPrimitive = new GLTF2Primitive(primitive, material);
 	              glMesh.primitives.push(glPrimitive);*/
 	
+	              var min = null;
+	              var max = null;
+	
 	              for (var name in primitive.attributes) {
 	                var accessor = accessors[primitive.attributes[name]];
 	                var _bufferView = bufferViews[accessor.bufferView];
@@ -5351,6 +5429,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	                var glAttribute = new _primitive.PrimitiveAttribute(name, _bufferView.renderBuffer(this.renderer, GL.ARRAY_BUFFER), getComponentCount(accessor.type), accessor.componentType, _bufferView.byteStride || 0, accessor.byteOffset || 0);
 	                glAttribute.normalized = accessor.normalized || false;
+	
+	                if (name == "POSITION") {
+	                  min = accessor.min;
+	                  max = accessor.max;
+	                }
 	
 	                attributes.push(glAttribute);
 	              }
@@ -5365,6 +5448,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	                glPrimitive.indexType = _accessor.componentType;
 	                glPrimitive.indexByteOffset = _accessor.byteOffset || 0;
 	                glPrimitive.element_count = _accessor.count;
+	              }
+	
+	              if (min && max) {
+	                glPrimitive.setBounds(min, max);
 	              }
 	
 	              // After all the attributes have been processed, get a program that is
@@ -5632,11 +5719,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _scene = __webpack_require__(11);
 	
-	var _material = __webpack_require__(3);
+	var _material = __webpack_require__(2);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(4);
+	var _node = __webpack_require__(3);
 	
 	var _texture = __webpack_require__(6);
 	

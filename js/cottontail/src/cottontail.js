@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Ray, AABB } from './core/intersect.js'
 import { Renderer, createWebGLContext } from './core/renderer.js'
 
 import { PrimitiveStream } from './geometry/primitive-stream.js'
@@ -39,7 +38,6 @@ if (('XRWebGLLayer' in window) && !('getViewport' in XRWebGLLayer.prototype)) {
 }
 
 export {
-  Ray, AABB,
   Renderer,
   createWebGLContext,
 
