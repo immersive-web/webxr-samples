@@ -81,6 +81,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       document.body.appendChild(gl.canvas);
 
       let renderer = new Renderer(gl);
+
       let box_nodes = [];
 
       function setScene(new_scene) {
@@ -90,6 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.setRenderer(renderer);
 
         scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((node) => {
+          node.selectable = true;
           scene.addNode(node);
           box_nodes.push(node);
         });
@@ -104,6 +106,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
 
           let node = renderer.createMesh(box_primitve, box_material);
+          node.selectable = true;
           scene.addNode(node);
           box_nodes.push(node);
           box_builder.clear();
@@ -186,13 +189,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mat4.translate(view_mat, view_mat, look_pos);
       };
 
+      let selected_node = null;
+
       function checkRay(pointer_matrix) {
-        for (let box_node of box_nodes) {
-          if (box_node.rayIntersects(pointer_matrix) >= 0) {
-            box_node.visible = false;
-          } else {
-            box_node.visible = true;
-          }
+        if (selected_node) {
+          selected_node.visible = true;
+        }
+        let hit_result = scene.hitTest(pointer_matrix);
+        if (hit_result) {
+          selected_node = hit_result.node;
+          selected_node.visible = false;
+          scene.inputRenderer.addCursor(hit_result.intersection);
         }
       }
 

@@ -25,6 +25,7 @@ const DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 const DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 
 let tmp_ray_matrix = mat4.create();
+let tmp_ray_origin = vec3.create();
 
 export class Node {
   constructor() {
@@ -32,6 +33,7 @@ export class Node {
     this.children = [];
     this.parent = null;
     this.visible = true;
+    this.selectable = false;
 
     this._matrix = null;
 
@@ -301,7 +303,7 @@ export class Node {
     }
   }
 
-  rayIntersects(ray_matrix) {
+  _hitTestSelectableNode(ray_matrix) {
     if (this._render_primitives) {
       let ray = null;
       for (let primitive of this._render_primitives) {
@@ -312,17 +314,50 @@ export class Node {
             ray = new Ray(tmp_ray_matrix);
           }
           let intersection = ray.intersectsAABB(primitive._min, primitive._max);
-          if (intersection >= 0) {
+          if (intersection) {
+            vec3.transformMat4(intersection, intersection, this.world_matrix);
             return intersection;
           }
         }
       }
     }
     for (let child of this.children) {
-      let intersection = child.rayIntersects(ray_matrix);
-      if (intersection >= 0) {
+      let intersection = child._hitTestSelectableNode(ray_matrix);
+      if (intersection) {
         return intersection;
       }
     }
+    return null;
+  }
+
+  hitTest(ray_matrix, ray_origin = null) {
+    if (!ray_origin) {
+      ray_origin = tmp_ray_origin;
+      vec3.set(ray_origin, 0, 0, 0);
+      vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
+    }
+
+    if (this.selectable) {
+      let intersection = this._hitTestSelectableNode(ray_matrix);
+      if (intersection) {
+        return {
+          node: this,
+          intersection: intersection,
+          distance: vec3.distance(ray_origin, intersection),
+        };
+      }
+      return null;
+    }
+
+    let result = null;
+    for (let child of this.children) {
+      let child_result = child.hitTest(ray_matrix, ray_origin);
+      if (child_result) {
+        if (!result || result.distance > child_result.distance) {
+          result = child_result;
+        }
+      }
+    }
+    return result;
   }
 }

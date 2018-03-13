@@ -31,7 +31,6 @@ export class Ray {
       vec3.transformMat4(this.origin, this.origin, matrix);
       mat3.fromMat4(normal_mat, matrix);
       vec3.transformMat3(this._dir, this._dir, normal_mat);
-      vec3.normalize(this._dir, this._dir);
     }
 
     // To force the inverse and sign calculations.
@@ -44,6 +43,7 @@ export class Ray {
 
   set dir(value) {
     this._dir = vec3.copy(this._dir, value);
+    vec3.normalize(this._dir, this._dir);
 
     this.inv_dir = vec3.fromValues(
       1.0 / this._dir[0],
@@ -61,6 +61,7 @@ export class Ray {
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
   intersectsAABB(min, max) {
     let r = this;
+
     let bounds = [min, max];
 
     let tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
@@ -69,7 +70,7 @@ export class Ray {
     let tymax = (bounds[1-r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
 
     if ((tmin > tymax) || (tymin > tmax))
-        return -1;
+        return null;
     if (tymin > tmin)
         tmin = tymin;
     if (tymax < tmax)
@@ -78,13 +79,29 @@ export class Ray {
     let tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
     let tzmax = (bounds[1-r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
 
-    if ((tmin > tzmax) || (tzmin > tmax)) 
-        return -1; 
-    if (tzmin > tmin) 
-        tmin = tzmin; 
-    if (tzmax < tmax) 
-        tmax = tzmax; 
- 
-    return 1; 
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return null;
+    if (tzmin > tmin)
+        tmin = tzmin;
+    if (tzmax < tmax)
+        tmax = tzmax;
+
+    let t = -1;
+    if (tmin > 0 && tmax > 0) {
+      t = Math.min(tmin, tmax);
+    } else if (tmin > 0) {
+      t = tmin;
+    } else if (tmax > 0) {
+      t = tmax;
+    } else {
+      // Intersection is behind the ray origin.
+      return null;
+    }
+
+    // Return the point where the ray first intersected with the AABB.
+    let intersection_point = vec3.clone(this._dir);
+    vec3.scale(intersection_point, intersection_point, t);
+    vec3.add(intersection_point, intersection_point, this.origin);
+    return intersection_point;
   }
 }

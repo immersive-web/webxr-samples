@@ -1714,6 +1714,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 	
 	var tmp_ray_matrix = mat4.create();
+	var tmp_ray_origin = vec3.create();
 	
 	var Node = exports.Node = function () {
 	  function Node() {
@@ -1723,6 +1724,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.children = [];
 	    this.parent = null;
 	    this.visible = true;
+	    this.selectable = false;
 	
 	    this._matrix = null;
 	
@@ -2079,8 +2081,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: 'rayIntersects',
-	    value: function rayIntersects(ray_matrix) {
+	    key: '_hitTestSelectableNode',
+	    value: function _hitTestSelectableNode(ray_matrix) {
 	      if (this._render_primitives) {
 	        var ray = null;
 	        var _iteratorNormalCompletion9 = true;
@@ -2098,7 +2100,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	                ray = new _ray.Ray(tmp_ray_matrix);
 	              }
 	              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
-	              if (intersection >= 0) {
+	              if (intersection) {
+	                vec3.transformMat4(intersection, intersection, this.world_matrix);
 	                return intersection;
 	              }
 	            }
@@ -2126,8 +2129,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        for (var _iterator10 = this.children[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
 	          var child = _step10.value;
 	
-	          var _intersection = child.rayIntersects(ray_matrix);
-	          if (_intersection >= 0) {
+	          var _intersection = child._hitTestSelectableNode(ray_matrix);
+	          if (_intersection) {
 	            return _intersection;
 	          }
 	        }
@@ -2145,6 +2148,64 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	      }
+	
+	      return null;
+	    }
+	  }, {
+	    key: 'hitTest',
+	    value: function hitTest(ray_matrix) {
+	      var ray_origin = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+	
+	      if (!ray_origin) {
+	        ray_origin = tmp_ray_origin;
+	        vec3.set(ray_origin, 0, 0, 0);
+	        vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
+	      }
+	
+	      if (this.selectable) {
+	        var intersection = this._hitTestSelectableNode(ray_matrix);
+	        if (intersection) {
+	          return {
+	            node: this,
+	            intersection: intersection,
+	            distance: vec3.distance(ray_origin, intersection)
+	          };
+	        }
+	        return null;
+	      }
+	
+	      var result = null;
+	      var _iteratorNormalCompletion11 = true;
+	      var _didIteratorError11 = false;
+	      var _iteratorError11 = undefined;
+	
+	      try {
+	        for (var _iterator11 = this.children[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+	          var child = _step11.value;
+	
+	          var child_result = child.hitTest(ray_matrix, ray_origin);
+	          if (child_result) {
+	            if (!result || result.distance > child_result.distance) {
+	              result = child_result;
+	            }
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError11 = true;
+	        _iteratorError11 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
+	            _iterator11.return();
+	          }
+	        } finally {
+	          if (_didIteratorError11) {
+	            throw _iteratorError11;
+	          }
+	        }
+	      }
+	
+	      return result;
 	    }
 	  }, {
 	    key: 'matrix',
@@ -2297,7 +2358,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      vec3.transformMat4(this.origin, this.origin, matrix);
 	      mat3.fromMat4(normal_mat, matrix);
 	      vec3.transformMat3(this._dir, this._dir, normal_mat);
-	      vec3.normalize(this._dir, this._dir);
 	    }
 	
 	    // To force the inverse and sign calculations.
@@ -2312,6 +2372,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
 	    value: function intersectsAABB(min, max) {
 	      var r = this;
+	
 	      var bounds = [min, max];
 	
 	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
@@ -2319,18 +2380,34 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
 	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
 	
-	      if (tmin > tymax || tymin > tmax) return -1;
+	      if (tmin > tymax || tymin > tmax) return null;
 	      if (tymin > tmin) tmin = tymin;
 	      if (tymax < tmax) tmax = tymax;
 	
 	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
 	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
 	
-	      if (tmin > tzmax || tzmin > tmax) return -1;
+	      if (tmin > tzmax || tzmin > tmax) return null;
 	      if (tzmin > tmin) tmin = tzmin;
 	      if (tzmax < tmax) tmax = tzmax;
 	
-	      return 1;
+	      var t = -1;
+	      if (tmin > 0 && tmax > 0) {
+	        t = Math.min(tmin, tmax);
+	      } else if (tmin > 0) {
+	        t = tmin;
+	      } else if (tmax > 0) {
+	        t = tmax;
+	      } else {
+	        // Intersection is behind the ray origin.
+	        return null;
+	      }
+	
+	      // Return the point where the ray first intersected with the AABB.
+	      var intersection_point = vec3.clone(this._dir);
+	      vec3.scale(intersection_point, intersection_point, t);
+	      vec3.add(intersection_point, intersection_point, this.origin);
+	      return intersection_point;
 	    }
 	  }, {
 	    key: "dir",
@@ -2339,6 +2416,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    },
 	    set: function set(value) {
 	      this._dir = vec3.copy(this._dir, value);
+	      vec3.normalize(this._dir, this._dir);
 	
 	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
 	
@@ -3523,6 +3601,80 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
+	    key: 'updateInputSources',
+	
+	
+	    // Helper function that automatically adds the appropriate visual elements for
+	    // all input sources.
+	    value: function updateInputSources(frame, frame_of_ref) {
+	      // FIXME: Check for the existence of the API first. This check should be
+	      // removed once the input API is part of the official spec.
+	      if (!frame.session.getInputSources) return;
+	
+	      var input_sources = frame.session.getInputSources();
+	
+	      var _iteratorNormalCompletion = true;
+	      var _didIteratorError = false;
+	      var _iteratorError = undefined;
+	
+	      try {
+	        for (var _iterator = input_sources[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+	          var input_source = _step.value;
+	
+	          var input_pose = frame.getInputPose(input_source, frame_of_ref);
+	
+	          if (!input_pose) {
+	            continue;
+	          }
+	
+	          // Any time that we have a grip matrix, we'll render a controller.
+	          if (input_pose.gripMatrix) {
+	            this._input_renderer.addController(input_pose.gripMatrix);
+	          }
+	
+	          if (input_pose.pointerMatrix) {
+	            if (input_source.pointerOrigin == "hand") {
+	              // If we have a pointer matrix and the pointer origin is the users
+	              // hand (as opposed to their head or the screen) use it to render
+	              // a ray coming out of the input device to indicate the pointer
+	              // direction.
+	              this._input_renderer.addLaserPointer(input_pose.pointerMatrix);
+	            }
+	
+	            // If we have a pointer matrix we can also use it to render a cursor
+	            // for both handheld and gaze-based input sources.
+	
+	            // Check and see if the pointer is pointing at any selectable objects.
+	            var hit_result = this.hitTest(input_pose.pointerMatrix);
+	
+	            if (hit_result) {
+	              // Render a cursor at the intersection point.
+	              this._input_renderer.addCursor(hit_result.intersection);
+	            } else {
+	              // Statically render the cursor 1 meters down the ray since we didn't
+	              // hit anything selectable.
+	              var cursor_pos = vec3.fromValues(0, 0, -1.0);
+	              vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
+	              this._input_renderer.addCursor(cursor_pos);
+	            }
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError = true;
+	        _iteratorError = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion && _iterator.return) {
+	            _iterator.return();
+	          }
+	        } finally {
+	          if (_didIteratorError) {
+	            throw _iteratorError;
+	          }
+	        }
+	      }
+	    }
+	  }, {
 	    key: 'enableStats',
 	    value: function enableStats(enable) {
 	      if (enable == this._stats_enabled) return;
@@ -3602,27 +3754,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      var views = [];
-	      var _iteratorNormalCompletion = true;
-	      var _didIteratorError = false;
-	      var _iteratorError = undefined;
+	      var _iteratorNormalCompletion2 = true;
+	      var _didIteratorError2 = false;
+	      var _iteratorError2 = undefined;
 	
 	      try {
-	        for (var _iterator = xr_frame.views[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	          var view = _step.value;
+	        for (var _iterator2 = xr_frame.views[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	          var view = _step2.value;
 	
 	          views.push(new WebXRView(view, pose, layer));
 	        }
 	      } catch (err) {
-	        _didIteratorError = true;
-	        _iteratorError = err;
+	        _didIteratorError2 = true;
+	        _iteratorError2 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion && _iterator.return) {
-	            _iterator.return();
+	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	            _iterator2.return();
 	          }
 	        } finally {
-	          if (_didIteratorError) {
-	            throw _iteratorError;
+	          if (_didIteratorError2) {
+	            throw _iteratorError2;
 	          }
 	        }
 	      }
@@ -3887,6 +4039,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
+	var GL = WebGLRenderingContext; // For enums
+	
 	// Laser texture data, 48x1 RGBA (not premultiplied alpha). This represents a
 	// "cross section" of the laser beam with a bright core and a feathered edge.
 	// Borrowed from Chromium source code.
@@ -3898,8 +4052,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	var LASER_FADE_POINT = 0.5335;
 	var LASER_DEFAULT_COLOR = [1.0, 1.0, 1.0, 0.25];
 	
-	var CURSOR_RADIUS = 0.005;
-	var CURSOR_SHADOW_RADIUS = 0.008;
+	var CURSOR_RADIUS = 0.004;
+	var CURSOR_SHADOW_RADIUS = 0.007;
 	var CURSOR_SHADOW_INNER_LUMINANCE = 0.5;
 	var CURSOR_SHADOW_OUTER_LUMINANCE = 0.0;
 	var CURSOR_SHADOW_INNER_OPACITY = 0.75;
@@ -3907,6 +4061,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var CURSOR_OPACITY = 0.9;
 	var CURSOR_SEGMENTS = 16;
 	var CURSOR_DEFAULT_COLOR = [1.0, 1.0, 1.0, 1.0];
+	var CURSOR_DEFAULT_HIDDEN_COLOR = [0.6, 0.6, 0.6, 0.4];
 	
 	var DEFAULT_RESET_OPTIONS = {
 	  controllers: true,
@@ -3925,8 +4080,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this.render_order = _material.RENDER_ORDER.ADDITIVE;
 	    _this.state.cull_face = false;
 	    _this.state.blend = true;
-	    _this.state.blend_func_src = WebGLRenderingContext.ONE;
-	    _this.state.blend_func_dst = WebGLRenderingContext.ONE;
+	    _this.state.blend_func_src = GL.ONE;
+	    _this.state.blend_func_dst = GL.ONE;
 	    _this.state.depth_mask = false;
 	
 	    _this.laser = _this.defineSampler("diffuse");
@@ -3955,9 +4110,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return LaserMaterial;
 	}(_material.Material);
 	
+	var CURSOR_VERTEX_SHADER = '\nattribute vec4 POSITION;\n\nvarying float vLuminance;\nvarying float vOpacity;\n\nvec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n  vLuminance = POSITION.z;\n  vOpacity = POSITION.w;\n\n  // Billboarded, constant size vertex transform.\n  vec4 screenPos = proj * view * model * vec4(0.0, 0.0, 0.0, 1.0);\n  screenPos /= screenPos.w;\n  screenPos.xy += POSITION.xy;\n  return screenPos;\n}';
+	
+	var CURSOR_FRAGMENT_SHADER = '\nprecision mediump float;\n\nuniform vec4 cursorColor;\nvarying float vLuminance;\nvarying float vOpacity;\n\nvec4 fragment_main() {\n  vec3 color = cursorColor.rgb * vLuminance;\n  float opacity = cursorColor.a * vOpacity;\n  return vec4(color * opacity, opacity);\n}';
+	
 	// Cursors are drawn as billboards that always face the camera and are rendered
 	// as a fixed size no matter how far away they are.
-	
 	
 	var CursorMaterial = function (_Material2) {
 	  _inherits(CursorMaterial, _Material2);
@@ -3967,10 +4125,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var _this2 = _possibleConstructorReturn(this, (CursorMaterial.__proto__ || Object.getPrototypeOf(CursorMaterial)).call(this));
 	
+	    _this2.render_order = _material.RENDER_ORDER.ADDITIVE;
 	    _this2.state.cull_face = false;
 	    _this2.state.blend = true;
-	    _this2.state.blend_func_src = WebGLRenderingContext.ONE;
-	    _this2.state.depth_test = false;
+	    _this2.state.blend_func_src = GL.ONE;
 	    _this2.state.depth_mask = false;
 	
 	    _this2.cursor_color = _this2.defineUniform("cursorColor", CURSOR_DEFAULT_COLOR);
@@ -3985,16 +4143,58 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'vertex_source',
 	    get: function get() {
-	      return '\n    attribute vec4 POSITION;\n\n    varying float vLuminance;\n    varying float vOpacity;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vLuminance = POSITION.z;\n      vOpacity = POSITION.w;\n\n      // Billboarded, constant size vertex transform.\n      vec4 screenPos = proj * view * model * vec4(0.0, 0.0, 0.0, 1.0);\n      screenPos /= screenPos.w;\n      screenPos.xy += POSITION.xy;\n      return screenPos;\n    }';
+	      return CURSOR_VERTEX_SHADER;
 	    }
 	  }, {
 	    key: 'fragment_source',
 	    get: function get() {
-	      return '\n    precision mediump float;\n\n    uniform vec4 cursorColor;\n    varying float vLuminance;\n    varying float vOpacity;\n\n    vec4 fragment_main() {\n      vec3 color = cursorColor.rgb * vLuminance;\n      float opacity = cursorColor.a * vOpacity;\n      return vec4(color * opacity, opacity);\n    }';
+	      return CURSOR_FRAGMENT_SHADER;
 	    }
 	  }]);
 	
 	  return CursorMaterial;
+	}(_material.Material);
+	
+	var CursorHiddenMaterial = function (_Material3) {
+	  _inherits(CursorHiddenMaterial, _Material3);
+	
+	  function CursorHiddenMaterial() {
+	    _classCallCheck(this, CursorHiddenMaterial);
+	
+	    var _this3 = _possibleConstructorReturn(this, (CursorHiddenMaterial.__proto__ || Object.getPrototypeOf(CursorHiddenMaterial)).call(this));
+	
+	    _this3.render_order = _material.RENDER_ORDER.ADDITIVE;
+	    _this3.state.cull_face = false;
+	    _this3.state.blend = true;
+	    _this3.state.blend_func_src = GL.ONE;
+	    _this3.state.depth_func = GL.GEQUAL;
+	    _this3.state.depth_mask = false;
+	
+	    _this3.cursor_color = _this3.defineUniform("cursorColor", CURSOR_DEFAULT_HIDDEN_COLOR);
+	    return _this3;
+	  }
+	
+	  // TODO: Rename to "program_name"
+	
+	
+	  _createClass(CursorHiddenMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'INPUT_CURSOR_2';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return CURSOR_VERTEX_SHADER;
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return CURSOR_FRAGMENT_SHADER;
+	    }
+	  }]);
+	
+	  return CursorHiddenMaterial;
 	}(_material.Material);
 	
 	var InputRenderer = exports.InputRenderer = function (_Node) {
@@ -4003,22 +4203,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function InputRenderer(renderer) {
 	    _classCallCheck(this, InputRenderer);
 	
-	    var _this3 = _possibleConstructorReturn(this, (InputRenderer.__proto__ || Object.getPrototypeOf(InputRenderer)).call(this));
+	    var _this4 = _possibleConstructorReturn(this, (InputRenderer.__proto__ || Object.getPrototypeOf(InputRenderer)).call(this));
 	
-	    _this3._renderer = renderer;
+	    _this4._renderer = renderer;
 	
-	    _this3._max_input_elements = 32;
+	    _this4._max_input_elements = 32;
 	
-	    _this3._controllers = [];
-	    _this3._controller_node = null;
-	    _this3._controller_node_handedness = null;
-	    _this3._lasers = null;
-	    _this3._cursors = null;
+	    _this4._controllers = [];
+	    _this4._controller_node = null;
+	    _this4._controller_node_handedness = null;
+	    _this4._lasers = null;
+	    _this4._cursors = null;
 	
-	    _this3._active_controllers = 0;
-	    _this3._active_lasers = 0;
-	    _this3._active_cursors = 0;
-	    return _this3;
+	    _this4._active_controllers = 0;
+	    _this4._active_lasers = 0;
+	    _this4._active_cursors = 0;
+	    return _this4;
 	  }
 	
 	  _createClass(InputRenderer, [{
@@ -4093,82 +4293,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      cursor.translation = cursor_pos;
 	      cursor.visible = true;
 	    }
-	
-	    // Helper function that automatically adds the appropriate visual elements for
-	    // all input sources.
-	
-	  }, {
-	    key: 'addInputSources',
-	    value: function addInputSources(frame, frame_of_ref) {
-	      // FIXME: Check for the existence of the API first. This check should be
-	      // removed once the input API is part of the official spec.
-	      if (!frame.session.getInputSources) return;
-	
-	      var input_sources = frame.session.getInputSources();
-	
-	      var _iteratorNormalCompletion = true;
-	      var _didIteratorError = false;
-	      var _iteratorError = undefined;
-	
-	      try {
-	        for (var _iterator = input_sources[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	          var input_source = _step.value;
-	
-	          var input_pose = frame.getInputPose(input_source, frame_of_ref);
-	
-	          if (!input_pose) {
-	            continue;
-	          }
-	
-	          // Any time that we have a grip matrix, we'll render a controller.
-	          if (input_pose.gripMatrix) {
-	            this.addController(input_pose.gripMatrix);
-	
-	            /*let controller_matrix = input_pose.gripMatrix;
-	             // If the mesh need to be flipped to look correct for this hand do so.
-	            if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' ||
-	                input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
-	              controller_matrix = mat4.create();
-	              mat4.scale(controller_matrix, controller_matrix, [-1.0, 1.0, 1.0]);
-	              mat4.multiply(controller_matrix, input_pose.gripMatrix, controller_matrix);
-	            }
-	             this.addController(controller_matrix);*/
-	          }
-	
-	          if (input_pose.pointerMatrix) {
-	            if (input_source.pointerOrigin == "hand") {
-	              // If we have a pointer matrix and the pointer origin is the users
-	              // hand (as opposed to their head or the screen) use it to render
-	              // a ray coming out of the input device to indicate the pointer
-	              // direction.
-	              this.addLaserPointer(input_pose.pointerMatrix);
-	            }
-	
-	            // If we have a pointer matrix we can also use it to render a cursor
-	            // for both handheld and gaze-based input sources.
-	
-	            // Statically render the cursor 2 meters down the ray since we're
-	            // not calculating any intersections in this sample.
-	            var cursor_pos = vec3.fromValues(0, 0, -2.0);
-	            vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
-	            this.addCursor(cursor_pos);
-	          }
-	        }
-	      } catch (err) {
-	        _didIteratorError = true;
-	        _iteratorError = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion && _iterator.return) {
-	            _iterator.return();
-	          }
-	        } finally {
-	          if (_didIteratorError) {
-	            throw _iteratorError;
-	          }
-	        }
-	      }
-	    }
 	  }, {
 	    key: 'reset',
 	    value: function reset(options) {
@@ -4176,15 +4300,43 @@ return /******/ (function(modules) { // webpackBootstrap
 	        options = DEFAULT_RESET_OPTIONS;
 	      }
 	      if (this._controllers && options.controllers) {
+	        var _iteratorNormalCompletion = true;
+	        var _didIteratorError = false;
+	        var _iteratorError = undefined;
+	
+	        try {
+	          for (var _iterator = this._controllers[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+	            var controller = _step.value;
+	
+	            controller.visible = false;
+	          }
+	        } catch (err) {
+	          _didIteratorError = true;
+	          _iteratorError = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion && _iterator.return) {
+	              _iterator.return();
+	            }
+	          } finally {
+	            if (_didIteratorError) {
+	              throw _iteratorError;
+	            }
+	          }
+	        }
+	
+	        this._active_controllers = 0;
+	      }
+	      if (this._lasers && options.lasers) {
 	        var _iteratorNormalCompletion2 = true;
 	        var _didIteratorError2 = false;
 	        var _iteratorError2 = undefined;
 	
 	        try {
-	          for (var _iterator2 = this._controllers[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	            var controller = _step2.value;
+	          for (var _iterator2 = this._lasers[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	            var laser = _step2.value;
 	
-	            controller.visible = false;
+	            laser.visible = false;
 	          }
 	        } catch (err) {
 	          _didIteratorError2 = true;
@@ -4201,18 +4353,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	
-	        this._active_controllers = 0;
+	        this._active_lasers = 0;
 	      }
-	      if (this._lasers && options.lasers) {
+	      if (this._cursors && options.cursors) {
 	        var _iteratorNormalCompletion3 = true;
 	        var _didIteratorError3 = false;
 	        var _iteratorError3 = undefined;
 	
 	        try {
-	          for (var _iterator3 = this._lasers[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	            var laser = _step3.value;
+	          for (var _iterator3 = this._cursors[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var cursor = _step3.value;
 	
-	            laser.visible = false;
+	            cursor.visible = false;
 	          }
 	        } catch (err) {
 	          _didIteratorError3 = true;
@@ -4225,34 +4377,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	          } finally {
 	            if (_didIteratorError3) {
 	              throw _iteratorError3;
-	            }
-	          }
-	        }
-	
-	        this._active_lasers = 0;
-	      }
-	      if (this._cursors && options.cursors) {
-	        var _iteratorNormalCompletion4 = true;
-	        var _didIteratorError4 = false;
-	        var _iteratorError4 = undefined;
-	
-	        try {
-	          for (var _iterator4 = this._cursors[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	            var cursor = _step4.value;
-	
-	            cursor.visible = false;
-	          }
-	        } catch (err) {
-	          _didIteratorError4 = true;
-	          _iteratorError4 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	              _iterator4.return();
-	            }
-	          } finally {
-	            if (_didIteratorError4) {
-	              throw _iteratorError4;
 	            }
 	          }
 	        }
@@ -4350,10 +4474,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	      cursor_primitive.setIndexBuffer(cursor_index_buffer);
 	
 	      var cursor_material = new CursorMaterial();
+	      var cursor_hidden_material = new CursorHiddenMaterial();
 	
+	      // Cursor renders two parts: The bright opaque cursor for areas where it's
+	      // not obscured and a more transparent, darker version for areas where it's
+	      // behind another object.
 	      var cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
+	      var cursor_hidden_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_hidden_material);
 	      var mesh_node = new _node.Node();
 	      mesh_node.addRenderPrimitive(cursor_render_primitive);
+	      mesh_node.addRenderPrimitive(cursor_hidden_render_primitive);
 	      return mesh_node;
 	    }
 	  }]);

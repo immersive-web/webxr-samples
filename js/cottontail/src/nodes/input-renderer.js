@@ -23,6 +23,8 @@ import { Node } from '../core/node.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { DataTexture } from '../core/texture.js'
 
+const GL = WebGLRenderingContext; // For enums
+
 // Laser texture data, 48x1 RGBA (not premultiplied alpha). This represents a
 // "cross section" of the laser beam with a bright core and a feathered edge.
 // Borrowed from Chromium source code.
@@ -47,8 +49,8 @@ const LASER_FADE_END = 0.535;
 const LASER_FADE_POINT = 0.5335;
 const LASER_DEFAULT_COLOR = [1.0, 1.0, 1.0, 0.25];
 
-const CURSOR_RADIUS = 0.005;
-const CURSOR_SHADOW_RADIUS = 0.008;
+const CURSOR_RADIUS = 0.004;
+const CURSOR_SHADOW_RADIUS = 0.007;
 const CURSOR_SHADOW_INNER_LUMINANCE = 0.5;
 const CURSOR_SHADOW_OUTER_LUMINANCE = 0.0;
 const CURSOR_SHADOW_INNER_OPACITY = 0.75;
@@ -56,6 +58,7 @@ const CURSOR_SHADOW_OUTER_OPACITY = 0.0;
 const CURSOR_OPACITY = 0.9;
 const CURSOR_SEGMENTS = 16;
 const CURSOR_DEFAULT_COLOR = [1.0, 1.0, 1.0, 1.0];
+const CURSOR_DEFAULT_HIDDEN_COLOR = [0.6, 0.6, 0.6, 0.4];
 
 const DEFAULT_RESET_OPTIONS = {
   controllers: true,
@@ -69,8 +72,8 @@ class LaserMaterial extends Material {
     this.render_order = RENDER_ORDER.ADDITIVE;
     this.state.cull_face = false;
     this.state.blend = true;
-    this.state.blend_func_src = WebGLRenderingContext.ONE;
-    this.state.blend_func_dst = WebGLRenderingContext.ONE;
+    this.state.blend_func_src = GL.ONE;
+    this.state.blend_func_dst = GL.ONE;
     this.state.depth_mask = false;
 
     this.laser = this.defineSampler("diffuse");
@@ -117,15 +120,45 @@ class LaserMaterial extends Material {
   }
 }
 
+const CURSOR_VERTEX_SHADER = `
+attribute vec4 POSITION;
+
+varying float vLuminance;
+varying float vOpacity;
+
+vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
+  vLuminance = POSITION.z;
+  vOpacity = POSITION.w;
+
+  // Billboarded, constant size vertex transform.
+  vec4 screenPos = proj * view * model * vec4(0.0, 0.0, 0.0, 1.0);
+  screenPos /= screenPos.w;
+  screenPos.xy += POSITION.xy;
+  return screenPos;
+}`;
+
+const CURSOR_FRAGMENT_SHADER = `
+precision mediump float;
+
+uniform vec4 cursorColor;
+varying float vLuminance;
+varying float vOpacity;
+
+vec4 fragment_main() {
+  vec3 color = cursorColor.rgb * vLuminance;
+  float opacity = cursorColor.a * vOpacity;
+  return vec4(color * opacity, opacity);
+}`;
+
 // Cursors are drawn as billboards that always face the camera and are rendered
 // as a fixed size no matter how far away they are.
 class CursorMaterial extends Material {
   constructor() {
     super();
+    this.render_order = RENDER_ORDER.ADDITIVE;
     this.state.cull_face = false;
     this.state.blend = true;
-    this.state.blend_func_src = WebGLRenderingContext.ONE;
-    this.state.depth_test = false;
+    this.state.blend_func_src = GL.ONE;
     this.state.depth_mask = false;
 
     this.cursor_color = this.defineUniform("cursorColor", CURSOR_DEFAULT_COLOR);
@@ -136,37 +169,38 @@ class CursorMaterial extends Material {
   }
 
   get vertex_source() {
-    return `
-    attribute vec4 POSITION;
-
-    varying float vLuminance;
-    varying float vOpacity;
-
-    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
-      vLuminance = POSITION.z;
-      vOpacity = POSITION.w;
-
-      // Billboarded, constant size vertex transform.
-      vec4 screenPos = proj * view * model * vec4(0.0, 0.0, 0.0, 1.0);
-      screenPos /= screenPos.w;
-      screenPos.xy += POSITION.xy;
-      return screenPos;
-    }`;
+    return CURSOR_VERTEX_SHADER;
   }
 
   get fragment_source() {
-    return `
-    precision mediump float;
+    return CURSOR_FRAGMENT_SHADER;
+  }
+}
 
-    uniform vec4 cursorColor;
-    varying float vLuminance;
-    varying float vOpacity;
+class CursorHiddenMaterial extends Material {
+  constructor() {
+    super();
+    this.render_order = RENDER_ORDER.ADDITIVE;
+    this.state.cull_face = false;
+    this.state.blend = true;
+    this.state.blend_func_src = GL.ONE;
+    this.state.depth_func = GL.GEQUAL;
+    this.state.depth_mask = false;
 
-    vec4 fragment_main() {
-      vec3 color = cursorColor.rgb * vLuminance;
-      float opacity = cursorColor.a * vOpacity;
-      return vec4(color * opacity, opacity);
-    }`;
+    this.cursor_color = this.defineUniform("cursorColor", CURSOR_DEFAULT_HIDDEN_COLOR);
+  }
+
+  // TODO: Rename to "program_name"
+  get material_name() {
+    return 'INPUT_CURSOR_2';
+  }
+
+  get vertex_source() {
+    return CURSOR_VERTEX_SHADER;
+  }
+
+  get fragment_source() {
+    return CURSOR_FRAGMENT_SHADER;
   }
 }
 
@@ -253,61 +287,6 @@ export class InputRenderer extends Node {
 
     cursor.translation = cursor_pos;
     cursor.visible = true;
-  }
-
-  // Helper function that automatically adds the appropriate visual elements for
-  // all input sources.
-  addInputSources(frame, frame_of_ref) {
-    // FIXME: Check for the existence of the API first. This check should be
-    // removed once the input API is part of the official spec.
-    if (!frame.session.getInputSources)
-      return;
-
-    let input_sources = frame.session.getInputSources();
-
-    for (let input_source of input_sources) {
-      let input_pose = frame.getInputPose(input_source, frame_of_ref);
-
-      if (!input_pose) {
-        continue;
-      }
-
-      // Any time that we have a grip matrix, we'll render a controller.
-      if (input_pose.gripMatrix) {
-        this.addController(input_pose.gripMatrix);
-
-        /*let controller_matrix = input_pose.gripMatrix;
-
-        // If the mesh need to be flipped to look correct for this hand do so.
-        if (input_source.handedness == 'left' && this._controller_node_handedness == 'right' ||
-            input_source.handedness == 'right' && this._controller_node_handedness == 'left') {
-          controller_matrix = mat4.create();
-          mat4.scale(controller_matrix, controller_matrix, [-1.0, 1.0, 1.0]);
-          mat4.multiply(controller_matrix, input_pose.gripMatrix, controller_matrix);
-        }
-
-        this.addController(controller_matrix);*/
-      }
-
-      if (input_pose.pointerMatrix) {
-        if (input_source.pointerOrigin == "hand") {
-          // If we have a pointer matrix and the pointer origin is the users
-          // hand (as opposed to their head or the screen) use it to render
-          // a ray coming out of the input device to indicate the pointer
-          // direction.
-          this.addLaserPointer(input_pose.pointerMatrix);
-        }
-
-        // If we have a pointer matrix we can also use it to render a cursor
-        // for both handheld and gaze-based input sources.
-
-        // Statically render the cursor 2 meters down the ray since we're
-        // not calculating any intersections in this sample.
-        let cursor_pos = vec3.fromValues(0, 0, -2.0);
-        vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
-        this.addCursor(cursor_pos);
-      }
-    }
   }
 
   reset(options) {
@@ -452,10 +431,16 @@ export class InputRenderer extends Node {
     cursor_primitive.setIndexBuffer(cursor_index_buffer);
 
     let cursor_material = new CursorMaterial();
+    let cursor_hidden_material = new CursorHiddenMaterial();
 
+    // Cursor renders two parts: The bright opaque cursor for areas where it's
+    // not obscured and a more transparent, darker version for areas where it's
+    // behind another object.
     let cursor_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_material);
+    let cursor_hidden_render_primitive = this._renderer.createRenderPrimitive(cursor_primitive, cursor_hidden_material);
     let mesh_node = new Node();
     mesh_node.addRenderPrimitive(cursor_render_primitive);
+    mesh_node.addRenderPrimitive(cursor_hidden_render_primitive);
     return mesh_node;
   }
 }

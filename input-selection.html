@@ -163,7 +163,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // to automatically add the right meshes for the session's input sources
         // each frame.
         if (!selecting)
-          scene.inputRenderer.addInputSources(frame, frameOfRef);
+          scene.updateInputSources(frame, frameOfRef);
 
         scene.drawXRFrame(frame, pose);
 

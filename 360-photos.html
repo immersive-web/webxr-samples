@@ -171,7 +171,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             views.push(render_view);
           }
 
-          scene.inputRenderer.addInputSources(frame, frameOfRef);
+          scene.updateInputSources(frame, frameOfRef);
 
           scene.drawViewArray(views);
         }

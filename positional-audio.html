@@ -170,6 +170,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         for (let source of audioSources) {
           if (!source.node) {
             source.node = stereo.clone();
+            source.node.selectable = true;
             scene.addNode(source.node);
           }
 
@@ -199,22 +200,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // Load multiple audio sources.
             Promise.all([
               createAudioSource({
-                url: 'media/sound/drums.ogg',
-                position: [0, DEFAULT_HEIGHT, 1],
-                rotateY: Math.PI,
-                color: [1.0, 0.0, 0.0, 1.0]
+                url: 'media/sound/guitar.ogg',
+                position: [0, DEFAULT_HEIGHT, -1],
+                rotateY: 0
               }),
               createAudioSource({
-                url: 'media/sound/guitar.ogg',
+                url: 'media/sound/drums.ogg',
                 position: [-1, DEFAULT_HEIGHT, 0],
-                rotateY: Math.PI * 0.5,
-                color: [0.0, 1.0, 0.0, 1.0]
+                rotateY: Math.PI * 0.5
               }),
               createAudioSource({
                 url: 'media/sound/perc.ogg',
                 position: [1, DEFAULT_HEIGHT, 0],
-                rotateY: Math.PI * -0.5,
-                color: [0.0, 0.0, 1.0, 1.0]
+                rotateY: Math.PI * -0.5
               }),
             ]).then((sources) => {
               audioSources = sources;
@@ -320,15 +318,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
 
           if (inputPose.pointerMatrix) {
-            for (let source of audioSources) {
-              let node = source.node;
-              if (node && node.rayIntersects(inputPose.pointerMatrix)) {
-                dragging_source = source;
-                dragging_input = inputSource;
-                mat4.invert(dragging_transform, inputPose.pointerMatrix);
-                mat4.multiply(dragging_transform, dragging_transform, node.matrix);
-                //dragging_transform = node.matrix
-                return true;
+            let hit_result = scene.hitTest(inputPose.pointerMatrix)
+            if (hit_result) {
+              for (let source of audioSources) {
+                if (hit_result.node ==  source.node) {
+                  dragging_source = source;
+                  dragging_input = inputSource;
+                  mat4.invert(dragging_transform, inputPose.pointerMatrix);
+                  mat4.multiply(dragging_transform, dragging_transform, source.node.matrix);
+                  return true;
+                }
               }
             }
           }
@@ -360,7 +359,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        scene.inputRenderer.addInputSources(frame, frameOfRef);
+        scene.updateInputSources(frame, frameOfRef);
 
         if (dragging_source) {
           let dragging_pose = frame.getInputPose(dragging_input, frameOfRef);

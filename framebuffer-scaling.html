@@ -146,7 +146,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        scene.inputRenderer.addInputSources(frame, xrFrameOfRef);
+        scene.updateInputSources(frame, xrFrameOfRef);
 
         scene.drawXRFrame(frame, pose);
 

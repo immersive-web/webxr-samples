@@ -129,6 +129,57 @@ export class Scene extends Node {
     return this._input_renderer;
   }
 
+  // Helper function that automatically adds the appropriate visual elements for
+  // all input sources.
+  updateInputSources(frame, frame_of_ref) {
+    // FIXME: Check for the existence of the API first. This check should be
+    // removed once the input API is part of the official spec.
+    if (!frame.session.getInputSources)
+      return;
+
+    let input_sources = frame.session.getInputSources();
+
+    for (let input_source of input_sources) {
+      let input_pose = frame.getInputPose(input_source, frame_of_ref);
+
+      if (!input_pose) {
+        continue;
+      }
+
+      // Any time that we have a grip matrix, we'll render a controller.
+      if (input_pose.gripMatrix) {
+        this._input_renderer.addController(input_pose.gripMatrix);
+      }
+
+      if (input_pose.pointerMatrix) {
+        if (input_source.pointerOrigin == "hand") {
+          // If we have a pointer matrix and the pointer origin is the users
+          // hand (as opposed to their head or the screen) use it to render
+          // a ray coming out of the input device to indicate the pointer
+          // direction.
+          this._input_renderer.addLaserPointer(input_pose.pointerMatrix);
+        }
+
+        // If we have a pointer matrix we can also use it to render a cursor
+        // for both handheld and gaze-based input sources.
+
+        // Check and see if the pointer is pointing at any selectable objects.
+        let hit_result = this.hitTest(input_pose.pointerMatrix);
+
+        if (hit_result) {
+          // Render a cursor at the intersection point.
+          this._input_renderer.addCursor(hit_result.intersection);
+        } else {
+          // Statically render the cursor 1 meters down the ray since we didn't
+          // hit anything selectable.
+          let cursor_pos = vec3.fromValues(0, 0, -1.0);
+          vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
+          this._input_renderer.addCursor(cursor_pos);
+        }
+      }
+    }
+  }
+
   enableStats(enable) {
     if (enable == this._stats_enabled)
       return;
