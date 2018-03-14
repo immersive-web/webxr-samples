@@ -1609,6 +1609,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var frag_high_precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
 	    this._default_frag_precision = frag_high_precision.precision > 0 ? 'highp' : 'mediump';
+	
+	    this._depth_mask_needs_reset = false;
+	    this._color_mask_needs_reset = false;
 	  }
 	
 	  _createClass(Renderer, [{
@@ -1753,6 +1756,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      if (this._vao_ext) {
 	        this._vao_ext.bindVertexArrayOES(null);
+	      }
+	
+	      if (this._depth_mask_needs_reset) {
+	        gl.depthMask(true);
+	      }
+	      if (this._color_mask_needs_reset) {
+	        gl.colorMask(true, true, true, true);
 	      }
 	    }
 	  }, {
@@ -2088,11 +2098,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var color_mask_change = (state & _material.CAP.COLOR_MASK) - (prev_state & _material.CAP.COLOR_MASK);
 	        if (color_mask_change) {
 	          var mask = color_mask_change > 1;
+	          this._color_mask_needs_reset = !mask;
 	          gl.colorMask(mask, mask, mask, mask);
 	        }
 	
 	        var depth_mask_change = (state & _material.CAP.DEPTH_MASK) - (prev_state & _material.CAP.DEPTH_MASK);
 	        if (depth_mask_change) {
+	          this._depth_mask_needs_reset = !(depth_mask_change > 1);
 	          gl.depthMask(depth_mask_change > 1);
 	        }
 	
