@@ -78,9 +78,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = undefined;
+	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
-	var _renderer = __webpack_require__(1);
+	var _node = __webpack_require__(1);
+	
+	var _renderer = __webpack_require__(3);
 	
 	var _primitiveStream = __webpack_require__(7);
 	
@@ -96,11 +98,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
-	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
-	  XRWebGLLayer.prototype.getViewport = function (view) {
-	    return view.getViewport(this);
-	  };
-	} // Copyright 2018 The Immersive Web Community Group
+	// Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
 	// of this software and associated documentation files (the "Software"), to deal
@@ -120,6 +118,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
+	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
+	  XRWebGLLayer.prototype.getViewport = function (view) {
+	    return view.getViewport(this);
+	  };
+	}
+	
+	exports.Node = _node.Node;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
 	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
@@ -132,6 +137,759 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 /* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.Node = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var _ray = __webpack_require__(2);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var DEFAULT_TRANSLATION = new Float32Array([0, 0, 0]);
+	var DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
+	var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
+	
+	var tmp_ray_matrix = mat4.create();
+	var tmp_ray_origin = vec3.create();
+	
+	var Node = exports.Node = function () {
+	  function Node() {
+	    _classCallCheck(this, Node);
+	
+	    this.name = null; // Only for debugging
+	    this.children = [];
+	    this.parent = null;
+	    this.visible = true;
+	    this.selectable = false;
+	
+	    this._matrix = null;
+	
+	    this._dirty_trs = false;
+	    this._translation = null;
+	    this._rotation = null;
+	    this._scale = null;
+	
+	    this._dirty_world_matrix = false;
+	    this._world_matrix = null;
+	
+	    this._active_frame_id = -1;
+	    this._render_primitives = null;
+	  }
+	
+	  // Create a clone of this node and all of it's children. Does not duplicate
+	  // RenderPrimitives, the cloned nodes will be treated as new instances of the
+	  // geometry.
+	
+	
+	  _createClass(Node, [{
+	    key: 'clone',
+	    value: function clone() {
+	      var clone_node = new Node();
+	      clone_node.name = this.name;
+	      clone_node.visible = this.visible;
+	
+	      clone_node._dirty_trs = this._dirty_trs;
+	
+	      if (this._translation) {
+	        clone_node._translation = vec3.create();
+	        vec3.copy(clone_node._translation, this._translation);
+	      }
+	
+	      if (this._rotation) {
+	        clone_node._rotation = quat.create();
+	        quat.copy(clone_node._rotation, this._rotation);
+	      }
+	
+	      if (this._scale) {
+	        clone_node._scale = vec3.create();
+	        vec3.copy(clone_node._scale, this._scale);
+	      }
+	
+	      // Only copy the matrices if they're not already dirty.
+	      if (!clone_node._dirty_trs && this._matrix) {
+	        clone_node._matrix = mat4.create();
+	        mat4.copy(clone_node._matrix, this._matrix);
+	      }
+	
+	      clone_node._dirty_world_matrix = this._dirty_world_matrix;
+	      if (!clone_node._dirty_world_matrix && this._world_matrix) {
+	        clone_node._world_matrix = mat4.create();
+	        mat4.copy(clone_node._world_matrix, this._world_matrix);
+	      }
+	
+	      if (this._render_primitives) {
+	        var _iteratorNormalCompletion = true;
+	        var _didIteratorError = false;
+	        var _iteratorError = undefined;
+	
+	        try {
+	          for (var _iterator = this._render_primitives[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+	            var primitive = _step.value;
+	
+	            clone_node.addRenderPrimitive(primitive);
+	          }
+	        } catch (err) {
+	          _didIteratorError = true;
+	          _iteratorError = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion && _iterator.return) {
+	              _iterator.return();
+	            }
+	          } finally {
+	            if (_didIteratorError) {
+	              throw _iteratorError;
+	            }
+	          }
+	        }
+	      }
+	
+	      var _iteratorNormalCompletion2 = true;
+	      var _didIteratorError2 = false;
+	      var _iteratorError2 = undefined;
+	
+	      try {
+	        for (var _iterator2 = this.children[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	          var child = _step2.value;
+	
+	          clone_node.addNode(child.clone());
+	        }
+	      } catch (err) {
+	        _didIteratorError2 = true;
+	        _iteratorError2 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	            _iterator2.return();
+	          }
+	        } finally {
+	          if (_didIteratorError2) {
+	            throw _iteratorError2;
+	          }
+	        }
+	      }
+	
+	      return clone_node;
+	    }
+	  }, {
+	    key: 'markActive',
+	    value: function markActive(frame_id) {
+	      if (this.visible && this._render_primitives) {
+	        this._active_frame_id = frame_id;
+	        var _iteratorNormalCompletion3 = true;
+	        var _didIteratorError3 = false;
+	        var _iteratorError3 = undefined;
+	
+	        try {
+	          for (var _iterator3 = this._render_primitives[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var primitive = _step3.value;
+	
+	            primitive.markActive(frame_id);
+	          }
+	        } catch (err) {
+	          _didIteratorError3 = true;
+	          _iteratorError3 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	              _iterator3.return();
+	            }
+	          } finally {
+	            if (_didIteratorError3) {
+	              throw _iteratorError3;
+	            }
+	          }
+	        }
+	      }
+	
+	      var _iteratorNormalCompletion4 = true;
+	      var _didIteratorError4 = false;
+	      var _iteratorError4 = undefined;
+	
+	      try {
+	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	          var child = _step4.value;
+	
+	          if (child.visible) {
+	            child.markActive(frame_id);
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError4 = true;
+	        _iteratorError4 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
+	            _iterator4.return();
+	          }
+	        } finally {
+	          if (_didIteratorError4) {
+	            throw _iteratorError4;
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: 'addNode',
+	    value: function addNode(value) {
+	      if (!value || value.parent == this) {
+	        return;
+	      }
+	
+	      if (value.parent) {
+	        value.parent.removeNode(value);
+	      }
+	      value.parent = this;
+	
+	      this.children.push(value);
+	    }
+	  }, {
+	    key: 'removeNode',
+	    value: function removeNode(value) {
+	      var i = this.children.indexOf(value);
+	      if (i > -1) {
+	        this.children.splice(i, 1);
+	        value.parent = null;
+	      }
+	    }
+	  }, {
+	    key: 'setMatrixDirty',
+	    value: function setMatrixDirty() {
+	      if (!this._dirty_world_matrix) {
+	        this._dirty_world_matrix = true;
+	        var _iteratorNormalCompletion5 = true;
+	        var _didIteratorError5 = false;
+	        var _iteratorError5 = undefined;
+	
+	        try {
+	          for (var _iterator5 = this.children[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+	            var child = _step5.value;
+	
+	            child.setMatrixDirty();
+	          }
+	        } catch (err) {
+	          _didIteratorError5 = true;
+	          _iteratorError5 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
+	              _iterator5.return();
+	            }
+	          } finally {
+	            if (_didIteratorError5) {
+	              throw _iteratorError5;
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: '_updateLocalMatrix',
+	    value: function _updateLocalMatrix() {
+	      if (!this._matrix) {
+	        this._matrix = mat4.create();
+	      }
+	
+	      if (this._dirty_trs) {
+	        this._dirty_trs = false;
+	        mat4.fromRotationTranslationScale(this._matrix, this._rotation || DEFAULT_ROTATION, this._translation || DEFAULT_TRANSLATION, this._scale || DEFAULT_SCALE);
+	      }
+	
+	      return this._matrix;
+	    }
+	  }, {
+	    key: 'waitForComplete',
+	    value: function waitForComplete() {
+	      var _this = this;
+	
+	      var child_promises = [];
+	      var _iteratorNormalCompletion6 = true;
+	      var _didIteratorError6 = false;
+	      var _iteratorError6 = undefined;
+	
+	      try {
+	        for (var _iterator6 = this.children[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+	          var child = _step6.value;
+	
+	          child_promises.push(child.waitForComplete());
+	        }
+	      } catch (err) {
+	        _didIteratorError6 = true;
+	        _iteratorError6 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion6 && _iterator6.return) {
+	            _iterator6.return();
+	          }
+	        } finally {
+	          if (_didIteratorError6) {
+	            throw _iteratorError6;
+	          }
+	        }
+	      }
+	
+	      if (this._render_primitives) {
+	        var _iteratorNormalCompletion7 = true;
+	        var _didIteratorError7 = false;
+	        var _iteratorError7 = undefined;
+	
+	        try {
+	          for (var _iterator7 = this._render_primitives[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+	            var primitive = _step7.value;
+	
+	            child_promises.push(primitive.waitForComplete());
+	          }
+	        } catch (err) {
+	          _didIteratorError7 = true;
+	          _iteratorError7 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion7 && _iterator7.return) {
+	              _iterator7.return();
+	            }
+	          } finally {
+	            if (_didIteratorError7) {
+	              throw _iteratorError7;
+	            }
+	          }
+	        }
+	      }
+	      return Promise.all(child_promises).then(function () {
+	        return _this;
+	      });
+	    }
+	  }, {
+	    key: 'addRenderPrimitive',
+	    value: function addRenderPrimitive(primitive) {
+	      if (!this._render_primitives) this._render_primitives = [primitive];else this._render_primitives.push(primitive);
+	      primitive._instances.push(this);
+	    }
+	  }, {
+	    key: 'removeRenderPrimitive',
+	    value: function removeRenderPrimitive(primitive) {
+	      if (!this._render_primitives) return;
+	
+	      var index = this._render_primitives._instances.indexOf(primitive);
+	      if (index > -1) {
+	        this._render_primitives._instances.splice(index, 1);
+	
+	        index = primitive._instances.indexOf(this);
+	        if (index > -1) {
+	          primitive._instances.splice(index, 1);
+	        }
+	
+	        if (!this._render_primitives.length) this._render_primitives = null;
+	      }
+	    }
+	  }, {
+	    key: 'clearRenderPrimitives',
+	    value: function clearRenderPrimitives() {
+	      if (this._render_primitives) {
+	        var _iteratorNormalCompletion8 = true;
+	        var _didIteratorError8 = false;
+	        var _iteratorError8 = undefined;
+	
+	        try {
+	          for (var _iterator8 = this._render_primitives[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+	            var primitive = _step8.value;
+	
+	            var index = primitive._instances.indexOf(this);
+	            if (index > -1) {
+	              primitive._instances.splice(index, 1);
+	            }
+	          }
+	        } catch (err) {
+	          _didIteratorError8 = true;
+	          _iteratorError8 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion8 && _iterator8.return) {
+	              _iterator8.return();
+	            }
+	          } finally {
+	            if (_didIteratorError8) {
+	              throw _iteratorError8;
+	            }
+	          }
+	        }
+	
+	        this._render_primitives = null;
+	      }
+	    }
+	  }, {
+	    key: '_hitTestSelectableNode',
+	    value: function _hitTestSelectableNode(ray_matrix) {
+	      if (this._render_primitives) {
+	        var ray = null;
+	        var _iteratorNormalCompletion9 = true;
+	        var _didIteratorError9 = false;
+	        var _iteratorError9 = undefined;
+	
+	        try {
+	          for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+	            var primitive = _step9.value;
+	
+	            if (primitive._min) {
+	              if (!ray) {
+	                mat4.invert(tmp_ray_matrix, this.world_matrix);
+	                mat4.multiply(tmp_ray_matrix, tmp_ray_matrix, ray_matrix);
+	                ray = new _ray.Ray(tmp_ray_matrix);
+	              }
+	              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
+	              if (intersection) {
+	                vec3.transformMat4(intersection, intersection, this.world_matrix);
+	                return intersection;
+	              }
+	            }
+	          }
+	        } catch (err) {
+	          _didIteratorError9 = true;
+	          _iteratorError9 = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion9 && _iterator9.return) {
+	              _iterator9.return();
+	            }
+	          } finally {
+	            if (_didIteratorError9) {
+	              throw _iteratorError9;
+	            }
+	          }
+	        }
+	      }
+	      var _iteratorNormalCompletion10 = true;
+	      var _didIteratorError10 = false;
+	      var _iteratorError10 = undefined;
+	
+	      try {
+	        for (var _iterator10 = this.children[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+	          var child = _step10.value;
+	
+	          var _intersection = child._hitTestSelectableNode(ray_matrix);
+	          if (_intersection) {
+	            return _intersection;
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError10 = true;
+	        _iteratorError10 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
+	            _iterator10.return();
+	          }
+	        } finally {
+	          if (_didIteratorError10) {
+	            throw _iteratorError10;
+	          }
+	        }
+	      }
+	
+	      return null;
+	    }
+	  }, {
+	    key: 'hitTest',
+	    value: function hitTest(ray_matrix) {
+	      var ray_origin = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+	
+	      if (!ray_origin) {
+	        ray_origin = tmp_ray_origin;
+	        vec3.set(ray_origin, 0, 0, 0);
+	        vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
+	      }
+	
+	      if (this.selectable) {
+	        var intersection = this._hitTestSelectableNode(ray_matrix);
+	        if (intersection) {
+	          return {
+	            node: this,
+	            intersection: intersection,
+	            distance: vec3.distance(ray_origin, intersection)
+	          };
+	        }
+	        return null;
+	      }
+	
+	      var result = null;
+	      var _iteratorNormalCompletion11 = true;
+	      var _didIteratorError11 = false;
+	      var _iteratorError11 = undefined;
+	
+	      try {
+	        for (var _iterator11 = this.children[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+	          var child = _step11.value;
+	
+	          var child_result = child.hitTest(ray_matrix, ray_origin);
+	          if (child_result) {
+	            if (!result || result.distance > child_result.distance) {
+	              result = child_result;
+	            }
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError11 = true;
+	        _iteratorError11 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
+	            _iterator11.return();
+	          }
+	        } finally {
+	          if (_didIteratorError11) {
+	            throw _iteratorError11;
+	          }
+	        }
+	      }
+	
+	      return result;
+	    }
+	  }, {
+	    key: 'matrix',
+	    set: function set(value) {
+	      this._matrix = value;
+	      this.setMatrixDirty();
+	      this._dirty_trs = false;
+	      this._translation = null;
+	      this._rotation = null;
+	      this._scale = null;
+	    },
+	    get: function get() {
+	      this.setMatrixDirty();
+	
+	      return this._updateLocalMatrix();
+	    }
+	  }, {
+	    key: 'world_matrix',
+	    get: function get() {
+	      if (!this._world_matrix) {
+	        this._dirty_world_matrix = true;
+	        this._world_matrix = mat4.create();
+	      }
+	
+	      if (this._dirty_world_matrix || this._dirty_trs) {
+	        if (this.parent) {
+	          // TODO: Some optimizations that could be done here if the node matrix
+	          // is an identity matrix.
+	          mat4.mul(this._world_matrix, this.parent.world_matrix, this._updateLocalMatrix());
+	        } else {
+	          mat4.copy(this._world_matrix, this._updateLocalMatrix());
+	        }
+	        this._dirty_world_matrix = false;
+	      }
+	
+	      return this._world_matrix;
+	    }
+	
+	    // TODO: Decompose matrix when fetching these?
+	
+	  }, {
+	    key: 'translation',
+	    set: function set(value) {
+	      if (value != null) {
+	        this._dirty_trs = true;
+	        this.setMatrixDirty();
+	      }
+	      this._translation = value;
+	    },
+	    get: function get() {
+	      this._dirty_trs = true;
+	      this.setMatrixDirty();
+	      if (!this._translation) {
+	        this._translation = vec3.clone(DEFAULT_TRANSLATION);
+	      }
+	      return this._translation;
+	    }
+	  }, {
+	    key: 'rotation',
+	    set: function set(value) {
+	      if (value != null) {
+	        this._dirty_trs = true;
+	        this.setMatrixDirty();
+	      }
+	      this._rotation = value;
+	    },
+	    get: function get() {
+	      this._dirty_trs = true;
+	      this.setMatrixDirty();
+	      if (!this._rotation) {
+	        this._rotation = quat.clone(DEFAULT_ROTATION);
+	      }
+	      return this._rotation;
+	    }
+	  }, {
+	    key: 'scale',
+	    set: function set(value) {
+	      if (value != null) {
+	        this._dirty_trs = true;
+	        this.setMatrixDirty();
+	      }
+	      this._scale = value;
+	    },
+	    get: function get() {
+	      this._dirty_trs = true;
+	      this.setMatrixDirty();
+	      if (!this._scale) {
+	        this._scale = vec3.clone(DEFAULT_SCALE);
+	      }
+	      return this._scale;
+	    }
+	  }, {
+	    key: 'renderPrimitives',
+	    get: function get() {
+	      return this._render_primitives;
+	    }
+	  }]);
+
+	  return Node;
+	}();
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	// Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var normal_mat = mat3.create();
+	
+	var Ray = exports.Ray = function () {
+	  function Ray() {
+	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+	
+	    _classCallCheck(this, Ray);
+	
+	    this.origin = vec3.create();
+	
+	    this._dir = vec3.create();
+	    this._dir[2] = -1.0;
+	
+	    if (matrix) {
+	      vec3.transformMat4(this.origin, this.origin, matrix);
+	      mat3.fromMat4(normal_mat, matrix);
+	      vec3.transformMat3(this._dir, this._dir, normal_mat);
+	    }
+	
+	    // To force the inverse and sign calculations.
+	    this.dir = this._dir;
+	  }
+	
+	  _createClass(Ray, [{
+	    key: "intersectsAABB",
+	
+	
+	    // Borrowed from:
+	    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+	    value: function intersectsAABB(min, max) {
+	      var r = this;
+	
+	      var bounds = [min, max];
+	
+	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+	
+	      if (tmin > tymax || tymin > tmax) return null;
+	      if (tymin > tmin) tmin = tymin;
+	      if (tymax < tmax) tmax = tymax;
+	
+	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+	
+	      if (tmin > tzmax || tzmin > tmax) return null;
+	      if (tzmin > tmin) tmin = tzmin;
+	      if (tzmax < tmax) tmax = tzmax;
+	
+	      var t = -1;
+	      if (tmin > 0 && tmax > 0) {
+	        t = Math.min(tmin, tmax);
+	      } else if (tmin > 0) {
+	        t = tmin;
+	      } else if (tmax > 0) {
+	        t = tmax;
+	      } else {
+	        // Intersection is behind the ray origin.
+	        return null;
+	      }
+	
+	      // Return the point where the ray first intersected with the AABB.
+	      var intersection_point = vec3.clone(this._dir);
+	      vec3.scale(intersection_point, intersection_point, t);
+	      vec3.add(intersection_point, intersection_point, this.origin);
+	      return intersection_point;
+	    }
+	  }, {
+	    key: "dir",
+	    get: function get() {
+	      return this._dir;
+	    },
+	    set: function set(value) {
+	      this._dir = vec3.copy(this._dir, value);
+	      vec3.normalize(this._dir, this._dir);
+	
+	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
+	
+	      this.sign = [this.inv_dir[0] < 0 ? 1 : 0, this.inv_dir[1] < 0 ? 1 : 0, this.inv_dir[2] < 0 ? 1 : 0];
+	    }
+	  }]);
+
+	  return Ray;
+	}();
+
+/***/ }),
+/* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -163,9 +921,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	exports.createWebGLContext = createWebGLContext;
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _program = __webpack_require__(5);
 	
@@ -507,6 +1265,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      return this._promise;
 	    }
+	  }, {
+	    key: 'uniforms',
+	    get: function get() {
+	      return this._material._uniform_dictionary;
+	    }
 	  }]);
 	
 	  return RenderPrimitive;
@@ -533,18 +1296,35 @@ return /******/ (function(modules) { // webpackBootstrap
 	  this._index = index;
 	};
 	
-	var RenderMaterialUniform = function RenderMaterialUniform(material_uniform) {
-	  _classCallCheck(this, RenderMaterialUniform);
+	var RenderMaterialUniform = function () {
+	  function RenderMaterialUniform(material_uniform) {
+	    _classCallCheck(this, RenderMaterialUniform);
 	
-	  this._uniform_name = material_uniform._uniform_name;
-	  this._uniform = null;
-	  this._length = material_uniform._length;
-	  if (material_uniform._value instanceof Array) {
-	    this._value = new Float32Array(material_uniform._value);
-	  } else {
-	    this._value = new Float32Array([material_uniform._value]);
+	    this._uniform_name = material_uniform._uniform_name;
+	    this._uniform = null;
+	    this._length = material_uniform._length;
+	    if (material_uniform._value instanceof Array) {
+	      this._value = new Float32Array(material_uniform._value);
+	    } else {
+	      this._value = new Float32Array([material_uniform._value]);
+	    }
 	  }
-	};
+	
+	  _createClass(RenderMaterialUniform, [{
+	    key: 'value',
+	    set: function set(value) {
+	      if (this._value.length == 1) {
+	        this._value[0] = value;
+	      } else {
+	        for (var i = 0; i < this._value.length; ++i) {
+	          this._value[i] = value[i];
+	        }
+	      }
+	    }
+	  }]);
+	
+	  return RenderMaterialUniform;
+	}();
 	
 	var RenderMaterial = function () {
 	  function RenderMaterial(renderer, material, program) {
@@ -558,6 +1338,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      this._samplers.push(new RenderMaterialSampler(renderer, material._samplers[i], i));
 	    }
 	
+	    this._uniform_dictionary = {};
 	    this._uniforms = [];
 	    var _iteratorNormalCompletion5 = true;
 	    var _didIteratorError5 = false;
@@ -567,7 +1348,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      for (var _iterator5 = material._uniforms[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
 	        var uniform = _step5.value;
 	
-	        this._uniforms.push(new RenderMaterialUniform(uniform));
+	        var render_uniform = new RenderMaterialUniform(uniform);
+	        this._uniforms.push(render_uniform);
+	        this._uniform_dictionary[render_uniform._uniform_name] = render_uniform;
 	      }
 	    } catch (err) {
 	      _didIteratorError5 = true;
@@ -1340,7 +2123,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 2 */
+/* 4 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -1672,759 +2455,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }]);
 
 	  return Material;
-	}();
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	exports.Node = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var _ray = __webpack_require__(4);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var DEFAULT_TRANSLATION = new Float32Array([0, 0, 0]);
-	var DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
-	var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
-	
-	var tmp_ray_matrix = mat4.create();
-	var tmp_ray_origin = vec3.create();
-	
-	var Node = exports.Node = function () {
-	  function Node() {
-	    _classCallCheck(this, Node);
-	
-	    this.name = null; // Only for debugging
-	    this.children = [];
-	    this.parent = null;
-	    this.visible = true;
-	    this.selectable = false;
-	
-	    this._matrix = null;
-	
-	    this._dirty_trs = false;
-	    this._translation = null;
-	    this._rotation = null;
-	    this._scale = null;
-	
-	    this._dirty_world_matrix = false;
-	    this._world_matrix = null;
-	
-	    this._active_frame_id = -1;
-	    this._render_primitives = null;
-	  }
-	
-	  // Create a clone of this node and all of it's children. Does not duplicate
-	  // RenderPrimitives, the cloned nodes will be treated as new instances of the
-	  // geometry.
-	
-	
-	  _createClass(Node, [{
-	    key: 'clone',
-	    value: function clone() {
-	      var clone_node = new Node();
-	      clone_node.name = this.name;
-	      clone_node.visible = this.visible;
-	
-	      clone_node._dirty_trs = this._dirty_trs;
-	
-	      if (this._translation) {
-	        clone_node._translation = vec3.create();
-	        vec3.copy(clone_node._translation, this._translation);
-	      }
-	
-	      if (this._rotation) {
-	        clone_node._rotation = quat.create();
-	        quat.copy(clone_node._rotation, this._rotation);
-	      }
-	
-	      if (this._scale) {
-	        clone_node._scale = vec3.create();
-	        vec3.copy(clone_node._scale, this._scale);
-	      }
-	
-	      // Only copy the matrices if they're not already dirty.
-	      if (!clone_node._dirty_trs && this._matrix) {
-	        clone_node._matrix = mat4.create();
-	        mat4.copy(clone_node._matrix, this._matrix);
-	      }
-	
-	      clone_node._dirty_world_matrix = this._dirty_world_matrix;
-	      if (!clone_node._dirty_world_matrix && this._world_matrix) {
-	        clone_node._world_matrix = mat4.create();
-	        mat4.copy(clone_node._world_matrix, this._world_matrix);
-	      }
-	
-	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion = true;
-	        var _didIteratorError = false;
-	        var _iteratorError = undefined;
-	
-	        try {
-	          for (var _iterator = this._render_primitives[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	            var primitive = _step.value;
-	
-	            clone_node.addRenderPrimitive(primitive);
-	          }
-	        } catch (err) {
-	          _didIteratorError = true;
-	          _iteratorError = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion && _iterator.return) {
-	              _iterator.return();
-	            }
-	          } finally {
-	            if (_didIteratorError) {
-	              throw _iteratorError;
-	            }
-	          }
-	        }
-	      }
-	
-	      var _iteratorNormalCompletion2 = true;
-	      var _didIteratorError2 = false;
-	      var _iteratorError2 = undefined;
-	
-	      try {
-	        for (var _iterator2 = this.children[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	          var child = _step2.value;
-	
-	          clone_node.addNode(child.clone());
-	        }
-	      } catch (err) {
-	        _didIteratorError2 = true;
-	        _iteratorError2 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
-	            _iterator2.return();
-	          }
-	        } finally {
-	          if (_didIteratorError2) {
-	            throw _iteratorError2;
-	          }
-	        }
-	      }
-	
-	      return clone_node;
-	    }
-	  }, {
-	    key: 'markActive',
-	    value: function markActive(frame_id) {
-	      if (this.visible && this._render_primitives) {
-	        this._active_frame_id = frame_id;
-	        var _iteratorNormalCompletion3 = true;
-	        var _didIteratorError3 = false;
-	        var _iteratorError3 = undefined;
-	
-	        try {
-	          for (var _iterator3 = this._render_primitives[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	            var primitive = _step3.value;
-	
-	            primitive.markActive(frame_id);
-	          }
-	        } catch (err) {
-	          _didIteratorError3 = true;
-	          _iteratorError3 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	              _iterator3.return();
-	            }
-	          } finally {
-	            if (_didIteratorError3) {
-	              throw _iteratorError3;
-	            }
-	          }
-	        }
-	      }
-	
-	      var _iteratorNormalCompletion4 = true;
-	      var _didIteratorError4 = false;
-	      var _iteratorError4 = undefined;
-	
-	      try {
-	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	          var child = _step4.value;
-	
-	          if (child.visible) {
-	            child.markActive(frame_id);
-	          }
-	        }
-	      } catch (err) {
-	        _didIteratorError4 = true;
-	        _iteratorError4 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	            _iterator4.return();
-	          }
-	        } finally {
-	          if (_didIteratorError4) {
-	            throw _iteratorError4;
-	          }
-	        }
-	      }
-	    }
-	  }, {
-	    key: 'addNode',
-	    value: function addNode(value) {
-	      if (!value || value.parent == this) {
-	        return;
-	      }
-	
-	      if (value.parent) {
-	        value.parent.removeNode(value);
-	      }
-	      value.parent = this;
-	
-	      this.children.push(value);
-	    }
-	  }, {
-	    key: 'removeNode',
-	    value: function removeNode(value) {
-	      var i = this.children.indexOf(value);
-	      if (i > -1) {
-	        this.children.splice(i, 1);
-	        value.parent = null;
-	      }
-	    }
-	  }, {
-	    key: 'setMatrixDirty',
-	    value: function setMatrixDirty() {
-	      if (!this._dirty_world_matrix) {
-	        this._dirty_world_matrix = true;
-	        var _iteratorNormalCompletion5 = true;
-	        var _didIteratorError5 = false;
-	        var _iteratorError5 = undefined;
-	
-	        try {
-	          for (var _iterator5 = this.children[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-	            var child = _step5.value;
-	
-	            child.setMatrixDirty();
-	          }
-	        } catch (err) {
-	          _didIteratorError5 = true;
-	          _iteratorError5 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-	              _iterator5.return();
-	            }
-	          } finally {
-	            if (_didIteratorError5) {
-	              throw _iteratorError5;
-	            }
-	          }
-	        }
-	      }
-	    }
-	  }, {
-	    key: '_updateLocalMatrix',
-	    value: function _updateLocalMatrix() {
-	      if (!this._matrix) {
-	        this._matrix = mat4.create();
-	      }
-	
-	      if (this._dirty_trs) {
-	        this._dirty_trs = false;
-	        mat4.fromRotationTranslationScale(this._matrix, this._rotation || DEFAULT_ROTATION, this._translation || DEFAULT_TRANSLATION, this._scale || DEFAULT_SCALE);
-	      }
-	
-	      return this._matrix;
-	    }
-	  }, {
-	    key: 'waitForComplete',
-	    value: function waitForComplete() {
-	      var _this = this;
-	
-	      var child_promises = [];
-	      var _iteratorNormalCompletion6 = true;
-	      var _didIteratorError6 = false;
-	      var _iteratorError6 = undefined;
-	
-	      try {
-	        for (var _iterator6 = this.children[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-	          var child = _step6.value;
-	
-	          child_promises.push(child.waitForComplete());
-	        }
-	      } catch (err) {
-	        _didIteratorError6 = true;
-	        _iteratorError6 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion6 && _iterator6.return) {
-	            _iterator6.return();
-	          }
-	        } finally {
-	          if (_didIteratorError6) {
-	            throw _iteratorError6;
-	          }
-	        }
-	      }
-	
-	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion7 = true;
-	        var _didIteratorError7 = false;
-	        var _iteratorError7 = undefined;
-	
-	        try {
-	          for (var _iterator7 = this._render_primitives[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-	            var primitive = _step7.value;
-	
-	            child_promises.push(primitive.waitForComplete());
-	          }
-	        } catch (err) {
-	          _didIteratorError7 = true;
-	          _iteratorError7 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion7 && _iterator7.return) {
-	              _iterator7.return();
-	            }
-	          } finally {
-	            if (_didIteratorError7) {
-	              throw _iteratorError7;
-	            }
-	          }
-	        }
-	      }
-	      return Promise.all(child_promises).then(function () {
-	        return _this;
-	      });
-	    }
-	  }, {
-	    key: 'addRenderPrimitive',
-	    value: function addRenderPrimitive(primitive) {
-	      if (!this._render_primitives) this._render_primitives = [primitive];else this._render_primitives.push(primitive);
-	      primitive._instances.push(this);
-	    }
-	  }, {
-	    key: 'removeRenderPrimitive',
-	    value: function removeRenderPrimitive(primitive) {
-	      if (!this._render_primitives) return;
-	
-	      var index = this._render_primitives._instances.indexOf(primitive);
-	      if (index > -1) {
-	        this._render_primitives._instances.splice(index, 1);
-	
-	        index = primitive._instances.indexOf(this);
-	        if (index > -1) {
-	          primitive._instances.splice(index, 1);
-	        }
-	
-	        if (!this._render_primitives.length) this._render_primitives = null;
-	      }
-	    }
-	  }, {
-	    key: 'clearRenderPrimitives',
-	    value: function clearRenderPrimitives() {
-	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion8 = true;
-	        var _didIteratorError8 = false;
-	        var _iteratorError8 = undefined;
-	
-	        try {
-	          for (var _iterator8 = this._render_primitives[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-	            var primitive = _step8.value;
-	
-	            var index = primitive._instances.indexOf(this);
-	            if (index > -1) {
-	              primitive._instances.splice(index, 1);
-	            }
-	          }
-	        } catch (err) {
-	          _didIteratorError8 = true;
-	          _iteratorError8 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion8 && _iterator8.return) {
-	              _iterator8.return();
-	            }
-	          } finally {
-	            if (_didIteratorError8) {
-	              throw _iteratorError8;
-	            }
-	          }
-	        }
-	
-	        this._render_primitives = null;
-	      }
-	    }
-	  }, {
-	    key: '_hitTestSelectableNode',
-	    value: function _hitTestSelectableNode(ray_matrix) {
-	      if (this._render_primitives) {
-	        var ray = null;
-	        var _iteratorNormalCompletion9 = true;
-	        var _didIteratorError9 = false;
-	        var _iteratorError9 = undefined;
-	
-	        try {
-	          for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-	            var primitive = _step9.value;
-	
-	            if (primitive._min) {
-	              if (!ray) {
-	                mat4.invert(tmp_ray_matrix, this.world_matrix);
-	                mat4.multiply(tmp_ray_matrix, tmp_ray_matrix, ray_matrix);
-	                ray = new _ray.Ray(tmp_ray_matrix);
-	              }
-	              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
-	              if (intersection) {
-	                vec3.transformMat4(intersection, intersection, this.world_matrix);
-	                return intersection;
-	              }
-	            }
-	          }
-	        } catch (err) {
-	          _didIteratorError9 = true;
-	          _iteratorError9 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion9 && _iterator9.return) {
-	              _iterator9.return();
-	            }
-	          } finally {
-	            if (_didIteratorError9) {
-	              throw _iteratorError9;
-	            }
-	          }
-	        }
-	      }
-	      var _iteratorNormalCompletion10 = true;
-	      var _didIteratorError10 = false;
-	      var _iteratorError10 = undefined;
-	
-	      try {
-	        for (var _iterator10 = this.children[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-	          var child = _step10.value;
-	
-	          var _intersection = child._hitTestSelectableNode(ray_matrix);
-	          if (_intersection) {
-	            return _intersection;
-	          }
-	        }
-	      } catch (err) {
-	        _didIteratorError10 = true;
-	        _iteratorError10 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
-	            _iterator10.return();
-	          }
-	        } finally {
-	          if (_didIteratorError10) {
-	            throw _iteratorError10;
-	          }
-	        }
-	      }
-	
-	      return null;
-	    }
-	  }, {
-	    key: 'hitTest',
-	    value: function hitTest(ray_matrix) {
-	      var ray_origin = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
-	
-	      if (!ray_origin) {
-	        ray_origin = tmp_ray_origin;
-	        vec3.set(ray_origin, 0, 0, 0);
-	        vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
-	      }
-	
-	      if (this.selectable) {
-	        var intersection = this._hitTestSelectableNode(ray_matrix);
-	        if (intersection) {
-	          return {
-	            node: this,
-	            intersection: intersection,
-	            distance: vec3.distance(ray_origin, intersection)
-	          };
-	        }
-	        return null;
-	      }
-	
-	      var result = null;
-	      var _iteratorNormalCompletion11 = true;
-	      var _didIteratorError11 = false;
-	      var _iteratorError11 = undefined;
-	
-	      try {
-	        for (var _iterator11 = this.children[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-	          var child = _step11.value;
-	
-	          var child_result = child.hitTest(ray_matrix, ray_origin);
-	          if (child_result) {
-	            if (!result || result.distance > child_result.distance) {
-	              result = child_result;
-	            }
-	          }
-	        }
-	      } catch (err) {
-	        _didIteratorError11 = true;
-	        _iteratorError11 = err;
-	      } finally {
-	        try {
-	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
-	            _iterator11.return();
-	          }
-	        } finally {
-	          if (_didIteratorError11) {
-	            throw _iteratorError11;
-	          }
-	        }
-	      }
-	
-	      return result;
-	    }
-	  }, {
-	    key: 'matrix',
-	    set: function set(value) {
-	      this._matrix = value;
-	      this.setMatrixDirty();
-	      this._dirty_trs = false;
-	      this._translation = null;
-	      this._rotation = null;
-	      this._scale = null;
-	    },
-	    get: function get() {
-	      this.setMatrixDirty();
-	
-	      return this._updateLocalMatrix();
-	    }
-	  }, {
-	    key: 'world_matrix',
-	    get: function get() {
-	      if (!this._world_matrix) {
-	        this._dirty_world_matrix = true;
-	        this._world_matrix = mat4.create();
-	      }
-	
-	      if (this._dirty_world_matrix || this._dirty_trs) {
-	        if (this.parent) {
-	          // TODO: Some optimizations that could be done here if the node matrix
-	          // is an identity matrix.
-	          mat4.mul(this._world_matrix, this.parent.world_matrix, this._updateLocalMatrix());
-	        } else {
-	          mat4.copy(this._world_matrix, this._updateLocalMatrix());
-	        }
-	        this._dirty_world_matrix = false;
-	      }
-	
-	      return this._world_matrix;
-	    }
-	
-	    // TODO: Decompose matrix when fetching these?
-	
-	  }, {
-	    key: 'translation',
-	    set: function set(value) {
-	      if (value != null) {
-	        this._dirty_trs = true;
-	        this.setMatrixDirty();
-	      }
-	      this._translation = value;
-	    },
-	    get: function get() {
-	      this._dirty_trs = true;
-	      this.setMatrixDirty();
-	      if (!this._translation) {
-	        this._translation = vec3.clone(DEFAULT_TRANSLATION);
-	      }
-	      return this._translation;
-	    }
-	  }, {
-	    key: 'rotation',
-	    set: function set(value) {
-	      if (value != null) {
-	        this._dirty_trs = true;
-	        this.setMatrixDirty();
-	      }
-	      this._rotation = value;
-	    },
-	    get: function get() {
-	      this._dirty_trs = true;
-	      this.setMatrixDirty();
-	      if (!this._rotation) {
-	        this._rotation = quat.clone(DEFAULT_ROTATION);
-	      }
-	      return this._rotation;
-	    }
-	  }, {
-	    key: 'scale',
-	    set: function set(value) {
-	      if (value != null) {
-	        this._dirty_trs = true;
-	        this.setMatrixDirty();
-	      }
-	      this._scale = value;
-	    },
-	    get: function get() {
-	      this._dirty_trs = true;
-	      this.setMatrixDirty();
-	      if (!this._scale) {
-	        this._scale = vec3.clone(DEFAULT_SCALE);
-	      }
-	      return this._scale;
-	    }
-	  }, {
-	    key: 'renderPrimitives',
-	    get: function get() {
-	      return this._render_primitives;
-	    }
-	  }]);
-
-	  return Node;
-	}();
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	// Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var normal_mat = mat3.create();
-	
-	var Ray = exports.Ray = function () {
-	  function Ray() {
-	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
-	
-	    _classCallCheck(this, Ray);
-	
-	    this.origin = vec3.create();
-	
-	    this._dir = vec3.create();
-	    this._dir[2] = -1.0;
-	
-	    if (matrix) {
-	      vec3.transformMat4(this.origin, this.origin, matrix);
-	      mat3.fromMat4(normal_mat, matrix);
-	      vec3.transformMat3(this._dir, this._dir, normal_mat);
-	    }
-	
-	    // To force the inverse and sign calculations.
-	    this.dir = this._dir;
-	  }
-	
-	  _createClass(Ray, [{
-	    key: "intersectsAABB",
-	
-	
-	    // Borrowed from:
-	    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-	    value: function intersectsAABB(min, max) {
-	      var r = this;
-	
-	      var bounds = [min, max];
-	
-	      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-	      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-	      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-	      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-	
-	      if (tmin > tymax || tymin > tmax) return null;
-	      if (tymin > tmin) tmin = tymin;
-	      if (tymax < tmax) tmax = tymax;
-	
-	      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-	      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-	
-	      if (tmin > tzmax || tzmin > tmax) return null;
-	      if (tzmin > tmin) tmin = tzmin;
-	      if (tzmax < tmax) tmax = tzmax;
-	
-	      var t = -1;
-	      if (tmin > 0 && tmax > 0) {
-	        t = Math.min(tmin, tmax);
-	      } else if (tmin > 0) {
-	        t = tmin;
-	      } else if (tmax > 0) {
-	        t = tmax;
-	      } else {
-	        // Intersection is behind the ray origin.
-	        return null;
-	      }
-	
-	      // Return the point where the ray first intersected with the AABB.
-	      var intersection_point = vec3.clone(this._dir);
-	      vec3.scale(intersection_point, intersection_point, t);
-	      vec3.add(intersection_point, intersection_point, this.origin);
-	      return intersection_point;
-	    }
-	  }, {
-	    key: "dir",
-	    get: function get() {
-	      return this._dir;
-	    },
-	    set: function set(value) {
-	      this._dir = vec3.copy(this._dir, value);
-	      vec3.normalize(this._dir, this._dir);
-	
-	      this.inv_dir = vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
-	
-	      this.sign = [this.inv_dir[0] < 0 ? 1 : 0, this.inv_dir[1] < 0 ? 1 : 0, this.inv_dir[2] < 0 ? 1 : 0];
-	    }
-	  }]);
-
-	  return Ray;
 	}();
 
 /***/ }),
@@ -3075,7 +3105,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(GeometryBuilderBase, [{
 	    key: "finishPrimitive",
 	    value: function finishPrimitive(renderer) {
-	      this._stream.finishPrimitive(renderer);
+	      return this._stream.finishPrimitive(renderer);
 	    }
 	  }, {
 	    key: "clear",
@@ -3330,9 +3360,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _renderer = __webpack_require__(1);
+	var _renderer = __webpack_require__(3);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3458,7 +3488,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _renderer = __webpack_require__(1);
+	var _renderer = __webpack_require__(3);
 	
 	var _boundsRenderer = __webpack_require__(12);
 	
@@ -3470,7 +3500,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _program = __webpack_require__(5);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _gltf = __webpack_require__(17);
 	
@@ -3865,9 +3895,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4009,9 +4039,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4506,11 +4536,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _texture = __webpack_require__(6);
 	
@@ -4680,9 +4710,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -4953,9 +4983,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -5198,7 +5228,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _pbr = __webpack_require__(10);
 	
-	var _node2 = __webpack_require__(3);
+	var _node2 = __webpack_require__(1);
 	
 	var _primitive = __webpack_require__(8);
 	
@@ -5852,11 +5882,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _scene = __webpack_require__(11);
 	
-	var _material = __webpack_require__(2);
+	var _material = __webpack_require__(4);
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _node = __webpack_require__(3);
+	var _node = __webpack_require__(1);
 	
 	var _texture = __webpack_require__(6);
 	

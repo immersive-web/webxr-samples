@@ -228,7 +228,7 @@ export class GeometryBuilderBase {
   }
 
   finishPrimitive(renderer) {
-    this._stream.finishPrimitive(renderer);
+    return this._stream.finishPrimitive(renderer);
   }
 
   clear() {

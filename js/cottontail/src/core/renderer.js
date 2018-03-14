@@ -233,6 +233,10 @@ class RenderPrimitive {
     }
   }
 
+  get uniforms() {
+    return this._material._uniform_dictionary;
+  }
+
   waitForComplete() {
     if (!this._promise) {
       if (!this._material) {
@@ -294,6 +298,16 @@ class RenderMaterialUniform {
       this._value = new Float32Array([material_uniform._value]);
     }
   }
+
+  set value(value) {
+    if (this._value.length == 1) {
+      this._value[0] = value;
+    } else {
+      for (let i = 0; i < this._value.length; ++i) {
+        this._value[i] = value[i];
+      }
+    }
+  }
 }
 
 class RenderMaterial {
@@ -306,9 +320,12 @@ class RenderMaterial {
       this._samplers.push(new RenderMaterialSampler(renderer, material._samplers[i], i));
     }
 
+    this._uniform_dictionary = {};
     this._uniforms = [];
     for (let uniform of material._uniforms) {
-      this._uniforms.push(new RenderMaterialUniform(uniform));
+      let render_uniform = new RenderMaterialUniform(uniform);
+      this._uniforms.push(render_uniform);
+      this._uniform_dictionary[render_uniform._uniform_name] = render_uniform;
     }
 
     this._complete_promise = null;

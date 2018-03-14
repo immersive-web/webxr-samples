@@ -33,7 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script src="https://cdn.jsdelivr.net/npm/resonance-audio/build/resonance-audio.min.js"></script>
 
     <script src='js/third-party/gl-matrix-min.js'></script>
-    <script src='js/cottontail/build/cottontail.debug.js'></script>
+    <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -308,30 +308,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let dragging_input = null;
       let dragging_transform = mat4.create();
 
-      function hitTest(frame, frameOfRef) {
-        let inputSources = frame.session.getInputSources();
+      function hitTest(inputSource, frame, frameOfRef) {
+        let inputPose = frame.getInputPose(inputSource, frameOfRef);
+        if (!inputPose) {
+          return;
+        }
 
-        for (let inputSource of inputSources) {
-          let inputPose = frame.getInputPose(inputSource, frameOfRef);
-          if (!inputPose) {
-            continue;
-          }
-
-          if (inputPose.pointerMatrix) {
-            let hit_result = scene.hitTest(inputPose.pointerMatrix)
-            if (hit_result) {
-              for (let source of audioSources) {
-                if (hit_result.node ==  source.node) {
-                  dragging_source = source;
-                  dragging_input = inputSource;
-                  mat4.invert(dragging_transform, inputPose.pointerMatrix);
-                  mat4.multiply(dragging_transform, dragging_transform, source.node.matrix);
-                  return true;
-                }
+        if (inputPose.pointerMatrix) {
+          let hit_result = scene.hitTest(inputPose.pointerMatrix)
+          if (hit_result) {
+            for (let source of audioSources) {
+              if (hit_result.node ==  source.node) {
+                dragging_source = source;
+                dragging_input = inputSource;
+                mat4.invert(dragging_transform, inputPose.pointerMatrix);
+                mat4.multiply(dragging_transform, dragging_transform, source.node.matrix);
+                return true;
               }
             }
           }
         }
+
         return false;
       }
 
@@ -339,7 +336,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let frameOfRef = ev.frame.session.exclusive ?
                          xrExclusiveFrameOfRef :
                          xrNonExclusiveFrameOfRef;
-        hitTest(ev.frame, frameOfRef);
+        hitTest(ev.inputSource, ev.frame, frameOfRef);
       }
 
       function onSelectEnd(ev) {
