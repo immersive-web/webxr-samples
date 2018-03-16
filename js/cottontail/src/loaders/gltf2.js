@@ -232,7 +232,7 @@ export class GLTF2Loader {
           material = materials[primitive.material];
         } else {
           // Create a "default" material if the primitive has none.
-          material = new Material();
+          material = new PbrMaterial();
         }
 
         let attributes = [];

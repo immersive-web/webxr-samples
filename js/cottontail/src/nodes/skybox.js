@@ -86,6 +86,7 @@ export class Skybox extends Node {
 
     this._image_url = options.image_url;
     this._display_mode = options.display_mode || "mono";
+    this._rotation_y = options.rotation_y || 0;
   }
 
   setRenderer(renderer) {
@@ -107,7 +108,7 @@ export class Skybox extends Node {
       let idx_offset_b = (i+1) * (lon_segments+1);
 
       for (let j=0; j <= lon_segments; ++j) {
-        let phi = j * 2 * Math.PI / lon_segments;
+        let phi = (j * 2 * Math.PI / lon_segments) + this._rotation_y;
         let x = Math.sin(phi) * sin_theta;
         let y = cos_theta;
         let z = -Math.cos(phi) * sin_theta;
