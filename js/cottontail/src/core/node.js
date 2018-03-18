@@ -360,4 +360,9 @@ export class Node {
     }
     return result;
   }
+
+  // Called when a selectable node is selected.
+  onSelect() {
+
+  }
 }

@@ -242,11 +242,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onSessionStarted(session);
         });
 
-        audioContext.resume();
+        /*audioContext.resume();
 
         for (let source of audioSources) {
           source.bufferSource.start(0);
-        }
+        }*/
       }
 
       function onSessionStarted(session) {
@@ -254,7 +254,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.addEventListener('selectstart', onSelectStart);
         session.addEventListener('selectend', onSelectEnd);
-        //session.addEventListener('select', onSelect);
+        session.addEventListener('select', (ev) => {
+          let frameOfRef = ev.frame.session.exclusive ?
+                           xrExclusiveFrameOfRef :
+                           xrNonExclusiveFrameOfRef;
+          scene.handleSelect(ev.inputSource, ev.frame, frameOfRef);
+        });
 
         if (!gl) {
           gl = createWebGLContext({
@@ -272,6 +277,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((stereo_mesh) => {
             stereo = stereo_mesh;
           });
+
+          let play_button = new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
+            audioContext.resume();
+
+            for (let source of audioSources) {
+              source.bufferSource.start(0);
+            }
+          });
+          play_button.translation = [0, 1.2, -0.65];
+          scene.addNode(play_button);
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);

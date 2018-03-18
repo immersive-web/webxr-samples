@@ -64,9 +64,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import { CubeSeaScene } from './js/cottontail/src/scenes/cube-sea.js'
       import { GLTF2Scene } from './js/cottontail/src/scenes/gltf2.js'
       import { Renderer, createWebGLContext } from './js/cottontail/src/core/renderer.js'
+      import { UrlTexture } from './js/cottontail/src/core/texture.js'
 
       import { BoxBuilder } from './js/cottontail/src/geometry/box-builder.js'
       import { PbrMaterial } from './js/cottontail/src/materials/pbr.js'
+
+      import { ButtonNode } from './js/cottontail/src/nodes/button-node.js'
 
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
                                                 0, 1, 0, 0,
@@ -121,6 +124,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         addBox(0.7, -0.7, -1.0);
         addBox(-0.7, 0.7, -1.0);
         addBox(0.7, 0.7, -1.0);
+
+        scene.addNode(new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
+          // Do something?
+        }));
       }
 
       function onResize () {

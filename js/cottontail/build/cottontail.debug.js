@@ -78,11 +78,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
+	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
 	var _node = __webpack_require__(1);
 	
 	var _renderer = __webpack_require__(3);
+	
+	var _texture = __webpack_require__(6);
 	
 	var _primitiveStream = __webpack_require__(7);
 	
@@ -90,11 +92,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _pbr = __webpack_require__(10);
 	
-	var _scene = __webpack_require__(11);
+	var _buttonNode = __webpack_require__(11);
 	
-	var _cubeSea = __webpack_require__(18);
+	var _scene = __webpack_require__(12);
 	
-	var _gltf = __webpack_require__(19);
+	var _cubeSea = __webpack_require__(19);
+	
+	var _gltf = __webpack_require__(20);
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
@@ -127,9 +131,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.Node = _node.Node;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
+	exports.UrlTexture = _texture.UrlTexture;
 	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
 	exports.BoxBuilder = _boxBuilder.BoxBuilder;
 	exports.PbrMaterial = _pbr.PbrMaterial;
+	exports.ButtonNode = _buttonNode.ButtonNode;
 	exports.WebXRView = _scene.WebXRView;
 	exports.Scene = _scene.Scene;
 	exports.CubeSeaScene = _cubeSea.CubeSeaScene;
@@ -668,6 +674,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      return result;
 	    }
+	
+	    // Called when a selectable node is selected.
+	
+	  }, {
+	    key: 'onSelect',
+	    value: function onSelect() {}
 	  }, {
 	    key: 'matrix',
 	    set: function set(value) {
@@ -3484,25 +3496,249 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.ButtonNode = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _material = __webpack_require__(4);
+	
+	var _node = __webpack_require__(1);
+	
+	var _primitiveStream = __webpack_require__(7);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var GL = WebGLRenderingContext; // For enums
+	var BUTTON_SIZE = 0.1;
+	var BUTTON_CORNER_RADIUS = 0.025;
+	var BUTTON_CORNER_SEGMENTS = 8;
+	var BUTTON_ICON_SIZE = 0.07;
+	var BUTTON_LAYER_DISTANCE = 0.005;
+	
+	var ButtonMaterial = function (_Material) {
+	  _inherits(ButtonMaterial, _Material);
+	
+	  function ButtonMaterial() {
+	    _classCallCheck(this, ButtonMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (ButtonMaterial.__proto__ || Object.getPrototypeOf(ButtonMaterial)).call(this));
+	
+	    _this.state.blend = true;
+	    _this.state.blend_func_src = GL.SRC_ALPHA;
+	    _this.state.blend_func_dst = GL.ONE;
+	
+	    _this.defineUniform("hoverAmount", 0);
+	    return _this;
+	  }
+	
+	  _createClass(ButtonMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'BUTTON_MATERIAL';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return '\n    attribute vec3 POSITION;\n\n    uniform float hoverAmount;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);\n      return proj * view * model * pos;\n    }';
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(1.0, 1.0, 1.0, 0.3);\n    }';
+	    }
+	  }]);
+	
+	  return ButtonMaterial;
+	}(_material.Material);
+	
+	var ButtonIconMaterial = function (_Material2) {
+	  _inherits(ButtonIconMaterial, _Material2);
+	
+	  function ButtonIconMaterial() {
+	    _classCallCheck(this, ButtonIconMaterial);
+	
+	    var _this2 = _possibleConstructorReturn(this, (ButtonIconMaterial.__proto__ || Object.getPrototypeOf(ButtonIconMaterial)).call(this));
+	
+	    _this2.state.blend = true;
+	    _this2.state.blend_func_src = GL.SRC_ALPHA;
+	    _this2.state.blend_func_dst = GL.ONE;
+	
+	    _this2.defineUniform("hoverAmount", 0);
+	    _this2.image = _this2.defineSampler("diffuse");
+	    return _this2;
+	  }
+	
+	  _createClass(ButtonIconMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'BUTTON_ICON_MATERIAL';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n\n    uniform float hoverAmount;\n\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vTexCoord = TEXCOORD_0;\n      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);\n      return proj * view * model * pos;\n    }';
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return '\n    uniform sampler2D diffuse;\n    varying vec2 vTexCoord;\n\n    vec4 fragment_main() {\n      return texture2D(diffuse, vTexCoord);\n    }';
+	    }
+	  }]);
+	
+	  return ButtonIconMaterial;
+	}(_material.Material);
+	
+	var ButtonNode = exports.ButtonNode = function (_Node) {
+	  _inherits(ButtonNode, _Node);
+	
+	  function ButtonNode(renderer, icon_texture, callback) {
+	    _classCallCheck(this, ButtonNode);
+	
+	    // All buttons are selectable by default.
+	    var _this3 = _possibleConstructorReturn(this, (ButtonNode.__proto__ || Object.getPrototypeOf(ButtonNode)).call(this));
+	
+	    _this3.selectable = true;
+	
+	    _this3._callback = callback;
+	
+	    _this3.createRenderPrimitive(renderer, icon_texture);
+	    return _this3;
+	  }
+	
+	  _createClass(ButtonNode, [{
+	    key: 'createRenderPrimitive',
+	    value: function createRenderPrimitive(renderer, icon_texture) {
+	      var stream = new _primitiveStream.PrimitiveStream();
+	
+	      var hd = BUTTON_LAYER_DISTANCE * 0.5;
+	
+	      // Build a rounded rect for the background.
+	      var hs = BUTTON_SIZE * 0.5;
+	      var ihs = hs - BUTTON_CORNER_RADIUS;
+	      stream.startGeometry();
+	
+	      // Rounded corners and sides
+	      var segments = BUTTON_CORNER_SEGMENTS * 4;
+	      for (var i = 0; i < segments; ++i) {
+	        var rad = i * (Math.PI * 2.0 / segments);
+	        var x = Math.cos(rad) * BUTTON_CORNER_RADIUS;
+	        var y = Math.sin(rad) * BUTTON_CORNER_RADIUS;
+	        var section = Math.floor(i / BUTTON_CORNER_SEGMENTS);
+	        switch (section) {
+	          case 0:
+	            x += ihs;
+	            y += ihs;
+	            break;
+	          case 1:
+	            x -= ihs;
+	            y += ihs;
+	            break;
+	          case 2:
+	            x -= ihs;
+	            y -= ihs;
+	            break;
+	          case 3:
+	            x += ihs;
+	            y -= ihs;
+	            break;
+	        }
+	
+	        stream.pushVertex(x, y, -hd, 0, 0, 0, 0, 1);
+	
+	        if (i > 1) {
+	          stream.pushTriangle(0, i - 1, i);
+	        }
+	      }
+	
+	      stream.endGeometry();
+	
+	      var button_primitive = stream.finishPrimitive(renderer);
+	      this._button_render_primitive = renderer.createRenderPrimitive(button_primitive, new ButtonMaterial());
+	      this.addRenderPrimitive(this._button_render_primitive);
+	
+	      // Build a simple textured quad for the foreground.
+	      hs = BUTTON_ICON_SIZE * 0.5;
+	      stream.clear();
+	      stream.startGeometry();
+	
+	      stream.pushVertex(-hs, hs, hd, 0, 0, 0, 0, 1);
+	      stream.pushVertex(-hs, -hs, hd, 0, 1, 0, 0, 1);
+	      stream.pushVertex(hs, -hs, hd, 1, 1, 0, 0, 1);
+	      stream.pushVertex(hs, hs, hd, 1, 0, 0, 0, 1);
+	
+	      stream.pushTriangle(0, 1, 2);
+	      stream.pushTriangle(0, 2, 3);
+	
+	      stream.endGeometry();
+	
+	      var icon_primitive = stream.finishPrimitive(renderer);
+	      var icon_material = new ButtonIconMaterial();
+	      icon_material.image.texture = icon_texture;
+	      this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
+	      this.addRenderPrimitive(this._icon_render_primitive);
+	    }
+	  }, {
+	    key: 'onSelect',
+	    value: function onSelect() {
+	      if (this._callback) {
+	        this._callback();
+	      }
+	    }
+	  }]);
+
+	  return ButtonNode;
+	}(_node.Node);
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
 	exports.Scene = exports.WebXRView = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
 	var _renderer = __webpack_require__(3);
 	
-	var _boundsRenderer = __webpack_require__(12);
+	var _boundsRenderer = __webpack_require__(13);
 	
-	var _inputRenderer = __webpack_require__(13);
+	var _inputRenderer = __webpack_require__(14);
 	
-	var _skybox = __webpack_require__(14);
+	var _skybox = __webpack_require__(15);
 	
-	var _statsViewer = __webpack_require__(15);
+	var _statsViewer = __webpack_require__(16);
 	
 	var _program = __webpack_require__(5);
 	
 	var _node = __webpack_require__(1);
 	
-	var _gltf = __webpack_require__(17);
+	var _gltf = __webpack_require__(18);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3706,6 +3942,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
+	    key: 'handleSelect',
+	    value: function handleSelect(input_source, frame, frame_of_ref) {
+	      var input_pose = frame.getInputPose(input_source, frame_of_ref);
+	
+	      if (!input_pose) {
+	        return;
+	      }
+	
+	      if (input_pose.pointerMatrix) {
+	        // Check and see if the pointer is pointing at any selectable objects.
+	        var hit_result = this.hitTest(input_pose.pointerMatrix);
+	
+	        if (hit_result) {
+	          // Render a cursor at the intersection point.
+	          hit_result.node.onSelect();
+	        }
+	      }
+	    }
+	  }, {
 	    key: 'enableStats',
 	    value: function enableStats(enable) {
 	      if (enable == this._stats_enabled) return;
@@ -3883,7 +4138,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4027,7 +4282,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4524,7 +4779,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4622,6 +4877,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this2._image_url = options.image_url;
 	    _this2._display_mode = options.display_mode || "mono";
+	    _this2._rotation_y = options.rotation_y || 0;
 	    return _this2;
 	  }
 	
@@ -4646,7 +4902,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var idx_offset_b = (i + 1) * (lon_segments + 1);
 	
 	        for (var j = 0; j <= lon_segments; ++j) {
-	          var phi = j * 2 * Math.PI / lon_segments;
+	          var phi = j * 2 * Math.PI / lon_segments + this._rotation_y;
 	          var x = Math.sin(phi) * sin_theta;
 	          var y = cos_theta;
 	          var z = -Math.cos(phi) * sin_theta;
@@ -4698,7 +4954,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4716,7 +4972,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _sevenSegmentText = __webpack_require__(16);
+	var _sevenSegmentText = __webpack_require__(17);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -4971,7 +5227,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5196,7 +5452,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5574,7 +5830,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                _material = materials[primitive.material];
 	              } else {
 	                // Create a "default" material if the primitive has none.
-	                _material = new Material();
+	                _material = new _pbr.PbrMaterial();
 	              }
 	
 	              var attributes = [];
@@ -5868,7 +6124,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5880,7 +6136,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(11);
+	var _scene = __webpack_require__(12);
 	
 	var _material = __webpack_require__(4);
 	
@@ -6017,7 +6273,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_scene.Scene);
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -6029,9 +6285,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(11);
+	var _scene = __webpack_require__(12);
 	
-	var _gltf = __webpack_require__(17);
+	var _gltf = __webpack_require__(18);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	

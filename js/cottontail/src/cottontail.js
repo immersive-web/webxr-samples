@@ -20,11 +20,14 @@
 
 import { Node } from './core/node.js'
 import { Renderer, createWebGLContext } from './core/renderer.js'
+import { UrlTexture } from './core/texture.js'
 
 import { PrimitiveStream } from './geometry/primitive-stream.js'
 import { BoxBuilder } from './geometry/box-builder.js'
 
 import { PbrMaterial } from './materials/pbr.js'
+
+import { ButtonNode } from './nodes/button-node.js'
 
 import { WebXRView, Scene } from './scenes/scene.js'
 import { CubeSeaScene } from './scenes/cube-sea.js'
@@ -42,11 +45,14 @@ export {
   Node,
   Renderer,
   createWebGLContext,
+  UrlTexture,
 
   PrimitiveStream,
   BoxBuilder,
 
   PbrMaterial,
+
+  ButtonNode,
 
   WebXRView,
   Scene,

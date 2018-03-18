@@ -181,6 +181,24 @@ export class Scene extends Node {
     }
   }
 
+  handleSelect(input_source, frame, frame_of_ref) {
+    let input_pose = frame.getInputPose(input_source, frame_of_ref);
+
+    if (!input_pose) {
+      return;
+    }
+
+    if (input_pose.pointerMatrix) {
+      // Check and see if the pointer is pointing at any selectable objects.
+      let hit_result = this.hitTest(input_pose.pointerMatrix);
+
+      if (hit_result) {
+        // Render a cursor at the intersection point.
+        hit_result.node.onSelect();
+      }
+    }
+  }
+
   enableStats(enable) {
     if (enable == this._stats_enabled)
       return;
