@@ -458,6 +458,9 @@ export class Renderer {
 
     let frag_high_precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
     this._default_frag_precision = frag_high_precision.precision > 0 ? 'highp' : 'mediump';
+
+    this._depth_mask_needs_reset = false;
+    this._color_mask_needs_reset = false;
   }
 
   get gl() {
@@ -572,6 +575,14 @@ export class Renderer {
     if (this._vao_ext) {
       this._vao_ext.bindVertexArrayOES(null);
     }
+
+    if (this._depth_mask_needs_reset) {
+      gl.depthMask(true);
+    }
+    if (this._color_mask_needs_reset) {
+      gl.colorMask(true, true, true, true);
+    }
+    
   }
 
   _drawRenderPrimitiveSet(views, render_primitives) {
@@ -818,11 +829,13 @@ export class Renderer {
       let color_mask_change = (state & CAP.COLOR_MASK) - (prev_state & CAP.COLOR_MASK);
       if (color_mask_change) {
         let mask = color_mask_change > 1;
+        this._color_mask_needs_reset = !mask;
         gl.colorMask(mask, mask, mask, mask);
       }
 
       let depth_mask_change = (state & CAP.DEPTH_MASK) - (prev_state & CAP.DEPTH_MASK);
       if (depth_mask_change) {
+        this._depth_mask_needs_reset = !(depth_mask_change > 1);
         gl.depthMask(depth_mask_change > 1);
       }
 
