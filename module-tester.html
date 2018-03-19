@@ -115,7 +115,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           box_builder.clear();
         }
         
-        addBox(0, 0, -1.0);
+        /*addBox(0, 0, -1.0);
         addBox(-0.7, 0, -1.0);
         addBox(0.7, 0, -1.0);
         addBox(0, -0.7, -1.0);
@@ -123,11 +123,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         addBox(-0.7, -0.7, -1.0);
         addBox(0.7, -0.7, -1.0);
         addBox(-0.7, 0.7, -1.0);
-        addBox(0.7, 0.7, -1.0);
+        addBox(0.7, 0.7, -1.0);*/
 
-        scene.addNode(new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
+        let button = new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
           // Do something?
-        }));
+          button.icon_texture = new UrlTexture('media/textures/pause-button.png');
+          console.log("Button clicked");
+        });
+        scene.addNode(button);
       }
 
       function onResize () {
@@ -144,6 +147,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Simple flight controls
       let pressed_keys = new Array(256);
+      let select_started = false;
+      let select_pending = false;
       let look_yaw = 0;
       let look_pitch = 0;
       let look_pos = [0, 0, 0];
@@ -165,6 +170,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
 
       function updateView(delta) {
+        if (pressed_keys[' '.charCodeAt(0)]) {
+          select_started = true;
+        } else if (select_started) {
+          select_started = false;
+          select_pending = true;
+        }
+
         let move_dir = [0, 0, 0];
 
         if(pressed_keys['W'.charCodeAt(0)]) {
@@ -200,13 +212,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function checkRay(pointer_matrix) {
         if (selected_node) {
-          selected_node.visible = true;
+          //selected_node.visible = true;
         }
         let hit_result = scene.hitTest(pointer_matrix);
         if (hit_result) {
           selected_node = hit_result.node;
-          selected_node.visible = false;
+          //selected_node.visible = false;
           scene.inputRenderer.addCursor(hit_result.intersection);
+        } else {
+          selected_node = null;
         }
       }
 
@@ -236,6 +250,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         checkRay(pointer_matrix);
+
+        if (select_pending) {
+          select_pending = false;
+          scene.handleSelectPointer(pointer_matrix);
+        }
 
         gl.clear(gl.DEPTH_BUFFER_BIT);
 

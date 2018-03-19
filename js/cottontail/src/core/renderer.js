@@ -233,6 +233,10 @@ class RenderPrimitive {
     }
   }
 
+  get samplers() {
+    return this._material._sampler_dictionary;
+  }
+
   get uniforms() {
     return this._material._uniform_dictionary;
   }
@@ -281,9 +285,14 @@ function setCap(gl, gl_enum, cap, prev_state, state) {
 
 class RenderMaterialSampler {
   constructor(renderer, material_sampler, index) {
+    this._renderer = renderer;
     this._uniform_name = material_sampler._uniform_name;
     this._texture = renderer._getRenderTexture(material_sampler._texture);
     this._index = index;
+  }
+
+  set texture(value) {
+    this._texture = this._renderer._getRenderTexture(value);
   }
 }
 
@@ -315,9 +324,12 @@ class RenderMaterial {
     this._program = program;
     this._state = material.state._state;
 
+    this._sampler_dictionary = {};
     this._samplers = [];
     for (let i = 0; i < material._samplers.length; ++i) {
-      this._samplers.push(new RenderMaterialSampler(renderer, material._samplers[i], i));
+      let render_sampler = new RenderMaterialSampler(renderer, material._samplers[i], i);
+      this._samplers.push(render_sampler);
+      this._sampler_dictionary[render_sampler._uniform_name] = render_sampler;
     }
 
     this._uniform_dictionary = {};

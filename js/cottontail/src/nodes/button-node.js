@@ -75,7 +75,7 @@ class ButtonIconMaterial extends Material {
     this.state.blend_func_dst = GL.ONE;
 
     this.defineUniform("hoverAmount", 0);
-    this.image = this.defineSampler("diffuse");
+    this.icon = this.defineSampler("icon");
   }
 
   get material_name() {
@@ -100,11 +100,11 @@ class ButtonIconMaterial extends Material {
 
   get fragment_source() {
     return `
-    uniform sampler2D diffuse;
+    uniform sampler2D icon;
     varying vec2 vTexCoord;
 
     vec4 fragment_main() {
-      return texture2D(diffuse, vTexCoord);
+      return texture2D(icon, vTexCoord);
     }`;
   }
 }
@@ -117,8 +117,21 @@ export class ButtonNode extends Node {
     this.selectable = true;
 
     this._callback = callback;
+    this._icon_texture = icon_texture;
 
     this.createRenderPrimitive(renderer, icon_texture);
+  }
+
+  get icon_texture() {
+    return this._icon_texture;
+  }
+
+  set icon_texture(value) {
+    if (this._icon_texture == value)
+      return;
+
+    this._icon_texture = value;
+    this._icon_render_primitive.samplers.icon.texture = value;
   }
 
   createRenderPrimitive(renderer, icon_texture) {
@@ -187,7 +200,7 @@ export class ButtonNode extends Node {
 
     let icon_primitive = stream.finishPrimitive(renderer);
     let icon_material = new ButtonIconMaterial();
-    icon_material.image.texture = icon_texture;
+    icon_material.icon.texture = icon_texture;
     this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
     this.addRenderPrimitive(this._icon_render_primitive);
   }

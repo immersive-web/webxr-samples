@@ -66,6 +66,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new GLTF2Scene('media/gltf/garage/garage.gltf');
       scene.standingStats(true);
 
+      let play_texture = null;
+      let pause_texture = null;
+      let play_button = null;
       let stereo = null;
 
       // Audio scene globals
@@ -188,6 +191,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
+      function playAudio() {
+        audioContext.resume();
+
+        for (let source of audioSources) {
+          source.bufferSource.start(0);
+        }
+
+        if (play_button) {
+          play_button.icon_texture = pause_texture;
+        }
+      }
+
+      function pauseAudio() {
+        for (let source of audioSources) {
+          source.bufferSource.stop(0);
+          source.bufferSource = createBufferSource(
+            source.source, source.buffer, source.analyser);
+        }
+
+        audioContext.suspend();
+
+        if (play_button) {
+          play_button.icon_texture = play_texture;
+        }
+      }
+
       function initXR() {
         xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
@@ -242,11 +271,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onSessionStarted(session);
         });
 
-        /*audioContext.resume();
-
-        for (let source of audioSources) {
-          source.bufferSource.start(0);
-        }*/
+        playAudio();
       }
 
       function onSessionStarted(session) {
@@ -278,11 +303,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             stereo = stereo_mesh;
           });
 
-          let play_button = new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
-            audioContext.resume();
+          play_texture = new UrlTexture('media/textures/play-button.png');
+          pause_texture = new UrlTexture('media/textures/pause-button.png')
 
-            for (let source of audioSources) {
-              source.bufferSource.start(0);
+          // Create a button that toggles the audio state when clicked.
+          play_button = new ButtonNode(renderer, play_texture, () => {
+            if (audioContext.state == 'running') {
+              pauseAudio();
+            } else {
+              playAudio();
             }
           });
           play_button.translation = [0, 1.2, -0.65];
@@ -311,11 +340,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrButton.setSession(null);
 
           // Stop the audio playback when we exit XR.
-          for (let source of audioSources) {
-            source.bufferSource.stop(0);
-            source.bufferSource = createBufferSource(
-              source.source, source.buffer, source.analyser);
-          }
+          pauseAudio();
         }
       }
 

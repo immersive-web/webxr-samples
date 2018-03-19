@@ -1278,6 +1278,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this._promise;
 	    }
 	  }, {
+	    key: 'samplers',
+	    get: function get() {
+	      return this._material._sampler_dictionary;
+	    }
+	  }, {
 	    key: 'uniforms',
 	    get: function get() {
 	      return this._material._uniform_dictionary;
@@ -1300,13 +1305,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 	
-	var RenderMaterialSampler = function RenderMaterialSampler(renderer, material_sampler, index) {
-	  _classCallCheck(this, RenderMaterialSampler);
+	var RenderMaterialSampler = function () {
+	  function RenderMaterialSampler(renderer, material_sampler, index) {
+	    _classCallCheck(this, RenderMaterialSampler);
 	
-	  this._uniform_name = material_sampler._uniform_name;
-	  this._texture = renderer._getRenderTexture(material_sampler._texture);
-	  this._index = index;
-	};
+	    this._renderer = renderer;
+	    this._uniform_name = material_sampler._uniform_name;
+	    this._texture = renderer._getRenderTexture(material_sampler._texture);
+	    this._index = index;
+	  }
+	
+	  _createClass(RenderMaterialSampler, [{
+	    key: 'texture',
+	    set: function set(value) {
+	      this._texture = this._renderer._getRenderTexture(value);
+	    }
+	  }]);
+	
+	  return RenderMaterialSampler;
+	}();
 	
 	var RenderMaterialUniform = function () {
 	  function RenderMaterialUniform(material_uniform) {
@@ -1345,9 +1362,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._program = program;
 	    this._state = material.state._state;
 	
+	    this._sampler_dictionary = {};
 	    this._samplers = [];
 	    for (var i = 0; i < material._samplers.length; ++i) {
-	      this._samplers.push(new RenderMaterialSampler(renderer, material._samplers[i], i));
+	      var render_sampler = new RenderMaterialSampler(renderer, material._samplers[i], i);
+	      this._samplers.push(render_sampler);
+	      this._sampler_dictionary[render_sampler._uniform_name] = render_sampler;
 	    }
 	
 	    this._uniform_dictionary = {};
@@ -3566,7 +3586,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'fragment_source',
 	    get: function get() {
-	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(1.0, 1.0, 1.0, 0.3);\n    }';
+	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(1.0, 1.0, 1.0, 0.25);\n    }';
 	    }
 	  }]);
 	
@@ -3586,7 +3606,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2.state.blend_func_dst = GL.ONE;
 	
 	    _this2.defineUniform("hoverAmount", 0);
-	    _this2.image = _this2.defineSampler("diffuse");
+	    _this2.icon = _this2.defineSampler("icon");
 	    return _this2;
 	  }
 	
@@ -3603,7 +3623,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'fragment_source',
 	    get: function get() {
-	      return '\n    uniform sampler2D diffuse;\n    varying vec2 vTexCoord;\n\n    vec4 fragment_main() {\n      return texture2D(diffuse, vTexCoord);\n    }';
+	      return '\n    uniform sampler2D icon;\n    varying vec2 vTexCoord;\n\n    vec4 fragment_main() {\n      return texture2D(icon, vTexCoord);\n    }';
 	    }
 	  }]);
 	
@@ -3622,6 +3642,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this3.selectable = true;
 	
 	    _this3._callback = callback;
+	    _this3._icon_texture = icon_texture;
 	
 	    _this3.createRenderPrimitive(renderer, icon_texture);
 	    return _this3;
@@ -3695,7 +3716,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      var icon_primitive = stream.finishPrimitive(renderer);
 	      var icon_material = new ButtonIconMaterial();
-	      icon_material.image.texture = icon_texture;
+	      icon_material.icon.texture = icon_texture;
 	      this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
 	      this.addRenderPrimitive(this._icon_render_primitive);
 	    }
@@ -3705,6 +3726,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (this._callback) {
 	        this._callback();
 	      }
+	    }
+	  }, {
+	    key: 'icon_texture',
+	    get: function get() {
+	      return this._icon_texture;
+	    },
+	    set: function set(value) {
+	      if (this._icon_texture == value) return;
+	
+	      this._icon_texture = value;
+	      this._icon_render_primitive.samplers.icon.texture = value;
 	    }
 	  }]);
 
@@ -3950,9 +3982,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 	
-	      if (input_pose.pointerMatrix) {
+	      this.handleSelectPointer(input_pose.pointerMatrix);
+	    }
+	  }, {
+	    key: 'handleSelectPointer',
+	    value: function handleSelectPointer(pointer_matrix) {
+	      if (pointer_matrix) {
 	        // Check and see if the pointer is pointing at any selectable objects.
-	        var hit_result = this.hitTest(input_pose.pointerMatrix);
+	        var hit_result = this.hitTest(pointer_matrix);
 	
 	        if (hit_result) {
 	          // Render a cursor at the intersection point.

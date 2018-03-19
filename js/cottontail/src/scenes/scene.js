@@ -188,9 +188,13 @@ export class Scene extends Node {
       return;
     }
 
-    if (input_pose.pointerMatrix) {
+    this.handleSelectPointer(input_pose.pointerMatrix);
+  }
+
+  handleSelectPointer(pointer_matrix) {
+    if (pointer_matrix) {
       // Check and see if the pointer is pointing at any selectable objects.
-      let hit_result = this.hitTest(input_pose.pointerMatrix);
+      let hit_result = this.hitTest(pointer_matrix);
 
       if (hit_result) {
         // Render a cursor at the intersection point.
