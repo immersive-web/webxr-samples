@@ -205,19 +205,67 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    this._active_frame_id = -1;
 	    this._render_primitives = null;
+	    this._renderer = null;
 	  }
 	
-	  // Create a clone of this node and all of it's children. Does not duplicate
-	  // RenderPrimitives, the cloned nodes will be treated as new instances of the
-	  // geometry.
-	
-	
 	  _createClass(Node, [{
+	    key: '_setRenderer',
+	    value: function _setRenderer(renderer) {
+	      if (this._renderer == renderer) return;
+	
+	      if (this._renderer) {
+	        // Changing the renderer removes any previously attached renderPrimitives
+	        // from a different renderer.
+	        this.clearRenderPrimitives();
+	      }
+	
+	      this._renderer = renderer;
+	      if (renderer) {
+	        this.onRendererChanged(renderer);
+	
+	        var _iteratorNormalCompletion = true;
+	        var _didIteratorError = false;
+	        var _iteratorError = undefined;
+	
+	        try {
+	          for (var _iterator = this.children[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+	            var child = _step.value;
+	
+	            child._setRenderer(renderer);
+	          }
+	        } catch (err) {
+	          _didIteratorError = true;
+	          _iteratorError = err;
+	        } finally {
+	          try {
+	            if (!_iteratorNormalCompletion && _iterator.return) {
+	              _iterator.return();
+	            }
+	          } finally {
+	            if (_didIteratorError) {
+	              throw _iteratorError;
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }, {
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {}
+	    // Override in other node types to respond to changes in the renderer.
+	
+	
+	    // Create a clone of this node and all of it's children. Does not duplicate
+	    // RenderPrimitives, the cloned nodes will be treated as new instances of the
+	    // geometry.
+	
+	  }, {
 	    key: 'clone',
 	    value: function clone() {
 	      var clone_node = new Node();
 	      clone_node.name = this.name;
 	      clone_node.visible = this.visible;
+	      clone_node._renderer = this._renderer;
 	
 	      clone_node._dirty_trs = this._dirty_trs;
 	
@@ -249,53 +297,53 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion = true;
-	        var _didIteratorError = false;
-	        var _iteratorError = undefined;
+	        var _iteratorNormalCompletion2 = true;
+	        var _didIteratorError2 = false;
+	        var _iteratorError2 = undefined;
 	
 	        try {
-	          for (var _iterator = this._render_primitives[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	            var primitive = _step.value;
+	          for (var _iterator2 = this._render_primitives[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	            var primitive = _step2.value;
 	
 	            clone_node.addRenderPrimitive(primitive);
 	          }
 	        } catch (err) {
-	          _didIteratorError = true;
-	          _iteratorError = err;
+	          _didIteratorError2 = true;
+	          _iteratorError2 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion && _iterator.return) {
-	              _iterator.return();
+	            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	              _iterator2.return();
 	            }
 	          } finally {
-	            if (_didIteratorError) {
-	              throw _iteratorError;
+	            if (_didIteratorError2) {
+	              throw _iteratorError2;
 	            }
 	          }
 	        }
 	      }
 	
-	      var _iteratorNormalCompletion2 = true;
-	      var _didIteratorError2 = false;
-	      var _iteratorError2 = undefined;
+	      var _iteratorNormalCompletion3 = true;
+	      var _didIteratorError3 = false;
+	      var _iteratorError3 = undefined;
 	
 	      try {
-	        for (var _iterator2 = this.children[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	          var child = _step2.value;
+	        for (var _iterator3 = this.children[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	          var child = _step3.value;
 	
 	          clone_node.addNode(child.clone());
 	        }
 	      } catch (err) {
-	        _didIteratorError2 = true;
-	        _iteratorError2 = err;
+	        _didIteratorError3 = true;
+	        _iteratorError3 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
-	            _iterator2.return();
+	          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	            _iterator3.return();
 	          }
 	        } finally {
-	          if (_didIteratorError2) {
-	            throw _iteratorError2;
+	          if (_didIteratorError3) {
+	            throw _iteratorError3;
 	          }
 	        }
 	      }
@@ -307,55 +355,55 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function markActive(frame_id) {
 	      if (this.visible && this._render_primitives) {
 	        this._active_frame_id = frame_id;
-	        var _iteratorNormalCompletion3 = true;
-	        var _didIteratorError3 = false;
-	        var _iteratorError3 = undefined;
+	        var _iteratorNormalCompletion4 = true;
+	        var _didIteratorError4 = false;
+	        var _iteratorError4 = undefined;
 	
 	        try {
-	          for (var _iterator3 = this._render_primitives[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	            var primitive = _step3.value;
+	          for (var _iterator4 = this._render_primitives[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	            var primitive = _step4.value;
 	
 	            primitive.markActive(frame_id);
 	          }
 	        } catch (err) {
-	          _didIteratorError3 = true;
-	          _iteratorError3 = err;
+	          _didIteratorError4 = true;
+	          _iteratorError4 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	              _iterator3.return();
+	            if (!_iteratorNormalCompletion4 && _iterator4.return) {
+	              _iterator4.return();
 	            }
 	          } finally {
-	            if (_didIteratorError3) {
-	              throw _iteratorError3;
+	            if (_didIteratorError4) {
+	              throw _iteratorError4;
 	            }
 	          }
 	        }
 	      }
 	
-	      var _iteratorNormalCompletion4 = true;
-	      var _didIteratorError4 = false;
-	      var _iteratorError4 = undefined;
+	      var _iteratorNormalCompletion5 = true;
+	      var _didIteratorError5 = false;
+	      var _iteratorError5 = undefined;
 	
 	      try {
-	        for (var _iterator4 = this.children[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-	          var child = _step4.value;
+	        for (var _iterator5 = this.children[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+	          var child = _step5.value;
 	
 	          if (child.visible) {
 	            child.markActive(frame_id);
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError4 = true;
-	        _iteratorError4 = err;
+	        _didIteratorError5 = true;
+	        _iteratorError5 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion4 && _iterator4.return) {
-	            _iterator4.return();
+	          if (!_iteratorNormalCompletion5 && _iterator5.return) {
+	            _iterator5.return();
 	          }
 	        } finally {
-	          if (_didIteratorError4) {
-	            throw _iteratorError4;
+	          if (_didIteratorError5) {
+	            throw _iteratorError5;
 	          }
 	        }
 	      }
@@ -373,6 +421,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      value.parent = this;
 	
 	      this.children.push(value);
+	
+	      if (this._renderer) {
+	        value._setRenderer(this._renderer);
+	      }
 	    }
 	  }, {
 	    key: 'removeNode',
@@ -384,31 +436,61 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
+	    key: 'clearNodes',
+	    value: function clearNodes() {
+	      var _iteratorNormalCompletion6 = true;
+	      var _didIteratorError6 = false;
+	      var _iteratorError6 = undefined;
+	
+	      try {
+	        for (var _iterator6 = this.children[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+	          var child = _step6.value;
+	
+	          child.parent = null;
+	        }
+	      } catch (err) {
+	        _didIteratorError6 = true;
+	        _iteratorError6 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion6 && _iterator6.return) {
+	            _iterator6.return();
+	          }
+	        } finally {
+	          if (_didIteratorError6) {
+	            throw _iteratorError6;
+	          }
+	        }
+	      }
+	
+	      this.children = [];
+	    }
+	  }, {
 	    key: 'setMatrixDirty',
 	    value: function setMatrixDirty() {
 	      if (!this._dirty_world_matrix) {
 	        this._dirty_world_matrix = true;
-	        var _iteratorNormalCompletion5 = true;
-	        var _didIteratorError5 = false;
-	        var _iteratorError5 = undefined;
+	        var _iteratorNormalCompletion7 = true;
+	        var _didIteratorError7 = false;
+	        var _iteratorError7 = undefined;
 	
 	        try {
-	          for (var _iterator5 = this.children[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-	            var child = _step5.value;
+	          for (var _iterator7 = this.children[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+	            var child = _step7.value;
 	
 	            child.setMatrixDirty();
 	          }
 	        } catch (err) {
-	          _didIteratorError5 = true;
-	          _iteratorError5 = err;
+	          _didIteratorError7 = true;
+	          _iteratorError7 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-	              _iterator5.return();
+	            if (!_iteratorNormalCompletion7 && _iterator7.return) {
+	              _iterator7.return();
 	            }
 	          } finally {
-	            if (_didIteratorError5) {
-	              throw _iteratorError5;
+	            if (_didIteratorError7) {
+	              throw _iteratorError7;
 	            }
 	          }
 	        }
@@ -434,53 +516,53 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var _this = this;
 	
 	      var child_promises = [];
-	      var _iteratorNormalCompletion6 = true;
-	      var _didIteratorError6 = false;
-	      var _iteratorError6 = undefined;
+	      var _iteratorNormalCompletion8 = true;
+	      var _didIteratorError8 = false;
+	      var _iteratorError8 = undefined;
 	
 	      try {
-	        for (var _iterator6 = this.children[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-	          var child = _step6.value;
+	        for (var _iterator8 = this.children[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+	          var child = _step8.value;
 	
 	          child_promises.push(child.waitForComplete());
 	        }
 	      } catch (err) {
-	        _didIteratorError6 = true;
-	        _iteratorError6 = err;
+	        _didIteratorError8 = true;
+	        _iteratorError8 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion6 && _iterator6.return) {
-	            _iterator6.return();
+	          if (!_iteratorNormalCompletion8 && _iterator8.return) {
+	            _iterator8.return();
 	          }
 	        } finally {
-	          if (_didIteratorError6) {
-	            throw _iteratorError6;
+	          if (_didIteratorError8) {
+	            throw _iteratorError8;
 	          }
 	        }
 	      }
 	
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion7 = true;
-	        var _didIteratorError7 = false;
-	        var _iteratorError7 = undefined;
+	        var _iteratorNormalCompletion9 = true;
+	        var _didIteratorError9 = false;
+	        var _iteratorError9 = undefined;
 	
 	        try {
-	          for (var _iterator7 = this._render_primitives[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-	            var primitive = _step7.value;
+	          for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+	            var primitive = _step9.value;
 	
 	            child_promises.push(primitive.waitForComplete());
 	          }
 	        } catch (err) {
-	          _didIteratorError7 = true;
-	          _iteratorError7 = err;
+	          _didIteratorError9 = true;
+	          _iteratorError9 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion7 && _iterator7.return) {
-	              _iterator7.return();
+	            if (!_iteratorNormalCompletion9 && _iterator9.return) {
+	              _iterator9.return();
 	            }
 	          } finally {
-	            if (_didIteratorError7) {
-	              throw _iteratorError7;
+	            if (_didIteratorError9) {
+	              throw _iteratorError9;
 	            }
 	          }
 	        }
@@ -516,13 +598,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'clearRenderPrimitives',
 	    value: function clearRenderPrimitives() {
 	      if (this._render_primitives) {
-	        var _iteratorNormalCompletion8 = true;
-	        var _didIteratorError8 = false;
-	        var _iteratorError8 = undefined;
+	        var _iteratorNormalCompletion10 = true;
+	        var _didIteratorError10 = false;
+	        var _iteratorError10 = undefined;
 	
 	        try {
-	          for (var _iterator8 = this._render_primitives[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-	            var primitive = _step8.value;
+	          for (var _iterator10 = this._render_primitives[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+	            var primitive = _step10.value;
 	
 	            var index = primitive._instances.indexOf(this);
 	            if (index > -1) {
@@ -530,16 +612,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        } catch (err) {
-	          _didIteratorError8 = true;
-	          _iteratorError8 = err;
+	          _didIteratorError10 = true;
+	          _iteratorError10 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion8 && _iterator8.return) {
-	              _iterator8.return();
+	            if (!_iteratorNormalCompletion10 && _iterator10.return) {
+	              _iterator10.return();
 	            }
 	          } finally {
-	            if (_didIteratorError8) {
-	              throw _iteratorError8;
+	            if (_didIteratorError10) {
+	              throw _iteratorError10;
 	            }
 	          }
 	        }
@@ -552,13 +634,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function _hitTestSelectableNode(ray_matrix) {
 	      if (this._render_primitives) {
 	        var ray = null;
-	        var _iteratorNormalCompletion9 = true;
-	        var _didIteratorError9 = false;
-	        var _iteratorError9 = undefined;
+	        var _iteratorNormalCompletion11 = true;
+	        var _didIteratorError11 = false;
+	        var _iteratorError11 = undefined;
 	
 	        try {
-	          for (var _iterator9 = this._render_primitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-	            var primitive = _step9.value;
+	          for (var _iterator11 = this._render_primitives[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+	            var primitive = _step11.value;
 	
 	            if (primitive._min) {
 	              if (!ray) {
@@ -574,27 +656,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	          }
 	        } catch (err) {
-	          _didIteratorError9 = true;
-	          _iteratorError9 = err;
+	          _didIteratorError11 = true;
+	          _iteratorError11 = err;
 	        } finally {
 	          try {
-	            if (!_iteratorNormalCompletion9 && _iterator9.return) {
-	              _iterator9.return();
+	            if (!_iteratorNormalCompletion11 && _iterator11.return) {
+	              _iterator11.return();
 	            }
 	          } finally {
-	            if (_didIteratorError9) {
-	              throw _iteratorError9;
+	            if (_didIteratorError11) {
+	              throw _iteratorError11;
 	            }
 	          }
 	        }
 	      }
-	      var _iteratorNormalCompletion10 = true;
-	      var _didIteratorError10 = false;
-	      var _iteratorError10 = undefined;
+	      var _iteratorNormalCompletion12 = true;
+	      var _didIteratorError12 = false;
+	      var _iteratorError12 = undefined;
 	
 	      try {
-	        for (var _iterator10 = this.children[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-	          var child = _step10.value;
+	        for (var _iterator12 = this.children[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+	          var child = _step12.value;
 	
 	          var _intersection = child._hitTestSelectableNode(ray_matrix);
 	          if (_intersection) {
@@ -602,16 +684,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError10 = true;
-	        _iteratorError10 = err;
+	        _didIteratorError12 = true;
+	        _iteratorError12 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
-	            _iterator10.return();
+	          if (!_iteratorNormalCompletion12 && _iterator12.return) {
+	            _iterator12.return();
 	          }
 	        } finally {
-	          if (_didIteratorError10) {
-	            throw _iteratorError10;
+	          if (_didIteratorError12) {
+	            throw _iteratorError12;
 	          }
 	        }
 	      }
@@ -642,13 +724,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      var result = null;
-	      var _iteratorNormalCompletion11 = true;
-	      var _didIteratorError11 = false;
-	      var _iteratorError11 = undefined;
+	      var _iteratorNormalCompletion13 = true;
+	      var _didIteratorError13 = false;
+	      var _iteratorError13 = undefined;
 	
 	      try {
-	        for (var _iterator11 = this.children[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-	          var child = _step11.value;
+	        for (var _iterator13 = this.children[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+	          var child = _step13.value;
 	
 	          var child_result = child.hitTest(ray_matrix, ray_origin);
 	          if (child_result) {
@@ -658,16 +740,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError11 = true;
-	        _iteratorError11 = err;
+	        _didIteratorError13 = true;
+	        _iteratorError13 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
-	            _iterator11.return();
+	          if (!_iteratorNormalCompletion13 && _iterator13.return) {
+	            _iterator13.return();
 	          }
 	        } finally {
-	          if (_didIteratorError11) {
-	            throw _iteratorError11;
+	          if (_didIteratorError13) {
+	            throw _iteratorError13;
 	          }
 	        }
 	      }
@@ -3614,8 +3696,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var _this2 = _possibleConstructorReturn(this, (ButtonIconMaterial.__proto__ || Object.getPrototypeOf(ButtonIconMaterial)).call(this));
 	
 	    _this2.state.blend = true;
-	    _this2.state.blend_func_src = GL.SRC_ALPHA;
-	    _this2.state.blend_func_dst = GL.ONE;
 	
 	    _this2.defineUniform("hoverAmount", 0);
 	    _this2.icon = _this2.defineSampler("icon");
@@ -3645,7 +3725,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var ButtonNode = exports.ButtonNode = function (_Node) {
 	  _inherits(ButtonNode, _Node);
 	
-	  function ButtonNode(renderer, icon_texture, callback) {
+	  function ButtonNode(icon_texture, callback) {
 	    _classCallCheck(this, ButtonNode);
 	
 	    // All buttons are selectable by default.
@@ -3655,14 +3735,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this3._callback = callback;
 	    _this3._icon_texture = icon_texture;
-	
-	    _this3.createRenderPrimitive(renderer, icon_texture);
 	    return _this3;
 	  }
 	
 	  _createClass(ButtonNode, [{
-	    key: 'createRenderPrimitive',
-	    value: function createRenderPrimitive(renderer, icon_texture) {
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
 	      var stream = new _primitiveStream.PrimitiveStream();
 	
 	      var hd = BUTTON_LAYER_DISTANCE * 0.5;
@@ -3728,7 +3806,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      var icon_primitive = stream.finishPrimitive(renderer);
 	      var icon_material = new ButtonIconMaterial();
-	      icon_material.icon.texture = icon_texture;
+	      icon_material.icon.texture = this._icon_texture;
 	      this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
 	      this.addRenderPrimitive(this._icon_render_primitive);
 	    }
@@ -3830,13 +3908,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this2._timestamp = -1;
 	    _this2._frame_delta = 0;
-	    _this2._stats_enabled = true;
 	    _this2._stats_standing = false;
 	    _this2._stats = null;
+	    _this2._stats_enabled = false;
+	    _this2.enableStats(true); // Ensure the stats are added correctly by default.
 	    _this2._stage_bounds = null;
 	    _this2._bounds_renderer = null;
-	
-	    _this2._renderer = null;
 	
 	    _this2._input_renderer = null;
 	    _this2._reset_input_end_frame = true;
@@ -3849,43 +3926,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(Scene, [{
 	    key: 'setRenderer',
 	    value: function setRenderer(renderer) {
-	      this._renderer = renderer;
-	
 	      // Set up a non-black clear color so that we can see if something renders
 	      // wrong.
 	      renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 	
-	      if (renderer) {
-	        this._gltf2_loader = new _gltf.GLTF2Loader(renderer);
+	      this._gltf2_loader = new _gltf.GLTF2Loader(renderer);
 	
-	        if (this._skybox) {
-	          this._skybox.setRenderer(renderer);
-	        }
-	
-	        if (this._stats_enabled) {
-	          this._stats = new _statsViewer.StatsViewer(this._renderer);
-	          this._stats.selectable = true;
-	          this.addNode(this._stats);
-	
-	          if (this._stats_standing) {
-	            this._stats.translation = [0, 1.4, -0.75];
-	          } else {
-	            this._stats.translation = [0, -0.3, -0.5];
-	          }
-	          this._stats.scale = [0.3, 0.3, 0.3];
-	          quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
-	        }
-	
-	        if (this._stage_bounds) {
-	          this._bounds_renderer = new _boundsRenderer.BoundsRenderer(this._renderer);
-	          this._bounds_renderer.stage_bounds = this._stage_bounds;
-	        }
-	
-	        this._input_renderer = new _inputRenderer.InputRenderer(this._renderer);
-	        this.addNode(this._input_renderer);
-	
-	        this.onLoadScene(this._renderer);
-	      }
+	      this._setRenderer(renderer);
 	    }
 	  }, {
 	    key: 'setSkybox',
@@ -3940,7 +3987,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	          // Any time that we have a grip matrix, we'll render a controller.
 	          if (input_pose.gripMatrix) {
-	            this._input_renderer.addController(input_pose.gripMatrix);
+	            this.inputRenderer.addController(input_pose.gripMatrix);
 	          }
 	
 	          if (input_pose.pointerMatrix) {
@@ -3949,7 +3996,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              // hand (as opposed to their head or the screen) use it to render
 	              // a ray coming out of the input device to indicate the pointer
 	              // direction.
-	              this._input_renderer.addLaserPointer(input_pose.pointerMatrix);
+	              this.inputRenderer.addLaserPointer(input_pose.pointerMatrix);
 	            }
 	
 	            // If we have a pointer matrix we can also use it to render a cursor
@@ -3960,13 +4007,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	            if (hit_result) {
 	              // Render a cursor at the intersection point.
-	              this._input_renderer.addCursor(hit_result.intersection);
+	              this.inputRenderer.addCursor(hit_result.intersection);
 	            } else {
 	              // Statically render the cursor 1 meters down the ray since we didn't
 	              // hit anything selectable.
 	              var cursor_pos = vec3.fromValues(0, 0, -1.0);
 	              vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
-	              this._input_renderer.addCursor(cursor_pos);
+	              this.inputRenderer.addCursor(cursor_pos);
 	            }
 	          }
 	        }
@@ -4016,8 +4063,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      this._stats_enabled = enable;
 	
-	      if (enable && this._renderer) {
-	        this._stats = new _statsViewer.StatsViewer(this._renderer);
+	      if (enable) {
+	        this._stats = new _statsViewer.StatsViewer();
 	        this._stats.selectable = true;
 	        this.addNode(this._stats);
 	
@@ -4039,13 +4086,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'standingStats',
 	    value: function standingStats(enable) {
 	      this._stats_standing = enable;
+	      if (this._stats) {
+	        if (this._stats_standing) {
+	          this._stats.translation = [0, 1.4, -0.75];
+	        } else {
+	          this._stats.translation = [0, -0.3, -0.5];
+	        }
+	        this._stats.scale = [0.3, 0.3, 0.3];
+	        quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
+	      }
 	    }
 	  }, {
 	    key: 'setBounds',
 	    value: function setBounds(stage_bounds) {
 	      this._stage_bounds = stage_bounds;
-	      if (!this._bounds_renderer && this._renderer) {
-	        this._bounds_renderer = new _boundsRenderer.BoundsRenderer(this._renderer);
+	      if (stage_bounds && !this._bounds_renderer) {
+	        this._bounds_renderer = new _boundsRenderer.BoundsRenderer();
+	        this.addNode(this._bounds_renderer);
 	      }
 	      if (this._bounds_renderer) {
 	        this._bounds_renderer.stage_bounds = stage_bounds;
@@ -4179,6 +4236,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'inputRenderer',
 	    get: function get() {
+	      if (!this._input_renderer) {
+	        this._input_renderer = new _inputRenderer.InputRenderer();
+	        this.addNode(this._input_renderer);
+	      }
 	      return this._input_renderer;
 	    }
 	  }]);
@@ -4276,17 +4337,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	var BoundsRenderer = exports.BoundsRenderer = function (_Node) {
 	  _inherits(BoundsRenderer, _Node);
 	
-	  function BoundsRenderer(renderer) {
+	  function BoundsRenderer() {
 	    _classCallCheck(this, BoundsRenderer);
 	
 	    var _this2 = _possibleConstructorReturn(this, (BoundsRenderer.__proto__ || Object.getPrototypeOf(BoundsRenderer)).call(this));
 	
-	    _this2._renderer = renderer;
 	    _this2._stage_bounds = null;
 	    return _this2;
 	  }
 	
 	  _createClass(BoundsRenderer, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      this.stage_bounds = this._stage_bounds;
+	    }
+	  }, {
 	    key: 'stage_bounds',
 	    get: function get() {
 	      return this._stage_bounds;
@@ -4296,7 +4361,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        this.clearRenderPrimitives();
 	      }
 	      this._stage_bounds = stage_bounds;
-	      if (!stage_bounds || stage_bounds.length === 0) {
+	      if (!stage_bounds || stage_bounds.length === 0 || !this._renderer) {
 	        return;
 	      }
 	
@@ -4536,12 +4601,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	var InputRenderer = exports.InputRenderer = function (_Node) {
 	  _inherits(InputRenderer, _Node);
 	
-	  function InputRenderer(renderer) {
+	  function InputRenderer() {
 	    _classCallCheck(this, InputRenderer);
 	
 	    var _this4 = _possibleConstructorReturn(this, (InputRenderer.__proto__ || Object.getPrototypeOf(InputRenderer)).call(this));
-	
-	    _this4._renderer = renderer;
 	
 	    _this4._max_input_elements = 32;
 	
@@ -4558,6 +4621,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  _createClass(InputRenderer, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      this._controllers = [];
+	      this._controller_node = null;
+	      this._controller_node_handedness = null;
+	      this._lasers = null;
+	      this._cursors = null;
+	
+	      this._active_controllers = 0;
+	      this._active_lasers = 0;
+	      this._active_cursors = 0;
+	    }
+	  }, {
 	    key: 'setControllerMesh',
 	    value: function setControllerMesh(controller_node) {
 	      var handedness = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'right';
@@ -4589,7 +4665,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'addLaserPointer',
 	    value: function addLaserPointer(pointer_matrix) {
 	      // Create the laser pointer mesh if needed.
-	      if (!this._lasers) {
+	      if (!this._lasers && this._renderer) {
 	        this._lasers = [this._createLaserMesh()];
 	        this.addNode(this._lasers[0]);
 	      }
@@ -4611,7 +4687,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'addCursor',
 	    value: function addCursor(cursor_pos) {
 	      // Create the cursor mesh if needed.
-	      if (!this._cursors) {
+	      if (!this._cursors && this._renderer) {
 	        this._cursors = [this._createCursorMesh()];
 	        this.addNode(this._cursors[0]);
 	      }
@@ -4931,10 +5007,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  _createClass(Skybox, [{
-	    key: 'setRenderer',
-	    value: function setRenderer(renderer) {
-	      this.clearRenderPrimitives();
-	
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
 	      var vertices = [];
 	      var indices = [];
 	
@@ -5107,14 +5181,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	var StatsViewer = exports.StatsViewer = function (_Node) {
 	  _inherits(StatsViewer, _Node);
 	
-	  function StatsViewer(renderer) {
+	  function StatsViewer() {
 	    _classCallCheck(this, StatsViewer);
 	
 	    var _this2 = _possibleConstructorReturn(this, (StatsViewer.__proto__ || Object.getPrototypeOf(StatsViewer)).call(this));
 	
 	    _this2._performance_monitoring = false;
-	
-	    _this2._renderer = renderer;
 	
 	    _this2._start_time = now();
 	    _this2._prev_frame_time = _this2._start_time;
@@ -5128,74 +5200,79 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2._fps_vertex_buffer = null;
 	    _this2._fps_render_primitive = null;
 	    _this2._fps_node = null;
-	    _this2._seven_segment_node = null;
 	
-	    var gl = _this2._renderer.gl;
-	
-	    var fps_verts = [];
-	    var fps_indices = [];
-	
-	    // Graph geometry
-	    for (var i = 0; i < SEGMENTS; ++i) {
-	      // Bar top
-	      fps_verts.push(segmentToX(i), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
-	      fps_verts.push(segmentToX(i + 1), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
-	
-	      // Bar bottom
-	      fps_verts.push(segmentToX(i), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
-	      fps_verts.push(segmentToX(i + 1), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
-	
-	      var idx = i * 4;
-	      fps_indices.push(idx, idx + 3, idx + 1, idx + 3, idx, idx + 2);
-	    }
-	
-	    function addBGSquare(left, bottom, right, top, z, r, g, b) {
-	      var idx = fps_verts.length / 6;
-	
-	      fps_verts.push(left, bottom, z, r, g, b);
-	      fps_verts.push(right, top, z, r, g, b);
-	      fps_verts.push(left, top, z, r, g, b);
-	      fps_verts.push(right, bottom, z, r, g, b);
-	
-	      fps_indices.push(idx, idx + 1, idx + 2, idx, idx + 3, idx + 1);
-	    };
-	
-	    // Panel Background
-	    addBGSquare(-0.5, -0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.125);
-	
-	    // FPS Background
-	    addBGSquare(-0.45, -0.45, 0.45, 0.25, 0.01, 0.0, 0.0, 0.4);
-	
-	    // 30 FPS line
-	    addBGSquare(-0.45, fpsToY(30), 0.45, fpsToY(32), 0.015, 0.5, 0.0, 0.5);
-	
-	    // 60 FPS line
-	    addBGSquare(-0.45, fpsToY(60), 0.45, fpsToY(62), 0.015, 0.2, 0.0, 0.75);
-	
-	    _this2._fps_vertex_buffer = _this2._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(fps_verts), gl.DYNAMIC_DRAW);
-	    var fps_index_buffer = _this2._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fps_indices));
-	
-	    var fps_attribs = [new _primitive.PrimitiveAttribute("POSITION", _this2._fps_vertex_buffer, 3, gl.FLOAT, 24, 0), new _primitive.PrimitiveAttribute("COLOR_0", _this2._fps_vertex_buffer, 3, gl.FLOAT, 24, 12)];
-	
-	    var fps_primitive = new _primitive.Primitive(fps_attribs, fps_indices.length);
-	    fps_primitive.setIndexBuffer(fps_index_buffer);
-	    fps_primitive.setBounds([-0.5, -0.5, 0.0], [0.5, 0.5, 0.015]);
-	
-	    _this2._fps_render_primitive = _this2._renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
-	    _this2._fps_node = new _node.Node();
-	    _this2._fps_node.addRenderPrimitive(_this2._fps_render_primitive);
-	    _this2.addNode(_this2._fps_node);
-	
-	    _this2._seven_segment_node = new _sevenSegmentText.SevenSegmentText(_this2._renderer);
+	    _this2._seven_segment_node = new _sevenSegmentText.SevenSegmentText();
 	    // Hard coded because it doesn't change:
 	    // Scale by 0.075 in X and Y
 	    // Translate into upper left corner w/ z = 0.02
 	    _this2._seven_segment_node.matrix = new Float32Array([0.075, 0, 0, 0, 0, 0.075, 0, 0, 0, 0, 1, 0, -0.3625, 0.3625, 0.02, 1]);
-	    _this2.addNode(_this2._seven_segment_node);
 	    return _this2;
 	  }
 	
 	  _createClass(StatsViewer, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      this.clearNodes();
+	
+	      var gl = renderer.gl;
+	
+	      var fps_verts = [];
+	      var fps_indices = [];
+	
+	      // Graph geometry
+	      for (var i = 0; i < SEGMENTS; ++i) {
+	        // Bar top
+	        fps_verts.push(segmentToX(i), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
+	        fps_verts.push(segmentToX(i + 1), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
+	
+	        // Bar bottom
+	        fps_verts.push(segmentToX(i), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
+	        fps_verts.push(segmentToX(i + 1), fpsToY(0), 0.02, 0.0, 1.0, 1.0);
+	
+	        var idx = i * 4;
+	        fps_indices.push(idx, idx + 3, idx + 1, idx + 3, idx, idx + 2);
+	      }
+	
+	      function addBGSquare(left, bottom, right, top, z, r, g, b) {
+	        var idx = fps_verts.length / 6;
+	
+	        fps_verts.push(left, bottom, z, r, g, b);
+	        fps_verts.push(right, top, z, r, g, b);
+	        fps_verts.push(left, top, z, r, g, b);
+	        fps_verts.push(right, bottom, z, r, g, b);
+	
+	        fps_indices.push(idx, idx + 1, idx + 2, idx, idx + 3, idx + 1);
+	      };
+	
+	      // Panel Background
+	      addBGSquare(-0.5, -0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.125);
+	
+	      // FPS Background
+	      addBGSquare(-0.45, -0.45, 0.45, 0.25, 0.01, 0.0, 0.0, 0.4);
+	
+	      // 30 FPS line
+	      addBGSquare(-0.45, fpsToY(30), 0.45, fpsToY(32), 0.015, 0.5, 0.0, 0.5);
+	
+	      // 60 FPS line
+	      addBGSquare(-0.45, fpsToY(60), 0.45, fpsToY(62), 0.015, 0.2, 0.0, 0.75);
+	
+	      this._fps_vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(fps_verts), gl.DYNAMIC_DRAW);
+	      var fps_index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fps_indices));
+	
+	      var fps_attribs = [new _primitive.PrimitiveAttribute("POSITION", this._fps_vertex_buffer, 3, gl.FLOAT, 24, 0), new _primitive.PrimitiveAttribute("COLOR_0", this._fps_vertex_buffer, 3, gl.FLOAT, 24, 12)];
+	
+	      var fps_primitive = new _primitive.Primitive(fps_attribs, fps_indices.length);
+	      fps_primitive.setIndexBuffer(fps_index_buffer);
+	      fps_primitive.setBounds([-0.5, -0.5, 0.0], [0.5, 0.5, 0.015]);
+	
+	      this._fps_render_primitive = renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
+	      this._fps_node = new _node.Node();
+	      this._fps_node.addRenderPrimitive(this._fps_render_primitive);
+	
+	      this.addNode(this._fps_node);
+	      this.addNode(this._seven_segment_node);
+	    }
+	  }, {
 	    key: 'begin',
 	    value: function begin() {
 	      this._start_time = now();
@@ -5357,106 +5434,113 @@ return /******/ (function(modules) { // webpackBootstrap
 	var SevenSegmentText = exports.SevenSegmentText = function (_Node) {
 	  _inherits(SevenSegmentText, _Node);
 	
-	  function SevenSegmentText(renderer) {
+	  function SevenSegmentText() {
 	    _classCallCheck(this, SevenSegmentText);
 	
 	    var _this2 = _possibleConstructorReturn(this, (SevenSegmentText.__proto__ || Object.getPrototypeOf(SevenSegmentText)).call(this));
 	
-	    _this2._renderer = renderer;
 	    _this2._text = "";
 	    _this2._char_nodes = [];
-	
-	    var vertices = [];
-	    var segmentIndices = {};
-	    var indices = [];
-	
-	    var width = 0.5;
-	    var thickness = 0.25;
-	
-	    function defineSegment(id, left, top, right, bottom) {
-	      var idx = vertices.length / 2;
-	      vertices.push(left, top, right, top, right, bottom, left, bottom);
-	
-	      segmentIndices[id] = [idx, idx + 2, idx + 1, idx, idx + 3, idx + 2];
-	    }
-	
-	    var characters = {};
-	    function defineCharacter(c, segments) {
-	      var character = {
-	        character: c,
-	        offset: indices.length * 2,
-	        count: 0
-	      };
-	
-	      for (var i = 0; i < segments.length; ++i) {
-	        var idx = segments[i];
-	        var segment = segmentIndices[idx];
-	        character.count += segment.length;
-	        indices.push.apply(indices, segment);
-	      }
-	
-	      characters[c] = character;
-	    }
-	
-	    /* Segment layout is as follows:
-	     |-0-|
-	    3   4
-	    |-1-|
-	    5   6
-	    |-2-|
-	     */
-	
-	    defineSegment(0, -1, 1, width, 1 - thickness);
-	    defineSegment(1, -1, thickness * 0.5, width, -thickness * 0.5);
-	    defineSegment(2, -1, -1 + thickness, width, -1);
-	    defineSegment(3, -1, 1, -1 + thickness, -thickness * 0.5);
-	    defineSegment(4, width - thickness, 1, width, -thickness * 0.5);
-	    defineSegment(5, -1, thickness * 0.5, -1 + thickness, -1);
-	    defineSegment(6, width - thickness, thickness * 0.5, width, -1);
-	
-	    defineCharacter("0", [0, 2, 3, 4, 5, 6]);
-	    defineCharacter("1", [4, 6]);
-	    defineCharacter("2", [0, 1, 2, 4, 5]);
-	    defineCharacter("3", [0, 1, 2, 4, 6]);
-	    defineCharacter("4", [1, 3, 4, 6]);
-	    defineCharacter("5", [0, 1, 2, 3, 6]);
-	    defineCharacter("6", [0, 1, 2, 3, 5, 6]);
-	    defineCharacter("7", [0, 4, 6]);
-	    defineCharacter("8", [0, 1, 2, 3, 4, 5, 6]);
-	    defineCharacter("9", [0, 1, 2, 3, 4, 6]);
-	    defineCharacter("A", [0, 1, 3, 4, 5, 6]);
-	    defineCharacter("B", [1, 2, 3, 5, 6]);
-	    defineCharacter("C", [0, 2, 3, 5]);
-	    defineCharacter("D", [1, 2, 4, 5, 6]);
-	    defineCharacter("E", [0, 1, 2, 4, 6]);
-	    defineCharacter("F", [0, 1, 3, 5]);
-	    defineCharacter("P", [0, 1, 3, 4, 5]);
-	    defineCharacter("-", [1]);
-	    defineCharacter(" ", []);
-	    defineCharacter("_", [2]); // Used for undefined characters
-	
-	    var gl = _this2._renderer.gl;
-	    var vertex_buffer = _this2._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(vertices));
-	    var index_buffer = _this2._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
-	
-	    var vertex_attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 2, gl.FLOAT, 8, 0)];
-	
-	    var primitive = new _primitive.Primitive(vertex_attribs, indices.length);
-	    primitive.setIndexBuffer(index_buffer);
-	
-	    var material = new SevenSegmentMaterial();
-	
-	    _this2._char_primitives = {};
-	    for (var char in characters) {
-	      var char_def = characters[char];
-	      primitive.element_count = char_def.count;
-	      primitive.index_byte_offset = char_def.offset;
-	      _this2._char_primitives[char] = _this2._renderer.createRenderPrimitive(primitive, material);
-	    }
 	    return _this2;
 	  }
 	
 	  _createClass(SevenSegmentText, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      this.clearNodes();
+	      this._char_nodes = [];
+	
+	      var vertices = [];
+	      var segmentIndices = {};
+	      var indices = [];
+	
+	      var width = 0.5;
+	      var thickness = 0.25;
+	
+	      function defineSegment(id, left, top, right, bottom) {
+	        var idx = vertices.length / 2;
+	        vertices.push(left, top, right, top, right, bottom, left, bottom);
+	
+	        segmentIndices[id] = [idx, idx + 2, idx + 1, idx, idx + 3, idx + 2];
+	      }
+	
+	      var characters = {};
+	      function defineCharacter(c, segments) {
+	        var character = {
+	          character: c,
+	          offset: indices.length * 2,
+	          count: 0
+	        };
+	
+	        for (var i = 0; i < segments.length; ++i) {
+	          var idx = segments[i];
+	          var segment = segmentIndices[idx];
+	          character.count += segment.length;
+	          indices.push.apply(indices, segment);
+	        }
+	
+	        characters[c] = character;
+	      }
+	
+	      /* Segment layout is as follows:
+	       |-0-|
+	      3   4
+	      |-1-|
+	      5   6
+	      |-2-|
+	       */
+	
+	      defineSegment(0, -1, 1, width, 1 - thickness);
+	      defineSegment(1, -1, thickness * 0.5, width, -thickness * 0.5);
+	      defineSegment(2, -1, -1 + thickness, width, -1);
+	      defineSegment(3, -1, 1, -1 + thickness, -thickness * 0.5);
+	      defineSegment(4, width - thickness, 1, width, -thickness * 0.5);
+	      defineSegment(5, -1, thickness * 0.5, -1 + thickness, -1);
+	      defineSegment(6, width - thickness, thickness * 0.5, width, -1);
+	
+	      defineCharacter("0", [0, 2, 3, 4, 5, 6]);
+	      defineCharacter("1", [4, 6]);
+	      defineCharacter("2", [0, 1, 2, 4, 5]);
+	      defineCharacter("3", [0, 1, 2, 4, 6]);
+	      defineCharacter("4", [1, 3, 4, 6]);
+	      defineCharacter("5", [0, 1, 2, 3, 6]);
+	      defineCharacter("6", [0, 1, 2, 3, 5, 6]);
+	      defineCharacter("7", [0, 4, 6]);
+	      defineCharacter("8", [0, 1, 2, 3, 4, 5, 6]);
+	      defineCharacter("9", [0, 1, 2, 3, 4, 6]);
+	      defineCharacter("A", [0, 1, 3, 4, 5, 6]);
+	      defineCharacter("B", [1, 2, 3, 5, 6]);
+	      defineCharacter("C", [0, 2, 3, 5]);
+	      defineCharacter("D", [1, 2, 4, 5, 6]);
+	      defineCharacter("E", [0, 1, 2, 4, 6]);
+	      defineCharacter("F", [0, 1, 3, 5]);
+	      defineCharacter("P", [0, 1, 3, 4, 5]);
+	      defineCharacter("-", [1]);
+	      defineCharacter(" ", []);
+	      defineCharacter("_", [2]); // Used for undefined characters
+	
+	      var gl = renderer.gl;
+	      var vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(vertices));
+	      var index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+	
+	      var vertex_attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 2, gl.FLOAT, 8, 0)];
+	
+	      var primitive = new _primitive.Primitive(vertex_attribs, indices.length);
+	      primitive.setIndexBuffer(index_buffer);
+	
+	      var material = new SevenSegmentMaterial();
+	
+	      this._char_primitives = {};
+	      for (var char in characters) {
+	        var char_def = characters[char];
+	        primitive.element_count = char_def.count;
+	        primitive.index_byte_offset = char_def.offset;
+	        this._char_primitives[char] = renderer.createRenderPrimitive(primitive, material);
+	      }
+	
+	      this.text = this._text;
+	    }
+	  }, {
 	    key: 'text',
 	    get: function get() {
 	      return this._text;
@@ -6269,8 +6353,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  _createClass(CubeSeaScene, [{
-	    key: 'onLoadScene',
-	    value: function onLoadScene(renderer) {
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
 	      var box_builder = new _boxBuilder.BoxBuilder();
 	
 	      // Build the cube sea
@@ -6376,8 +6460,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  _createClass(GLTF2Scene, [{
-	    key: 'onLoadScene',
-	    value: function onLoadScene(renderer) {
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
 	      var _this2 = this;
 	
 	      return this.gltf2Loader.loadFromUrl(this.url).then(function (scene_node) {

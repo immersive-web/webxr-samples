@@ -47,6 +47,31 @@ export class Node {
 
     this._active_frame_id = -1;
     this._render_primitives = null;
+    this._renderer = null;
+  }
+
+  _setRenderer(renderer) {
+    if (this._renderer == renderer)
+      return;
+
+    if (this._renderer) {
+      // Changing the renderer removes any previously attached renderPrimitives
+      // from a different renderer.
+      this.clearRenderPrimitives();
+    }
+
+    this._renderer = renderer;
+    if (renderer) {
+      this.onRendererChanged(renderer);
+
+      for (let child of this.children) {
+        child._setRenderer(renderer);
+      }
+    }
+  }
+
+  onRendererChanged(renderer) {
+    // Override in other node types to respond to changes in the renderer.
   }
 
   // Create a clone of this node and all of it's children. Does not duplicate
@@ -56,6 +81,7 @@ export class Node {
     let clone_node = new Node();
     clone_node.name = this.name;
     clone_node.visible = this.visible;
+    clone_node._renderer = this._renderer;
 
     clone_node._dirty_trs = this._dirty_trs;
 
@@ -125,6 +151,10 @@ export class Node {
     value.parent = this;
 
     this.children.push(value);
+
+    if (this._renderer) {
+      value._setRenderer(this._renderer);
+    }
   }
 
   removeNode(value) {
@@ -133,6 +163,13 @@ export class Node {
       this.children.splice(i, 1);
       value.parent = null;
     }
+  }
+
+  clearNodes() {
+    for (let child of this.children) {
+      child.parent = null;
+    }
+    this.children = [];
   }
 
   setMatrixDirty() {

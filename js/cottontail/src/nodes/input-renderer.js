@@ -205,13 +205,23 @@ class CursorHiddenMaterial extends Material {
 }
 
 export class InputRenderer extends Node {
-  constructor(renderer) {
+  constructor() {
     super();
-
-    this._renderer = renderer;
 
     this._max_input_elements = 32;
 
+    this._controllers = [];
+    this._controller_node = null;
+    this._controller_node_handedness = null;
+    this._lasers = null;
+    this._cursors = null;
+
+    this._active_controllers = 0;
+    this._active_lasers = 0;
+    this._active_cursors = 0;
+  }
+
+  onRendererChanged(renderer) {
     this._controllers = [];
     this._controller_node = null;
     this._controller_node_handedness = null;
@@ -249,7 +259,7 @@ export class InputRenderer extends Node {
 
   addLaserPointer(pointer_matrix) {
     // Create the laser pointer mesh if needed.
-    if (!this._lasers) {
+    if (!this._lasers && this._renderer) {
       this._lasers = [this._createLaserMesh()];
       this.addNode(this._lasers[0]);
     }
@@ -270,7 +280,7 @@ export class InputRenderer extends Node {
 
   addCursor(cursor_pos) {
     // Create the cursor mesh if needed.
-    if (!this._cursors) {
+    if (!this._cursors && this._renderer) {
       this._cursors = [this._createCursorMesh()];
       this.addNode(this._cursors[0]);
     }

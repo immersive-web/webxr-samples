@@ -65,11 +65,14 @@ class BoundsMaterial extends Material {
 }
 
 export class BoundsRenderer extends Node {
-  constructor(renderer) {
+  constructor() {
     super();
 
-    this._renderer = renderer;
     this._stage_bounds = null;
+  }
+
+  onRendererChanged(renderer) {
+    this.stage_bounds = this._stage_bounds;
   }
 
   get stage_bounds() {
@@ -81,7 +84,7 @@ export class BoundsRenderer extends Node {
       this.clearRenderPrimitives();
     }
     this._stage_bounds = stage_bounds;
-    if (!stage_bounds || stage_bounds.length === 0) {
+    if (!stage_bounds || stage_bounds.length === 0 || !this._renderer) {
       return;
     }
 

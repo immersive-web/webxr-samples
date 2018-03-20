@@ -89,9 +89,7 @@ export class Skybox extends Node {
     this._rotation_y = options.rotation_y || 0;
   }
 
-  setRenderer(renderer) {
-    this.clearRenderPrimitives();
-
+  onRendererChanged(renderer) {
     let vertices = [];
     let indices = [];
 

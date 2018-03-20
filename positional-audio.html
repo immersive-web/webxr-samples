@@ -307,7 +307,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           pause_texture = new UrlTexture('media/textures/pause-button.png')
 
           // Create a button that toggles the audio state when clicked.
-          play_button = new ButtonNode(renderer, play_texture, () => {
+          play_button = new ButtonNode(play_texture, () => {
             if (audioContext.state == 'running') {
               pauseAudio();
             } else {

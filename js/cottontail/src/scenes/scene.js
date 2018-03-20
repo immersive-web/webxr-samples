@@ -44,13 +44,12 @@ export class Scene extends Node {
 
     this._timestamp = -1;
     this._frame_delta = 0;
-    this._stats_enabled = true;
     this._stats_standing = false;
     this._stats = null;
+    this._stats_enabled = false;
+    this.enableStats(true); // Ensure the stats are added correctly by default.
     this._stage_bounds = null;
     this._bounds_renderer = null;
-
-    this._renderer = null;
 
     this._input_renderer = null;
     this._reset_input_end_frame = true;
@@ -60,43 +59,13 @@ export class Scene extends Node {
   }
 
   setRenderer(renderer) {
-    this._renderer = renderer;
-
     // Set up a non-black clear color so that we can see if something renders
     // wrong.
     renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 
-    if (renderer) {
-      this._gltf2_loader = new GLTF2Loader(renderer);
+    this._gltf2_loader = new GLTF2Loader(renderer);
 
-      if (this._skybox) {
-        this._skybox.setRenderer(renderer);
-      }
-
-      if (this._stats_enabled) {
-        this._stats = new StatsViewer(this._renderer);
-        this._stats.selectable = true;
-        this.addNode(this._stats);
-
-        if (this._stats_standing) {
-          this._stats.translation = [0, 1.4, -0.75];
-        } else {
-          this._stats.translation = [0, -0.3, -0.5];
-        }
-        this._stats.scale = [0.3, 0.3, 0.3];
-        quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
-      }
-
-      if (this._stage_bounds) {
-        this._bounds_renderer = new BoundsRenderer(this._renderer);
-        this._bounds_renderer.stage_bounds = this._stage_bounds;
-      }
-
-      this._input_renderer = new InputRenderer(this._renderer);
-      this.addNode(this._input_renderer);
-
-      this.onLoadScene(this._renderer);
-    }
+    this._setRenderer(renderer);
   }
 
   setSkybox(image_url) {
@@ -127,6 +96,10 @@ export class Scene extends Node {
   }
 
   get inputRenderer() {
+    if (!this._input_renderer) {
+      this._input_renderer = new InputRenderer();
+      this.addNode(this._input_renderer);
+    }
     return this._input_renderer;
   }
 
@@ -149,7 +122,7 @@ export class Scene extends Node {
 
       // Any time that we have a grip matrix, we'll render a controller.
       if (input_pose.gripMatrix) {
-        this._input_renderer.addController(input_pose.gripMatrix);
+        this.inputRenderer.addController(input_pose.gripMatrix);
       }
 
       if (input_pose.pointerMatrix) {
@@ -158,7 +131,7 @@ export class Scene extends Node {
           // hand (as opposed to their head or the screen) use it to render
           // a ray coming out of the input device to indicate the pointer
           // direction.
-          this._input_renderer.addLaserPointer(input_pose.pointerMatrix);
+          this.inputRenderer.addLaserPointer(input_pose.pointerMatrix);
         }
 
         // If we have a pointer matrix we can also use it to render a cursor
@@ -169,13 +142,13 @@ export class Scene extends Node {
 
         if (hit_result) {
           // Render a cursor at the intersection point.
-          this._input_renderer.addCursor(hit_result.intersection);
+          this.inputRenderer.addCursor(hit_result.intersection);
         } else {
           // Statically render the cursor 1 meters down the ray since we didn't
           // hit anything selectable.
           let cursor_pos = vec3.fromValues(0, 0, -1.0);
           vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
-          this._input_renderer.addCursor(cursor_pos);
+          this.inputRenderer.addCursor(cursor_pos);
         }
       }
     }
@@ -209,8 +182,8 @@ export class Scene extends Node {
 
     this._stats_enabled = enable;
 
-    if (enable && this._renderer) {
-      this._stats = new StatsViewer(this._renderer);
+    if (enable) {
+      this._stats = new StatsViewer();
       this._stats.selectable = true;
       this.addNode(this._stats);
 
@@ -232,12 +205,22 @@ export class Scene extends Node {
 
   standingStats(enable) {
     this._stats_standing = enable;
+    if (this._stats) {
+      if (this._stats_standing) {
+        this._stats.translation = [0, 1.4, -0.75];
+      } else {
+        this._stats.translation = [0, -0.3, -0.5];
+      }
+      this._stats.scale = [0.3, 0.3, 0.3];
+      quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
+    }
   }
 
   setBounds(stage_bounds) {
     this._stage_bounds = stage_bounds;
-    if (!this._bounds_renderer && this._renderer) {
-      this._bounds_renderer = new BoundsRenderer(this._renderer);
+    if (stage_bounds && !this._bounds_renderer) {
+      this._bounds_renderer = new BoundsRenderer();
+      this.addNode(this._bounds_renderer);
     }
     if (this._bounds_renderer) {
       this._bounds_renderer.stage_bounds = stage_bounds;

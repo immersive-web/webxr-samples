@@ -71,8 +71,6 @@ class ButtonIconMaterial extends Material {
     super();
 
     this.state.blend = true;
-    this.state.blend_func_src = GL.SRC_ALPHA;
-    this.state.blend_func_dst = GL.ONE;
 
     this.defineUniform("hoverAmount", 0);
     this.icon = this.defineSampler("icon");
@@ -110,7 +108,7 @@ class ButtonIconMaterial extends Material {
 }
 
 export class ButtonNode extends Node {
-  constructor(renderer, icon_texture, callback) {
+  constructor(icon_texture, callback) {
     super();
 
     // All buttons are selectable by default.
@@ -118,8 +116,6 @@ export class ButtonNode extends Node {
 
     this._callback = callback;
     this._icon_texture = icon_texture;
-
-    this.createRenderPrimitive(renderer, icon_texture);
   }
 
   get icon_texture() {
@@ -134,7 +130,7 @@ export class ButtonNode extends Node {
     this._icon_render_primitive.samplers.icon.texture = value;
   }
 
-  createRenderPrimitive(renderer, icon_texture) {
+  onRendererChanged(renderer) {
     let stream = new PrimitiveStream();
 
     let hd = BUTTON_LAYER_DISTANCE * 0.5;
@@ -200,7 +196,7 @@ export class ButtonNode extends Node {
 
     let icon_primitive = stream.finishPrimitive(renderer);
     let icon_material = new ButtonIconMaterial();
-    icon_material.icon.texture = icon_texture;
+    icon_material.icon.texture = this._icon_texture;
     this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
     this.addRenderPrimitive(this._icon_render_primitive);
   }

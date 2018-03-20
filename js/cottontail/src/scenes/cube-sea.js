@@ -79,7 +79,7 @@ export class CubeSeaScene extends Scene {
     this._image_url = options.image_url ? options.image_url : 'media/textures/cube-sea.png';
   }
 
-  onLoadScene(renderer) {
+  onRendererChanged(renderer) {
     let box_builder = new BoxBuilder();
 
     // Build the cube sea

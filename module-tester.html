@@ -125,7 +125,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         addBox(-0.7, 0.7, -1.0);
         addBox(0.7, 0.7, -1.0);*/
 
-        let button = new ButtonNode(renderer, new UrlTexture('media/textures/play-button.png'), () => {
+        let button = new ButtonNode(new UrlTexture('media/textures/play-button.png'), () => {
           // Do something?
           button.icon_texture = new UrlTexture('media/textures/pause-button.png');
           console.log("Button clicked");

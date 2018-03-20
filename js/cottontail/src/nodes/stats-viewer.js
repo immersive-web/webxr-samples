@@ -80,12 +80,10 @@ function fpsToRGB(value) {
 let now = (window.performance && performance.now) ? performance.now.bind(performance) : Date.now;
 
 export class StatsViewer extends Node {
-  constructor(renderer) {
+  constructor() {
     super();
 
     this._performance_monitoring = false;
-
-    this._renderer = renderer;
 
     this._start_time = now();
     this._prev_frame_time = this._start_time;
@@ -99,9 +97,23 @@ export class StatsViewer extends Node {
     this._fps_vertex_buffer = null;
     this._fps_render_primitive = null;
     this._fps_node = null;
-    this._seven_segment_node = null;
 
-    let gl = this._renderer.gl;
+    this._seven_segment_node = new SevenSegmentText();
+    // Hard coded because it doesn't change:
+    // Scale by 0.075 in X and Y
+    // Translate into upper left corner w/ z = 0.02
+    this._seven_segment_node.matrix = new Float32Array([
+      0.075, 0, 0, 0,
+      0, 0.075, 0, 0,
+      0, 0, 1, 0,
+      -0.3625, 0.3625, 0.02, 1
+    ]);
+  }
+
+  onRendererChanged(renderer) {
+    this.clearNodes();
+
+    let gl = renderer.gl;
 
     let fps_verts = [];
     let fps_indices = [];
@@ -145,8 +157,8 @@ export class StatsViewer extends Node {
     // 60 FPS line
     addBGSquare(-0.45, fpsToY(60), 0.45, fpsToY(62), 0.015, 0.2, 0.0, 0.75);
 
-    this._fps_vertex_buffer = this._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(fps_verts), gl.DYNAMIC_DRAW);
-    let fps_index_buffer = this._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fps_indices));
+    this._fps_vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(fps_verts), gl.DYNAMIC_DRAW);
+    let fps_index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fps_indices));
 
     let fps_attribs = [
       new PrimitiveAttribute("POSITION", this._fps_vertex_buffer, 3, gl.FLOAT, 24, 0),
@@ -157,21 +169,11 @@ export class StatsViewer extends Node {
     fps_primitive.setIndexBuffer(fps_index_buffer);
     fps_primitive.setBounds([-0.5, -0.5, 0.0], [0.5, 0.5, 0.015]);
 
-    this._fps_render_primitive = this._renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
+    this._fps_render_primitive = renderer.createRenderPrimitive(fps_primitive, new StatsMaterial());
     this._fps_node = new Node();
     this._fps_node.addRenderPrimitive(this._fps_render_primitive);
+    
     this.addNode(this._fps_node);
-
-    this._seven_segment_node = new SevenSegmentText(this._renderer);
-    // Hard coded because it doesn't change:
-    // Scale by 0.075 in X and Y
-    // Translate into upper left corner w/ z = 0.02
-    this._seven_segment_node.matrix = new Float32Array([
-      0.075, 0, 0, 0,
-      0, 0.075, 0, 0,
-      0, 0, 1, 0,
-      -0.3625, 0.3625, 0.02, 1
-    ]);
     this.addNode(this._seven_segment_node);
   }
 

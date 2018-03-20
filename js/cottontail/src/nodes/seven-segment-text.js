@@ -55,11 +55,15 @@ class SevenSegmentMaterial extends Material {
 }
 
 export class SevenSegmentText extends Node {
-  constructor(renderer) {
+  constructor() {
     super();
 
-    this._renderer = renderer;
     this._text = "";
+    this._char_nodes = [];
+  }
+
+  onRendererChanged(renderer) {
+    this.clearNodes();
     this._char_nodes = [];
 
     let vertices = [];
@@ -140,9 +144,9 @@ export class SevenSegmentText extends Node {
     defineCharacter(" ", []);
     defineCharacter("_", [2]); // Used for undefined characters
 
-    let gl = this._renderer.gl;
-    let vertex_buffer = this._renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(vertices));
-    let index_buffer = this._renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+    let gl = renderer.gl;
+    let vertex_buffer = renderer.createRenderBuffer(gl.ARRAY_BUFFER, new Float32Array(vertices));
+    let index_buffer = renderer.createRenderBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
 
     let vertex_attribs = [
       new PrimitiveAttribute("POSITION", vertex_buffer, 2, gl.FLOAT, 8, 0),
@@ -158,8 +162,10 @@ export class SevenSegmentText extends Node {
       let char_def = characters[char];
       primitive.element_count = char_def.count;
       primitive.index_byte_offset = char_def.offset;
-      this._char_primitives[char] = this._renderer.createRenderPrimitive(primitive, material);
+      this._char_primitives[char] = renderer.createRenderPrimitive(primitive, material);
     }
+
+    this.text = this._text;
   }
 
   get text() {
