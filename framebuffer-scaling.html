@@ -89,7 +89,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession(device) {
-        device.requestSession({ exclusive: true }).then(onSessionStarted);
+        // Set up a mirror canvas
+        let mirrorCanvas = document.createElement('canvas');
+        let ctx = mirrorCanvas.getContext('xrpresent');
+        mirrorCanvas.setAttribute('id', 'mirror-canvas');
+        document.body.appendChild(mirrorCanvas);
+
+        device.requestSession({ exclusive: true, outputContext: ctx  }).then(onSessionStarted);
       }
 
       function onSessionStarted(session) {
@@ -133,6 +139,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
+        document.body.removeChild(document.querySelector('#mirror-canvas'));
         xrButton.setSession(null);
 
         gl = null;

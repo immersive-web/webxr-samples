@@ -85,7 +85,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // contain results of the session's rendering.
         let mirrorCanvas = document.createElement('canvas');
         let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'output-canvas');
+        mirrorCanvas.setAttribute('id', 'mirror-canvas');
 
         // Add the canvas to the document.
         document.body.appendChild(mirrorCanvas);
@@ -117,7 +117,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Set the mirroring context to be the same size as one eye on the
         // layer context.
-        let outputCanvas = document.querySelector('#output-canvas');
+        let outputCanvas = document.querySelector('#mirror-canvas');
         outputCanvas.width = session.baseLayer.framebufferWidth / 2;
         outputCanvas.height = session.baseLayer.framebufferHeight;
 
@@ -138,7 +138,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = null;
 
         // Remove the injected mirroring canvas from the DOM.
-        document.body.removeChild(document.querySelector('#output-canvas'));
+        document.body.removeChild(document.querySelector('#mirror-canvas'));
       }
 
       function onXRFrame(t, frame) {

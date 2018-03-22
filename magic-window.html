@@ -94,7 +94,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession(device) {
-        device.requestSession({ exclusive: true }).then((session) => {
+        // Set up a mirror canvas
+        let mirrorCanvas = document.createElement('canvas');
+        let ctx = mirrorCanvas.getContext('xrpresent');
+        mirrorCanvas.setAttribute('id', 'mirror-canvas');
+        document.body.appendChild(mirrorCanvas);
+
+        device.requestSession({ exclusive: true, outputContext: ctx }).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -133,8 +139,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onSessionEnded(event) {
         // Only reset the button when the exclusive session ends.
-        if (event.session.exclusive)
+        if (event.session.exclusive) {
+          // Remove the mirroring canvas.
+          document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
+        }
       }
 
       // Called every time a XRSession requests that a new frame be drawn.
