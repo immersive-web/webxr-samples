@@ -78,7 +78,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.CubeSeaScene = exports.Scene = exports.WebXRView = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
+	exports.GLTF2Scene = exports.Scene = exports.WebXRView = exports.CubeSea = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
 	var _node = __webpack_require__(1);
 	
@@ -94,9 +94,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _buttonNode = __webpack_require__(11);
 	
-	var _scene = __webpack_require__(12);
+	var _cubeSea = __webpack_require__(12);
 	
-	var _cubeSea = __webpack_require__(19);
+	var _scene = __webpack_require__(13);
 	
 	var _gltf = __webpack_require__(20);
 	
@@ -136,9 +136,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.BoxBuilder = _boxBuilder.BoxBuilder;
 	exports.PbrMaterial = _pbr.PbrMaterial;
 	exports.ButtonNode = _buttonNode.ButtonNode;
+	exports.CubeSea = _cubeSea.CubeSea;
 	exports.WebXRView = _scene.WebXRView;
 	exports.Scene = _scene.Scene;
-	exports.CubeSeaScene = _cubeSea.CubeSeaScene;
 	exports.GLTF2Scene = _gltf.GLTF2Scene;
 
 /***/ }),
@@ -762,6 +762,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'onSelect',
 	    value: function onSelect() {}
+	  }, {
+	    key: '_update',
+	    value: function _update(timestamp, frame_delta) {
+	      this.onUpdate(timestamp, frame_delta);
+	
+	      var _iteratorNormalCompletion14 = true;
+	      var _didIteratorError14 = false;
+	      var _iteratorError14 = undefined;
+	
+	      try {
+	        for (var _iterator14 = this.children[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+	          var child = _step14.value;
+	
+	          child._update(timestamp, frame_delta);
+	        }
+	      } catch (err) {
+	        _didIteratorError14 = true;
+	        _iteratorError14 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion14 && _iterator14.return) {
+	            _iterator14.return();
+	          }
+	        } finally {
+	          if (_didIteratorError14) {
+	            throw _iteratorError14;
+	          }
+	        }
+	      }
+	    }
+	
+	    // Called every frame so that the nodes can animate themselves
+	
+	  }, {
+	    key: 'onUpdate',
+	    value: function onUpdate(timestamp, frame_delta) {}
 	  }, {
 	    key: 'matrix',
 	    set: function set(value) {
@@ -3842,25 +3878,171 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.CubeSea = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _material = __webpack_require__(4);
+	
+	var _primitive = __webpack_require__(8);
+	
+	var _node = __webpack_require__(1);
+	
+	var _texture = __webpack_require__(6);
+	
+	var _boxBuilder = __webpack_require__(9);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	var CubeSeaMaterial = function (_Material) {
+	  _inherits(CubeSeaMaterial, _Material);
+	
+	  function CubeSeaMaterial() {
+	    _classCallCheck(this, CubeSeaMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (CubeSeaMaterial.__proto__ || Object.getPrototypeOf(CubeSeaMaterial)).call(this));
+	
+	    _this.base_color = _this.defineSampler("baseColor");
+	    return _this;
+	  }
+	
+	  _createClass(CubeSeaMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'CUBE_SEA';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    attribute vec3 NORMAL;\n\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    const vec3 lightDir = vec3(0.75, 0.5, 1.0);\n    const vec3 ambientColor = vec3(0.5, 0.5, 0.5);\n    const vec3 lightColor = vec3(0.75, 0.75, 0.75);\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec3 normalRotated = vec3(model * vec4(NORMAL, 0.0));\n      float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);\n      vLight = ambientColor + (lightColor * lightFactor);\n      vTexCoord = TEXCOORD_0;\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return '\n    precision mediump float;\n    uniform sampler2D baseColor;\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    vec4 fragment_main() {\n      return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n    }';
+	    }
+	  }]);
+	
+	  return CubeSeaMaterial;
+	}(_material.Material);
+	
+	var CubeSea = exports.CubeSea = function (_Node) {
+	  _inherits(CubeSea, _Node);
+	
+	  function CubeSea() {
+	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+	
+	    _classCallCheck(this, CubeSea);
+	
+	    var _this2 = _possibleConstructorReturn(this, (CubeSea.__proto__ || Object.getPrototypeOf(CubeSea)).call(this));
+	
+	    _this2._grid_size = options.grid_size ? options.grid_size : 10;
+	    _this2._texture = new _texture.UrlTexture(options.image_url || 'media/textures/cube-sea.png');
+	    return _this2;
+	  }
+	
+	  _createClass(CubeSea, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      var box_builder = new _boxBuilder.BoxBuilder();
+	
+	      // Build the cube sea
+	      var half_grid = this._grid_size * 0.5;
+	      for (var x = 0; x < this._grid_size; ++x) {
+	        for (var y = 0; y < this._grid_size; ++y) {
+	          for (var z = 0; z < this._grid_size; ++z) {
+	            var pos = [x - half_grid, y - half_grid, z - half_grid];
+	            // Don't place a cube in the center of the grid.
+	            if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
+	              box_builder.pushCube(pos, 0.4);
+	            }
+	          }
+	        }
+	      }
+	
+	      var cube_sea_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
+	
+	      box_builder.primitive_stream.clear();
+	
+	      // Build the spinning "hero" cubes
+	      box_builder.pushCube([0, 0.25, -0.8], 0.1);
+	      box_builder.pushCube([0.8, 0.25, 0], 0.1);
+	      box_builder.pushCube([0, 0.25, 0.8], 0.1);
+	      box_builder.pushCube([-0.8, 0.25, 0], 0.1);
+	
+	      var hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
+	
+	      var material = new CubeSeaMaterial();
+	      material.base_color.texture = this._texture;
+	
+	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
+	      this.hero_node = renderer.createMesh(hero_primitive, material);
+	
+	      this.addNode(this.cube_sea_node);
+	      this.addNode(this.hero_node);
+	
+	      return this.waitForComplete();
+	    }
+	  }, {
+	    key: 'onUpdate',
+	    value: function onUpdate(timestamp, frame_delta) {
+	      mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
+	    }
+	  }]);
+
+	  return CubeSea;
+	}(_node.Node);
+
+/***/ }),
+/* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
 	exports.Scene = exports.WebXRView = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
 	var _renderer = __webpack_require__(3);
 	
-	var _boundsRenderer = __webpack_require__(13);
+	var _boundsRenderer = __webpack_require__(14);
 	
-	var _inputRenderer = __webpack_require__(14);
+	var _inputRenderer = __webpack_require__(15);
 	
-	var _skybox = __webpack_require__(15);
+	var _skybox = __webpack_require__(16);
 	
-	var _statsViewer = __webpack_require__(16);
+	var _statsViewer = __webpack_require__(17);
 	
 	var _program = __webpack_require__(5);
 	
 	var _node = __webpack_require__(1);
 	
-	var _gltf = __webpack_require__(18);
+	var _gltf = __webpack_require__(19);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -3920,6 +4102,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this2._skybox = null;
 	    _this2._gltf2_loader = null;
+	
+	    _this2._last_timestamp = 0;
 	    return _this2;
 	  }
 	
@@ -4177,12 +4361,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'drawViewArray',
 	    value: function drawViewArray(views) {
-	      if (!this._renderer) {
-	        // Don't draw when we don't have a valid context
-	        return;
-	      }
+	      // Don't draw when we don't have a valid context
+	      if (!this._renderer) return;
 	
-	      this.onDrawViews(this._renderer, this._timestamp, views);
+	      this._renderer.drawViews(views, this);
 	    }
 	  }, {
 	    key: 'startFrame',
@@ -4198,6 +4380,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      } else {
 	        this._frame_delta = 0;
 	      }
+	
+	      this._update(this._timestamp, this._frame_delta);
 	
 	      return this._frame_delta;
 	    }
@@ -4220,14 +4404,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function onLoadScene(renderer) {
 	      return Promise.resolve();
 	    }
-	
-	    // Override with custom scene rendering.
-	
-	  }, {
-	    key: 'onDrawViews',
-	    value: function onDrawViews(renderer, timestamp, views) {
-	      renderer.drawViews(views, this);
-	    }
 	  }, {
 	    key: 'gltf2Loader',
 	    get: function get() {
@@ -4248,7 +4424,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4396,7 +4572,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4904,7 +5080,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5077,7 +5253,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5095,7 +5271,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _sevenSegmentText = __webpack_require__(17);
+	var _sevenSegmentText = __webpack_require__(18);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -5353,7 +5529,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5585,7 +5761,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -6257,155 +6433,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 19 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	exports.CubeSeaScene = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _scene = __webpack_require__(12);
-	
-	var _material = __webpack_require__(4);
-	
-	var _primitive = __webpack_require__(8);
-	
-	var _node = __webpack_require__(1);
-	
-	var _texture = __webpack_require__(6);
-	
-	var _boxBuilder = __webpack_require__(9);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-	
-	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	var CubeSeaMaterial = function (_Material) {
-	  _inherits(CubeSeaMaterial, _Material);
-	
-	  function CubeSeaMaterial() {
-	    _classCallCheck(this, CubeSeaMaterial);
-	
-	    var _this = _possibleConstructorReturn(this, (CubeSeaMaterial.__proto__ || Object.getPrototypeOf(CubeSeaMaterial)).call(this));
-	
-	    _this.base_color = _this.defineSampler("baseColor");
-	    return _this;
-	  }
-	
-	  _createClass(CubeSeaMaterial, [{
-	    key: 'material_name',
-	    get: function get() {
-	      return 'CUBE_SEA';
-	    }
-	  }, {
-	    key: 'vertex_source',
-	    get: function get() {
-	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    attribute vec3 NORMAL;\n\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    const vec3 lightDir = vec3(0.75, 0.5, 1.0);\n    const vec3 ambientColor = vec3(0.5, 0.5, 0.5);\n    const vec3 lightColor = vec3(0.75, 0.75, 0.75);\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec3 normalRotated = vec3(model * vec4(NORMAL, 0.0));\n      float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);\n      vLight = ambientColor + (lightColor * lightFactor);\n      vTexCoord = TEXCOORD_0;\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
-	    }
-	  }, {
-	    key: 'fragment_source',
-	    get: function get() {
-	      return '\n    precision mediump float;\n    uniform sampler2D baseColor;\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    vec4 fragment_main() {\n      return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n    }';
-	    }
-	  }]);
-	
-	  return CubeSeaMaterial;
-	}(_material.Material);
-	
-	var CubeSeaScene = exports.CubeSeaScene = function (_Scene) {
-	  _inherits(CubeSeaScene, _Scene);
-	
-	  function CubeSeaScene() {
-	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-	
-	    _classCallCheck(this, CubeSeaScene);
-	
-	    var _this2 = _possibleConstructorReturn(this, (CubeSeaScene.__proto__ || Object.getPrototypeOf(CubeSeaScene)).call(this));
-	
-	    _this2._grid_size = options.grid_size ? options.grid_size : 10;
-	    _this2._image_url = options.image_url ? options.image_url : 'media/textures/cube-sea.png';
-	    return _this2;
-	  }
-	
-	  _createClass(CubeSeaScene, [{
-	    key: 'onRendererChanged',
-	    value: function onRendererChanged(renderer) {
-	      var box_builder = new _boxBuilder.BoxBuilder();
-	
-	      // Build the cube sea
-	      var half_grid = this._grid_size * 0.5;
-	      for (var x = 0; x < this._grid_size; ++x) {
-	        for (var y = 0; y < this._grid_size; ++y) {
-	          for (var z = 0; z < this._grid_size; ++z) {
-	            var pos = [x - half_grid, y - half_grid, z - half_grid];
-	            // Don't place a cube in the center of the grid.
-	            if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
-	              box_builder.pushCube(pos, 0.4);
-	            }
-	          }
-	        }
-	      }
-	
-	      var cube_sea_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
-	
-	      box_builder.primitive_stream.clear();
-	
-	      // Build the spinning "hero" cubes
-	      box_builder.pushCube([0, 0.25, -0.8], 0.1);
-	      box_builder.pushCube([0.8, 0.25, 0], 0.1);
-	      box_builder.pushCube([0, 0.25, 0.8], 0.1);
-	      box_builder.pushCube([-0.8, 0.25, 0], 0.1);
-	
-	      var hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
-	
-	      var material = new CubeSeaMaterial();
-	      material.base_color.texture = new _texture.UrlTexture(this._image_url);
-	
-	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
-	      this.hero_node = renderer.createMesh(hero_primitive, material);
-	
-	      this.addNode(this.cube_sea_node);
-	      this.addNode(this.hero_node);
-	
-	      return this.waitForComplete();
-	    }
-	  }, {
-	    key: 'onDrawViews',
-	    value: function onDrawViews(renderer, timestamp, views) {
-	      mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
-	      renderer.drawViews(views, this);
-	    }
-	  }]);
-
-	  return CubeSeaScene;
-	}(_scene.Scene);
-
-/***/ }),
 /* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -6418,9 +6445,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(12);
+	var _scene = __webpack_require__(13);
 	
-	var _gltf = __webpack_require__(18);
+	var _gltf = __webpack_require__(19);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	

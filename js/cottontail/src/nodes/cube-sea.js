@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Scene } from './scene.js'
 import { Material } from '../core/material.js'
 import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
 import { Node } from '../core/node.js'
@@ -71,12 +70,12 @@ class CubeSeaMaterial extends Material {
   }
 }
 
-export class CubeSeaScene extends Scene {
+export class CubeSea extends Node {
   constructor(options = {}) {
     super();
 
     this._grid_size = options.grid_size ? options.grid_size : 10;
-    this._image_url = options.image_url ? options.image_url : 'media/textures/cube-sea.png';
+    this._texture = new UrlTexture(options.image_url || 'media/textures/cube-sea.png');
   }
 
   onRendererChanged(renderer) {
@@ -109,7 +108,7 @@ export class CubeSeaScene extends Scene {
     let hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
 
     let material = new CubeSeaMaterial();
-    material.base_color.texture = new UrlTexture(this._image_url);
+    material.base_color.texture = this._texture;
 
     this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
     this.hero_node = renderer.createMesh(hero_primitive, material);
@@ -120,8 +119,7 @@ export class CubeSeaScene extends Scene {
     return this.waitForComplete();
   }
 
-  onDrawViews(renderer, timestamp, views) {
+  onUpdate(timestamp, frame_delta) {
     mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
-    renderer.drawViews(views, this);
   }
 }

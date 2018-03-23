@@ -28,9 +28,9 @@ import { BoxBuilder } from './geometry/box-builder.js'
 import { PbrMaterial } from './materials/pbr.js'
 
 import { ButtonNode } from './nodes/button-node.js'
+import { CubeSea } from './nodes/cube-sea.js'
 
 import { WebXRView, Scene } from './scenes/scene.js'
-import { CubeSeaScene } from './scenes/cube-sea.js'
 import { GLTF2Scene } from './scenes/gltf2.js'
 
 // A very short-term polyfill to address a change in the location of the
@@ -53,9 +53,9 @@ export {
   PbrMaterial,
 
   ButtonNode,
+  CubeSea,
 
   WebXRView,
   Scene,
-  CubeSeaScene,
   GLTF2Scene
 };

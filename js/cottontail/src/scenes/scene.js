@@ -56,6 +56,8 @@ export class Scene extends Node {
 
     this._skybox = null;
     this._gltf2_loader = null;
+
+    this._last_timestamp = 0;
   }
 
   setRenderer(renderer) {
@@ -269,12 +271,11 @@ export class Scene extends Node {
   }
 
   drawViewArray(views) {
-    if (!this._renderer) {
-      // Don't draw when we don't have a valid context
+    // Don't draw when we don't have a valid context
+    if (!this._renderer)
       return;
-    }
 
-    this.onDrawViews(this._renderer, this._timestamp, views);
+    this._renderer.drawViews(views, this);
   }
 
   startFrame() {
@@ -289,6 +290,8 @@ export class Scene extends Node {
     } else {
       this._frame_delta = 0;
     }
+
+    this._update(this._timestamp, this._frame_delta);
 
     return this._frame_delta;
   }
@@ -306,10 +309,5 @@ export class Scene extends Node {
   // Override to load scene resources on construction or context restore.
   onLoadScene(renderer) {
     return Promise.resolve();
-  }
-
-  // Override with custom scene rendering.
-  onDrawViews(renderer, timestamp, views) {
-    renderer.drawViews(views, this);
   }
 }

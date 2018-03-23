@@ -57,9 +57,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new CubeSeaScene({
+      let scene = new Scene();
+      scene.addNode(new CubeSea({
         image_url: '../media/textures/cube-sea.png'
-      });
+      }));
 
       function initXR() {
         xrButton = new XRDeviceButton({

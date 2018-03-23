@@ -402,4 +402,17 @@ export class Node {
   onSelect() {
 
   }
+
+  _update(timestamp, frame_delta) {
+    this.onUpdate(timestamp, frame_delta);
+
+    for (let child of this.children) {
+      child._update(timestamp, frame_delta);
+    }
+  }
+
+  // Called every frame so that the nodes can animate themselves
+  onUpdate(timestamp, frame_delta) {
+
+  }
 }
