@@ -125,10 +125,10 @@ uniform sampler2D occlusionTex;
 uniform float occlusionStrength;
 #endif
 
-#ifdef USE_EMISSIVE
+#ifdef USE_EMISSIVE_TEXTURE
 uniform sampler2D emissiveTex;
-uniform vec3 emissiveFactor;
 #endif
+uniform vec3 emissiveFactor;
 
 uniform vec3 LIGHT_COLOR;
 
@@ -200,10 +200,12 @@ vec4 fragment_main() {
   float occlusion = texture2D(occlusionTex, vTex).r;
   color = mix(color, color * occlusion, occlusionStrength);
 #endif
-
-#ifdef USE_EMISSIVE
-  color += texture2D(emissiveTex, vTex).rgb * emissiveFactor;
+  
+  vec3 emissive = emissiveFactor;
+#ifdef USE_EMISSIVE_TEXTURE
+  emissive *= texture2D(emissiveTex, vTex).rgb;
 #endif
+  color += emissive;
 
   // gamma correction
   color = pow(color, vec3(1.0/2.2));
@@ -264,7 +266,7 @@ export class PbrMaterial extends Material {
       }
 
       if(this.emissive.texture) {
-        program_defines['USE_EMISSIVE'] = 1;
+        program_defines['USE_EMISSIVE_TEXTURE'] = 1;
       }
     }
 

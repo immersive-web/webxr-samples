@@ -57,8 +57,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new Scene();
-      scene.addNode(new CubeSea());
+      let scene = new GLTF2Scene('media/gltf/space/space.gltf');
+      scene.setSkybox({ image_url: 'media/textures/milky-way-4k.png' });
 
       // Checks to see if WebXR is available and, if so, queries a list of
       // XRDevices that are connected to the system.
