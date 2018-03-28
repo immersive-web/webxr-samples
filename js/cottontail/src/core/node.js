@@ -46,6 +46,7 @@ export class Node {
     this._world_matrix = null;
 
     this._active_frame_id = -1;
+    this._hover_frame_id = -1;
     this._render_primitives = null;
     this._renderer = null;
   }
@@ -400,6 +401,16 @@ export class Node {
 
   // Called when a selectable node is selected.
   onSelect() {
+
+  }
+
+  // Called when a selectable element is pointed at.
+  onHoverStart() {
+
+  }
+
+  // Called when a selectable element is no longer pointed at.
+  onHoverEnd() {
 
   }
 

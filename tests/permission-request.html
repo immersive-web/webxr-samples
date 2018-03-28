@@ -49,6 +49,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      const BUTTON_HEIGHT = 1.3;
+      const BUTTON_DISTANCE = 1.0;
+
       // XR globals.
       let xrButton = null;
       let xrExclusiveFrameOfRef = null;
@@ -129,7 +132,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               () => { camera_button.icon_texture = x_texture; },
             );
           });
-          camera_button.translation = [-0.055, 1.5, -0.65];
+          camera_button.translation = [-0.055, BUTTON_HEIGHT, -BUTTON_DISTANCE];
           scene.addNode(camera_button);
 
           // Button to request camera permission
@@ -139,7 +142,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               () => { mic_button.icon_texture = x_texture; },
             );
           });
-          mic_button.translation = [0.055, 1.5, -0.65];
+          mic_button.translation = [0.055, BUTTON_HEIGHT, -BUTTON_DISTANCE];
           scene.addNode(mic_button);
         }
 

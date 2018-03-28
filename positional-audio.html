@@ -192,6 +192,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function playAudio() {
+        if (audioContext.state == 'running')
+          return;
+
         audioContext.resume();
 
         for (let source of audioSources) {
@@ -204,6 +207,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function pauseAudio() {
+        if (audioContext.state == 'suspended')
+          return;
+
         for (let source of audioSources) {
           source.bufferSource.stop(0);
           source.bufferSource = createBufferSource(
@@ -276,8 +282,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrButton.setSession(session);
           onSessionStarted(session);
         });
-
-        playAudio();
       }
 
       function onSessionStarted(session) {

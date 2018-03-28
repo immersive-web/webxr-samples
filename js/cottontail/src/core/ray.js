@@ -20,6 +20,8 @@
 
 let normal_mat = mat3.create();
 
+const RAY_INTERSECTION_OFFSET = 0.02;
+
 export class Ray {
   constructor(matrix = null) {
     this.origin = vec3.create();
@@ -97,6 +99,10 @@ export class Ray {
       // Intersection is behind the ray origin.
       return null;
     }
+
+    // Push ray intersection point back along the ray a bit so that cursors
+    // don't accidentally intersect with the hit surface.
+    t -= RAY_INTERSECTION_OFFSET;
 
     // Return the point where the ray first intersected with the AABB.
     let intersection_point = vec3.clone(this._dir);

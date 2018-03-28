@@ -58,6 +58,9 @@ export class Scene extends Node {
     this._gltf2_loader = null;
 
     this._last_timestamp = 0;
+
+    this._hover_frame = 0;
+    this._hovered_nodes = [];
   }
 
   setRenderer(renderer) {
@@ -115,6 +118,10 @@ export class Scene extends Node {
 
     let input_sources = frame.session.getInputSources();
 
+    let new_hovered_nodes = [];
+    let last_hover_frame = this._hover_frame;
+    this._hover_frame++;
+
     for (let input_source of input_sources) {
       let input_pose = frame.getInputPose(input_source, frame_of_ref);
 
@@ -145,6 +152,12 @@ export class Scene extends Node {
         if (hit_result) {
           // Render a cursor at the intersection point.
           this.inputRenderer.addCursor(hit_result.intersection);
+
+          if (hit_result.node._hover_frame_id != last_hover_frame) {
+            hit_result.node.onHoverStart();
+          }
+          hit_result.node._hover_frame_id = this._hover_frame;
+          new_hovered_nodes.push(hit_result.node);
         } else {
           // Statically render the cursor 1 meters down the ray since we didn't
           // hit anything selectable.
@@ -154,6 +167,14 @@ export class Scene extends Node {
         }
       }
     }
+
+    for (let hover_node of this._hovered_nodes) {
+      if (hover_node._hover_frame_id != this._hover_frame) {
+        hover_node.onHoverEnd();
+      }
+    }
+
+    this._hovered_nodes = new_hovered_nodes;
   }
 
   handleSelect(input_source, frame, frame_of_ref) {

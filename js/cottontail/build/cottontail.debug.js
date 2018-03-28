@@ -204,6 +204,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._world_matrix = null;
 	
 	    this._active_frame_id = -1;
+	    this._hover_frame_id = -1;
 	    this._render_primitives = null;
 	    this._renderer = null;
 	  }
@@ -762,6 +763,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'onSelect',
 	    value: function onSelect() {}
+	
+	    // Called when a selectable element is pointed at.
+	
+	  }, {
+	    key: 'onHoverStart',
+	    value: function onHoverStart() {}
+	
+	    // Called when a selectable element is no longer pointed at.
+	
+	  }, {
+	    key: 'onHoverEnd',
+	    value: function onHoverEnd() {}
 	  }, {
 	    key: '_update',
 	    value: function _update(timestamp, frame_delta) {
@@ -934,6 +947,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var normal_mat = mat3.create();
 	
+	var RAY_INTERSECTION_OFFSET = 0.02;
+	
 	var Ray = exports.Ray = function () {
 	  function Ray() {
 	    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
@@ -993,6 +1008,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // Intersection is behind the ray origin.
 	        return null;
 	      }
+	
+	      // Push ray intersection point back along the ray a bit so that cursors
+	      // don't accidentally intersect with the hit surface.
+	      t -= RAY_INTERSECTION_OFFSET;
 	
 	      // Return the point where the ray first intersected with the AABB.
 	      var intersection_point = vec3.clone(this._dir);
@@ -3686,6 +3705,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	var BUTTON_CORNER_SEGMENTS = 8;
 	var BUTTON_ICON_SIZE = 0.07;
 	var BUTTON_LAYER_DISTANCE = 0.005;
+	var BUTTON_COLOR = 0.7;
+	var BUTTON_ALPHA = 0.8;
+	var BUTTON_HOVER_COLOR = 0.85;
+	var BUTTON_HOVER_ALPHA = 1.0;
+	var BUTTON_HOVER_SCALE = 1.1;
+	var BUTTON_HOVER_TRANSITION_TIME_MS = 200;
 	
 	var ButtonMaterial = function (_Material) {
 	  _inherits(ButtonMaterial, _Material);
@@ -3696,8 +3721,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var _this = _possibleConstructorReturn(this, (ButtonMaterial.__proto__ || Object.getPrototypeOf(ButtonMaterial)).call(this));
 	
 	    _this.state.blend = true;
-	    _this.state.blend_func_src = GL.SRC_ALPHA;
-	    _this.state.blend_func_dst = GL.ONE;
+	    //this.state.blend_func_src = GL.SRC_ALPHA;
+	    //this.state.blend_func_dst = GL.ONE;
 	
 	    _this.defineUniform("hoverAmount", 0);
 	    return _this;
@@ -3711,12 +3736,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'vertex_source',
 	    get: function get() {
-	      return '\n    attribute vec3 POSITION;\n\n    uniform float hoverAmount;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);\n      return proj * view * model * pos;\n    }';
+	      return '\n    attribute vec3 POSITION;\n\n    uniform float hoverAmount;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      float scale = mix(1.0, ' + BUTTON_HOVER_SCALE + ', hoverAmount);\n      vec4 pos = vec4(POSITION.x * scale, POSITION.y * scale, POSITION.z * (scale + (hoverAmount * 0.2)), 1.0);\n      return proj * view * model * pos;\n    }';
 	    }
 	  }, {
 	    key: 'fragment_source',
 	    get: function get() {
-	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(1.0, 1.0, 1.0, 0.25);\n    }';
+	      return '\n    uniform float hoverAmount;\n\n    const vec4 default_color = vec4(' + BUTTON_COLOR + ', ' + BUTTON_COLOR + ', ' + BUTTON_COLOR + ', ' + BUTTON_ALPHA + ');\n    const vec4 hover_color = vec4(' + BUTTON_HOVER_COLOR + ', ' + BUTTON_HOVER_COLOR + ', ' + BUTTON_HOVER_COLOR + ', ' + BUTTON_HOVER_ALPHA + ');\n\n    vec4 fragment_main() {\n      return mix(default_color, hover_color, hoverAmount);\n    }';
 	    }
 	  }]);
 	
@@ -3746,7 +3771,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'vertex_source',
 	    get: function get() {
-	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n\n    uniform float hoverAmount;\n\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vTexCoord = TEXCOORD_0;\n      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);\n      return proj * view * model * pos;\n    }';
+	      return '\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n\n    uniform float hoverAmount;\n\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vTexCoord = TEXCOORD_0;\n      float scale = mix(1.0, ' + BUTTON_HOVER_SCALE + ', hoverAmount);\n      vec4 pos = vec4(POSITION.x * scale, POSITION.y * scale, POSITION.z * (scale + (hoverAmount * 0.2)), 1.0);\n      return proj * view * model * pos;\n    }';
 	    }
 	  }, {
 	    key: 'fragment_source',
@@ -3771,6 +3796,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this3._callback = callback;
 	    _this3._icon_texture = icon_texture;
+	    _this3._hovered = false;
+	    _this3._hover_t = 0;
 	    return _this3;
 	  }
 	
@@ -3852,6 +3879,38 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if (this._callback) {
 	        this._callback();
 	      }
+	    }
+	  }, {
+	    key: 'onHoverStart',
+	    value: function onHoverStart() {
+	      this._hovered = true;
+	    }
+	  }, {
+	    key: 'onHoverEnd',
+	    value: function onHoverEnd() {
+	      this._hovered = false;
+	    }
+	  }, {
+	    key: '_updateHoverState',
+	    value: function _updateHoverState() {
+	      var t = this._hover_t / BUTTON_HOVER_TRANSITION_TIME_MS;
+	      // Cubic Ease In/Out
+	      // TODO: Get a better animation system
+	      var hover_amount = t < .5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+	      this._button_render_primitive.uniforms.hoverAmount.value = hover_amount;
+	      this._icon_render_primitive.uniforms.hoverAmount.value = hover_amount;
+	    }
+	  }, {
+	    key: 'onUpdate',
+	    value: function onUpdate(timestamp, frame_delta) {
+	      if (this._hovered && this._hover_t < BUTTON_HOVER_TRANSITION_TIME_MS) {
+	        this._hover_t = Math.min(BUTTON_HOVER_TRANSITION_TIME_MS, this._hover_t + frame_delta);
+	        this._updateHoverState();
+	      } else if (!this._hovered && this._hover_t > 0) {
+	        this._hover_t = Math.max(0.0, this._hover_t - frame_delta);
+	        this._updateHoverState();
+	      }
+	      // TODO: Animate hover state
 	    }
 	  }, {
 	    key: 'icon_texture',
@@ -4104,6 +4163,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2._gltf2_loader = null;
 	
 	    _this2._last_timestamp = 0;
+	
+	    _this2._hover_frame = 0;
+	    _this2._hovered_nodes = [];
 	    return _this2;
 	  }
 	
@@ -4155,6 +4217,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      var input_sources = frame.session.getInputSources();
 	
+	      var new_hovered_nodes = [];
+	      var last_hover_frame = this._hover_frame;
+	      this._hover_frame++;
+	
 	      var _iteratorNormalCompletion = true;
 	      var _didIteratorError = false;
 	      var _iteratorError = undefined;
@@ -4192,6 +4258,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if (hit_result) {
 	              // Render a cursor at the intersection point.
 	              this.inputRenderer.addCursor(hit_result.intersection);
+	
+	              if (hit_result.node._hover_frame_id != last_hover_frame) {
+	                hit_result.node.onHoverStart();
+	              }
+	              hit_result.node._hover_frame_id = this._hover_frame;
+	              new_hovered_nodes.push(hit_result.node);
 	            } else {
 	              // Statically render the cursor 1 meters down the ray since we didn't
 	              // hit anything selectable.
@@ -4215,6 +4287,35 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 	        }
 	      }
+	
+	      var _iteratorNormalCompletion2 = true;
+	      var _didIteratorError2 = false;
+	      var _iteratorError2 = undefined;
+	
+	      try {
+	        for (var _iterator2 = this._hovered_nodes[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	          var hover_node = _step2.value;
+	
+	          if (hover_node._hover_frame_id != this._hover_frame) {
+	            hover_node.onHoverEnd();
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError2 = true;
+	        _iteratorError2 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	            _iterator2.return();
+	          }
+	        } finally {
+	          if (_didIteratorError2) {
+	            throw _iteratorError2;
+	          }
+	        }
+	      }
+	
+	      this._hovered_nodes = new_hovered_nodes;
 	    }
 	  }, {
 	    key: 'handleSelect',
@@ -4331,27 +4432,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      var views = [];
-	      var _iteratorNormalCompletion2 = true;
-	      var _didIteratorError2 = false;
-	      var _iteratorError2 = undefined;
+	      var _iteratorNormalCompletion3 = true;
+	      var _didIteratorError3 = false;
+	      var _iteratorError3 = undefined;
 	
 	      try {
-	        for (var _iterator2 = xr_frame.views[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	          var view = _step2.value;
+	        for (var _iterator3 = xr_frame.views[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	          var view = _step3.value;
 	
 	          views.push(new WebXRView(view, pose, layer));
 	        }
 	      } catch (err) {
-	        _didIteratorError2 = true;
-	        _iteratorError2 = err;
+	        _didIteratorError3 = true;
+	        _iteratorError3 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
-	            _iterator2.return();
+	          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	            _iterator3.return();
 	          }
 	        } finally {
-	          if (_didIteratorError2) {
-	            throw _iteratorError2;
+	          if (_didIteratorError3) {
+	            throw _iteratorError3;
 	          }
 	        }
 	      }
@@ -4638,7 +4739,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var CURSOR_OPACITY = 0.9;
 	var CURSOR_SEGMENTS = 16;
 	var CURSOR_DEFAULT_COLOR = [1.0, 1.0, 1.0, 1.0];
-	var CURSOR_DEFAULT_HIDDEN_COLOR = [0.6, 0.6, 0.6, 0.4];
+	var CURSOR_DEFAULT_HIDDEN_COLOR = [0.5, 0.5, 0.5, 0.25];
 	
 	var DEFAULT_RESET_OPTIONS = {
 	  controllers: true,

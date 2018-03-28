@@ -28,14 +28,20 @@ const BUTTON_CORNER_RADIUS = 0.025;
 const BUTTON_CORNER_SEGMENTS = 8;
 const BUTTON_ICON_SIZE = 0.07;
 const BUTTON_LAYER_DISTANCE = 0.005;
+const BUTTON_COLOR = 0.7;
+const BUTTON_ALPHA = 0.8;
+const BUTTON_HOVER_COLOR = 0.85;
+const BUTTON_HOVER_ALPHA = 1.0;
+const BUTTON_HOVER_SCALE = 1.1;
+const BUTTON_HOVER_TRANSITION_TIME_MS = 200;
 
 class ButtonMaterial extends Material {
   constructor() {
     super();
 
     this.state.blend = true;
-    this.state.blend_func_src = GL.SRC_ALPHA;
-    this.state.blend_func_dst = GL.ONE;
+    //this.state.blend_func_src = GL.SRC_ALPHA;
+    //this.state.blend_func_dst = GL.ONE;
 
     this.defineUniform("hoverAmount", 0);
   }
@@ -51,17 +57,21 @@ class ButtonMaterial extends Material {
     uniform float hoverAmount;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
-      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);
+      float scale = mix(1.0, ${BUTTON_HOVER_SCALE}, hoverAmount);
+      vec4 pos = vec4(POSITION.x * scale, POSITION.y * scale, POSITION.z * (scale + (hoverAmount * 0.2)), 1.0);
       return proj * view * model * pos;
     }`;
   }
 
   get fragment_source() {
     return `
-    precision mediump float;
+    uniform float hoverAmount;
+
+    const vec4 default_color = vec4(${BUTTON_COLOR}, ${BUTTON_COLOR}, ${BUTTON_COLOR}, ${BUTTON_ALPHA});
+    const vec4 hover_color = vec4(${BUTTON_HOVER_COLOR}, ${BUTTON_HOVER_COLOR}, ${BUTTON_HOVER_COLOR}, ${BUTTON_HOVER_ALPHA});
 
     vec4 fragment_main() {
-      return vec4(1.0, 1.0, 1.0, 0.25);
+      return mix(default_color, hover_color, hoverAmount);
     }`;
   }
 }
@@ -91,7 +101,8 @@ class ButtonIconMaterial extends Material {
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vTexCoord = TEXCOORD_0;
-      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z * (1.0 + hoverAmount), 1.0);
+      float scale = mix(1.0, ${BUTTON_HOVER_SCALE}, hoverAmount);
+      vec4 pos = vec4(POSITION.x * scale, POSITION.y * scale, POSITION.z * (scale + (hoverAmount * 0.2)), 1.0);
       return proj * view * model * pos;
     }`;
   }
@@ -116,6 +127,8 @@ export class ButtonNode extends Node {
 
     this._callback = callback;
     this._icon_texture = icon_texture;
+    this._hovered = false;
+    this._hover_t = 0;
   }
 
   get icon_texture() {
@@ -205,5 +218,33 @@ export class ButtonNode extends Node {
     if (this._callback) {
       this._callback();
     }
+  }
+
+  onHoverStart() {
+    this._hovered = true;
+  }
+
+  onHoverEnd() {
+    this._hovered = false;
+  }
+
+  _updateHoverState() {
+    let t = this._hover_t / BUTTON_HOVER_TRANSITION_TIME_MS;
+    // Cubic Ease In/Out
+    // TODO: Get a better animation system
+    let hover_amount = t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1;
+    this._button_render_primitive.uniforms.hoverAmount.value = hover_amount;
+    this._icon_render_primitive.uniforms.hoverAmount.value = hover_amount;
+  }
+
+  onUpdate(timestamp, frame_delta) {
+    if (this._hovered && this._hover_t < BUTTON_HOVER_TRANSITION_TIME_MS) {
+      this._hover_t = Math.min(BUTTON_HOVER_TRANSITION_TIME_MS, this._hover_t + frame_delta);
+      this._updateHoverState();
+    } else if (!this._hovered && this._hover_t > 0) {
+      this._hover_t = Math.max(0.0, this._hover_t - frame_delta);
+      this._updateHoverState()
+    }
+    // TODO: Animate hover state
   }
 }
