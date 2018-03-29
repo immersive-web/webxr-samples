@@ -77,6 +77,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let resonance = new ResonanceAudio(audioContext);
       resonance.output.connect(audioContext.destination);
 
+      audioContext.suspend();
+
       // Rough room dimensions in meters (estimated from model in Blender.)
       let roomDimensions = {
         width : 6,

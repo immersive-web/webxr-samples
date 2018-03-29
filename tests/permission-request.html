@@ -50,8 +50,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
-      const BUTTON_HEIGHT = 1.3;
-      const BUTTON_DISTANCE = 1.0;
+      const BUTTON_PER_ROW = 5;
+      const BUTTON_ROW_ARC = Math.PI * 0.2;
+      const BUTTON_ROW_HEIGHT = 0.12;
+      const BUTTON_GRID_HEIGHT = 1.3;
+      const BUTTON_GRID_DISTANCE = 1.0;
 
       // XR globals.
       let xrButton = null;
@@ -126,25 +129,76 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let check_texture = new UrlTexture('../media/textures/check-button.png');
           let x_texture = new UrlTexture('../media/textures/x-button.png');
 
-          // Button to request camera permission
-          let camera_button = new ButtonNode(new UrlTexture('../media/textures/camera-button.png'), () => {
-            navigator.getUserMedia({ video: true },
-              () => { camera_button.icon_texture = check_texture; },
-              () => { camera_button.icon_texture = x_texture; },
-            );
-          });
-          camera_button.translation = [-0.055, BUTTON_HEIGHT, -BUTTON_DISTANCE];
-          scene.addNode(camera_button);
+          function addPermissionButton(icon_url, callback, y_angle, y_offset) {
+            let button = new ButtonNode(new UrlTexture(icon_url), () => {
+              callback(
+                () => { button.icon_texture = check_texture; }, // Success callback
+                () => { button.icon_texture = x_texture; } // Failure callback
+              )
+            });
+            mat4.identity(button.matrix);
+            mat4.translate(button.matrix, button.matrix, [0, y_offset, 0]);
+            mat4.rotateY(button.matrix, button.matrix, y_angle);
+            mat4.translate(button.matrix, button.matrix, [0, 0, -BUTTON_GRID_DISTANCE]);
+            scene.addNode(button);
+          }
 
-          // Button to request camera permission
-          let mic_button = new ButtonNode(new UrlTexture('../media/textures/mic-button.png'), () => {
-            navigator.getUserMedia({ audio: true },
-              () => { mic_button.icon_texture = check_texture; },
-              () => { mic_button.icon_texture = x_texture; },
-            );
-          });
-          mic_button.translation = [0.055, BUTTON_HEIGHT, -BUTTON_DISTANCE];
-          scene.addNode(mic_button);
+          // Builds a cylindrical grid of buttons
+          function addPermissionButtons(button_list) {
+            let count = button_list.length;
+            let rows = Math.ceil(count / BUTTON_PER_ROW);
+            let first_row_offset = (rows / 2) * BUTTON_ROW_HEIGHT;
+            let angle_per_button = BUTTON_ROW_ARC / BUTTON_PER_ROW;
+            let row_angle_offset = (BUTTON_ROW_ARC * 0.5) - (angle_per_button * 0.5)
+
+            for (let i = 0; i < count; ++i) {
+              let button = button_list[i];
+              let y_angle = row_angle_offset - ((i % BUTTON_PER_ROW) * angle_per_button);
+              let row = Math.floor(i / BUTTON_PER_ROW);
+              let y_offset = BUTTON_GRID_HEIGHT + (first_row_offset - (row * BUTTON_ROW_HEIGHT));
+              addPermissionButton(button.icon, button.callback, y_angle, y_offset);
+            }
+          }
+
+          addPermissionButtons([
+            {
+              icon: '../media/textures/camera-button.png',
+              callback: (success, fail) => {
+                navigator.getUserMedia({ video: true }, success, fail);
+              }
+            },
+            {
+              icon: '../media/textures/mic-button.png',
+              callback: (success, fail) => {
+                navigator.getUserMedia({ audio: true }, success, fail);
+              }
+            },
+            {
+              icon: '../media/textures/location-button.png',
+              callback: (success, fail) => {
+                navigator.geolocation.getCurrentPosition(success, fail);
+              }
+            },
+            {
+              icon: '../media/textures/bluetooth-button.png',
+              callback: (success, fail) => {
+                navigator.bluetooth.requestDevice({
+                  // filters: [...] <- Prefer filters to save energy & show relevant devices.
+                  // acceptAllDevices here ensures dialog can populate, we don't care with what.
+                  acceptAllDevices:true
+                })
+                .then(device => device.gatt.connect())
+                .then(success, fail);
+              }
+            },
+            {
+              icon: '../media/textures/usb-button.png',
+              callback: (success, fail) => {
+                navigator.usb.requestDevice({filters: [{}]})
+                .then(success, fail);
+              }
+            },
+          ]);
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);

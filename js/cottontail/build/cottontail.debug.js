@@ -3705,9 +3705,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	var BUTTON_CORNER_SEGMENTS = 8;
 	var BUTTON_ICON_SIZE = 0.07;
 	var BUTTON_LAYER_DISTANCE = 0.005;
-	var BUTTON_COLOR = 0.7;
-	var BUTTON_ALPHA = 0.8;
-	var BUTTON_HOVER_COLOR = 0.85;
+	var BUTTON_COLOR = 0.75;
+	var BUTTON_ALPHA = 0.85;
+	var BUTTON_HOVER_COLOR = 0.9;
 	var BUTTON_HOVER_ALPHA = 1.0;
 	var BUTTON_HOVER_SCALE = 1.1;
 	var BUTTON_HOVER_TRANSITION_TIME_MS = 200;
