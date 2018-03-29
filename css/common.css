@@ -44,3 +44,21 @@ canvas {
   margin: 0;
   touch-action: none;
 }
+
+.back {
+  float: right;
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.back::before {
+  display: inline-block;
+  content: attr(data-index) '<';
+  font-weight: bold;
+  white-space: nowrap;
+  margin-right: 0.2em;
+  margin-left: 0.2em;
+}
