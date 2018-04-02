@@ -263,7 +263,7 @@ export class Scene extends Node {
 
   /** Draws the scene into the base layer of the XRFrame's session */
   drawXRFrame(xr_frame, pose) {
-    if (!this._renderer) {
+    if (!this._renderer || !pose) {
       return;
     }
 
@@ -278,10 +278,6 @@ export class Scene extends Node {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    if (!pose) {
-      return;
-    }
 
     let views = [];
     for (let view of xr_frame.views) {

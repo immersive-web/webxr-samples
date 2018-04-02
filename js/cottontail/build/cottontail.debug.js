@@ -4411,7 +4411,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'drawXRFrame',
 	    value: function drawXRFrame(xr_frame, pose) {
-	      if (!this._renderer) {
+	      if (!this._renderer || !pose) {
 	        return;
 	      }
 	
@@ -4426,10 +4426,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
 	      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-	
-	      if (!pose) {
-	        return;
-	      }
 	
 	      var views = [];
 	      var _iteratorNormalCompletion3 = true;

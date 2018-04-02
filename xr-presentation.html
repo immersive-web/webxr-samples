@@ -159,13 +159,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
 
-        // Bind the WebGL layer's framebuffer, which is where any content to be
-        // displayed on the XRDevice must be rendered.
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
-
-        // Clear the framebuffer
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
         // Get the XRDevice pose relative to the Frame of Reference we created
         // earlier.
         let pose = frame.getDevicePose(xrFrameOfRef);
@@ -176,8 +169,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // framebuffer cleared, so tracking loss means the scene will simply
         // dissapear.
         if (pose) {
-          // If we do have a valid pose, loop through each of the views reported
-          // by the frame and draw them into the corresponding viewport.
+
+          // If we do have a valid pose, bind the WebGL layer's framebuffer,
+          // which is where any content to be displayed on the XRDevice must be
+          // rendered.
+          gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+
+          // Clear the framebuffer
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+          // Loop through each of the views reported by the frame and draw them
+          // into the corresponding viewport.
           for (let view of frame.views) {
             let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
@@ -192,6 +194,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // in the appropriate matrices here to be used when rendering.
             scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
           }
+        } else {
+          // There's several options for handling cases where no pose is given.
+          // The simplest, which these samples opt for, is to simply not draw
+          // anything. That way the device will continue to show the last frame
+          // drawn, possibly even with reprojection. Alternately you could
+          // re-draw the scene again with the last known good pose (which is now
+          // likely to be wrong), clear to black, or draw a head-locked message
+          // for the user indicating that they should try to get back to an area
+          // with better tracking. In all cases it's possible that the device
+          // may override what is drawn here to show the user it's own error
+          // message, so it should not be anything critical to the application's
+          // use.
         }
 
         // Per-frame scene teardown. Nothing WebXR specific here.
