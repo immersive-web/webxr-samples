@@ -160,15 +160,18 @@ class RenderPrimitiveAttributeBuffer {
 
 class RenderPrimitive {
   constructor(primitive) {
-    this._mode = primitive.mode;
-    this._element_count = primitive.element_count;
     this._instances = [];
-    this._vao = null;
-
-    this._complete = false;
-
     this._material = null;
 
+    this.setPrimitive(primitive);
+  }
+
+  setPrimitive(primitive) {
+    this._mode = primitive.mode;
+    this._element_count = primitive.element_count;
+    this._promise = null;
+    this._vao = null;
+    this._complete = false;
     this._attribute_buffers = [];
     this._attribute_mask = 0;
 
@@ -206,6 +209,10 @@ class RenderPrimitive {
     } else {
       this._min = null;
       this._max = null;
+    }
+
+    if (this._material != null) {
+      this.waitForComplete(); // To flip the _complete flag.
     }
   }
 
@@ -509,18 +516,6 @@ export class Renderer {
     let render_material = new RenderMaterial(this, material, program);
     render_primitive.setRenderMaterial(render_material);
 
-    if (this._vao_ext) {
-      render_primitive.waitForComplete().then(() => {
-        render_primitive._vao = this._vao_ext.createVertexArrayOES();
-        this._vao_ext.bindVertexArrayOES(render_primitive._vao);
-        this._bindPrimitive(render_primitive);
-        this._vao_ext.bindVertexArrayOES(null);
-        // TODO: Get rid of the buffer/attribute data on the RenderPrimitive when
-        // it has a VAO?
-        // render_primitive._attribute_buffers = null;
-      });
-    }
-
     if (!this._render_primitives[render_material._render_order]) {
       this._render_primitives[render_material._render_order] = [];
     }
@@ -625,8 +620,14 @@ export class Renderer {
         material = primitive._material;
       }
 
-      if (primitive._vao) {
-        this._vao_ext.bindVertexArrayOES(primitive._vao);
+      if (this._vao_ext) {
+        if (primitive._vao) {
+          this._vao_ext.bindVertexArrayOES(primitive._vao);
+        } else {
+          primitive._vao = this._vao_ext.createVertexArrayOES();
+          this._vao_ext.bindVertexArrayOES(primitive._vao);
+          this._bindPrimitive(primitive);
+        }
       } else {
         this._bindPrimitive(primitive, attrib_mask);
         attrib_mask = primitive._attribute_mask;

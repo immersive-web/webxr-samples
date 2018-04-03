@@ -1245,99 +1245,107 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function RenderPrimitive(primitive) {
 	    _classCallCheck(this, RenderPrimitive);
 	
-	    this._mode = primitive.mode;
-	    this._element_count = primitive.element_count;
 	    this._instances = [];
-	    this._vao = null;
-	
-	    this._complete = false;
-	
 	    this._material = null;
 	
-	    this._attribute_buffers = [];
-	    this._attribute_mask = 0;
-	
-	    var _iteratorNormalCompletion2 = true;
-	    var _didIteratorError2 = false;
-	    var _iteratorError2 = undefined;
-	
-	    try {
-	      for (var _iterator2 = primitive.attributes[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-	        var attribute = _step2.value;
-	
-	        this._attribute_mask |= ATTRIB_MASK[attribute.name];
-	        var render_attribute = new RenderPrimitiveAttribute(attribute);
-	        var found_buffer = false;
-	        var _iteratorNormalCompletion3 = true;
-	        var _didIteratorError3 = false;
-	        var _iteratorError3 = undefined;
-	
-	        try {
-	          for (var _iterator3 = this._attribute_buffers[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-	            var attribute_buffer = _step3.value;
-	
-	            if (attribute_buffer._buffer == attribute.buffer) {
-	              attribute_buffer._attributes.push(render_attribute);
-	              found_buffer = true;
-	              break;
-	            }
-	          }
-	        } catch (err) {
-	          _didIteratorError3 = true;
-	          _iteratorError3 = err;
-	        } finally {
-	          try {
-	            if (!_iteratorNormalCompletion3 && _iterator3.return) {
-	              _iterator3.return();
-	            }
-	          } finally {
-	            if (_didIteratorError3) {
-	              throw _iteratorError3;
-	            }
-	          }
-	        }
-	
-	        if (!found_buffer) {
-	          var _attribute_buffer = new RenderPrimitiveAttributeBuffer(attribute.buffer);
-	          _attribute_buffer._attributes.push(render_attribute);
-	          this._attribute_buffers.push(_attribute_buffer);
-	        }
-	      }
-	    } catch (err) {
-	      _didIteratorError2 = true;
-	      _iteratorError2 = err;
-	    } finally {
-	      try {
-	        if (!_iteratorNormalCompletion2 && _iterator2.return) {
-	          _iterator2.return();
-	        }
-	      } finally {
-	        if (_didIteratorError2) {
-	          throw _iteratorError2;
-	        }
-	      }
-	    }
-	
-	    this._index_buffer = null;
-	    this._index_byte_offset = 0;
-	    this._index_type = 0;
-	
-	    if (primitive.index_buffer) {
-	      this._index_byte_offset = primitive.index_byte_offset;
-	      this._index_type = primitive.index_type;
-	      this._index_buffer = primitive.index_buffer;
-	    }
-	
-	    if (primitive._min) {
-	      this._min = vec3.clone(primitive._min);
-	      this._max = vec3.clone(primitive._max);
-	    } else {
-	      this._min = null;
-	      this._max = null;
-	    }
+	    this.setPrimitive(primitive);
 	  }
 	
 	  _createClass(RenderPrimitive, [{
+	    key: 'setPrimitive',
+	    value: function setPrimitive(primitive) {
+	      this._mode = primitive.mode;
+	      this._element_count = primitive.element_count;
+	      this._promise = null;
+	      this._vao = null;
+	      this._complete = false;
+	      this._attribute_buffers = [];
+	      this._attribute_mask = 0;
+	
+	      var _iteratorNormalCompletion2 = true;
+	      var _didIteratorError2 = false;
+	      var _iteratorError2 = undefined;
+	
+	      try {
+	        for (var _iterator2 = primitive.attributes[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	          var attribute = _step2.value;
+	
+	          this._attribute_mask |= ATTRIB_MASK[attribute.name];
+	          var render_attribute = new RenderPrimitiveAttribute(attribute);
+	          var found_buffer = false;
+	          var _iteratorNormalCompletion3 = true;
+	          var _didIteratorError3 = false;
+	          var _iteratorError3 = undefined;
+	
+	          try {
+	            for (var _iterator3 = this._attribute_buffers[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	              var attribute_buffer = _step3.value;
+	
+	              if (attribute_buffer._buffer == attribute.buffer) {
+	                attribute_buffer._attributes.push(render_attribute);
+	                found_buffer = true;
+	                break;
+	              }
+	            }
+	          } catch (err) {
+	            _didIteratorError3 = true;
+	            _iteratorError3 = err;
+	          } finally {
+	            try {
+	              if (!_iteratorNormalCompletion3 && _iterator3.return) {
+	                _iterator3.return();
+	              }
+	            } finally {
+	              if (_didIteratorError3) {
+	                throw _iteratorError3;
+	              }
+	            }
+	          }
+	
+	          if (!found_buffer) {
+	            var _attribute_buffer = new RenderPrimitiveAttributeBuffer(attribute.buffer);
+	            _attribute_buffer._attributes.push(render_attribute);
+	            this._attribute_buffers.push(_attribute_buffer);
+	          }
+	        }
+	      } catch (err) {
+	        _didIteratorError2 = true;
+	        _iteratorError2 = err;
+	      } finally {
+	        try {
+	          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+	            _iterator2.return();
+	          }
+	        } finally {
+	          if (_didIteratorError2) {
+	            throw _iteratorError2;
+	          }
+	        }
+	      }
+	
+	      this._index_buffer = null;
+	      this._index_byte_offset = 0;
+	      this._index_type = 0;
+	
+	      if (primitive.index_buffer) {
+	        this._index_byte_offset = primitive.index_byte_offset;
+	        this._index_type = primitive.index_type;
+	        this._index_buffer = primitive.index_buffer;
+	      }
+	
+	      if (primitive._min) {
+	        this._min = vec3.clone(primitive._min);
+	        this._max = vec3.clone(primitive._max);
+	      } else {
+	        this._min = null;
+	        this._max = null;
+	      }
+	
+	      if (this._material != null) {
+	        this.waitForComplete(); // To flip the _complete flag.
+	      }
+	    }
+	  }, {
 	    key: 'setRenderMaterial',
 	    value: function setRenderMaterial(material) {
 	      this._material = material;
@@ -1829,25 +1837,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'createRenderPrimitive',
 	    value: function createRenderPrimitive(primitive, material) {
-	      var _this5 = this;
-	
 	      var render_primitive = new RenderPrimitive(primitive);
 	
 	      var program = this._getMaterialProgram(material, render_primitive);
 	      var render_material = new RenderMaterial(this, material, program);
 	      render_primitive.setRenderMaterial(render_material);
-	
-	      if (this._vao_ext) {
-	        render_primitive.waitForComplete().then(function () {
-	          render_primitive._vao = _this5._vao_ext.createVertexArrayOES();
-	          _this5._vao_ext.bindVertexArrayOES(render_primitive._vao);
-	          _this5._bindPrimitive(render_primitive);
-	          _this5._vao_ext.bindVertexArrayOES(null);
-	          // TODO: Get rid of the buffer/attribute data on the RenderPrimitive when
-	          // it has a VAO?
-	          // render_primitive._attribute_buffers = null;
-	        });
-	      }
 	
 	      if (!this._render_primitives[render_material._render_order]) {
 	        this._render_primitives[render_material._render_order] = [];
@@ -1981,8 +1975,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	            material = primitive._material;
 	          }
 	
-	          if (primitive._vao) {
-	            this._vao_ext.bindVertexArrayOES(primitive._vao);
+	          if (this._vao_ext) {
+	            if (primitive._vao) {
+	              this._vao_ext.bindVertexArrayOES(primitive._vao);
+	            } else {
+	              primitive._vao = this._vao_ext.createVertexArrayOES();
+	              this._vao_ext.bindVertexArrayOES(primitive._vao);
+	              this._bindPrimitive(primitive);
+	            }
 	          } else {
 	            this._bindPrimitive(primitive, attrib_mask);
 	            attrib_mask = primitive._attribute_mask;
@@ -2055,7 +2055,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: '_getRenderTexture',
 	    value: function _getRenderTexture(texture) {
-	      var _this6 = this;
+	      var _this5 = this;
 	
 	      if (!texture) {
 	        return null;
@@ -2081,7 +2081,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          texture.waitForComplete().then(function () {
 	            gl.bindTexture(gl.TEXTURE_2D, texture_handle);
 	            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture._img);
-	            _this6._setSamplerParameters(texture);
+	            _this5._setSamplerParameters(texture);
 	          });
 	        }
 	
@@ -2123,7 +2123,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: '_getMaterialProgram',
 	    value: function _getMaterialProgram(material, render_primitive) {
-	      var _this7 = this;
+	      var _this6 = this;
 	
 	      var material_name = material.material_name;
 	      var vertex_source = material.vertex_source;
@@ -2165,7 +2165,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          for (var i = 0; i < material._samplers.length; ++i) {
 	            var sampler = material._samplers[i];
 	            var uniform = program.uniform[sampler._uniform_name];
-	            if (uniform) _this7._gl.uniform1i(uniform, i);
+	            if (uniform) _this6._gl.uniform1i(uniform, i);
 	          }
 	        });
 	
@@ -3979,9 +3979,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _inherits(CubeSeaMaterial, _Material);
 	
 	  function CubeSeaMaterial() {
+	    var heavy = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+	
 	    _classCallCheck(this, CubeSeaMaterial);
 	
 	    var _this = _possibleConstructorReturn(this, (CubeSeaMaterial.__proto__ || Object.getPrototypeOf(CubeSeaMaterial)).call(this));
+	
+	    _this.heavy = heavy;
 	
 	    _this.base_color = _this.defineSampler("baseColor");
 	    return _this;
@@ -4000,7 +4004,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'fragment_source',
 	    get: function get() {
-	      return '\n    precision mediump float;\n    uniform sampler2D baseColor;\n    varying vec2 vTexCoord;\n    varying vec3 vLight;\n\n    vec4 fragment_main() {\n      return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n    }';
+	      if (!this.heavy) {
+	        return '\n      precision mediump float;\n      uniform sampler2D baseColor;\n      varying vec2 vTexCoord;\n      varying vec3 vLight;\n\n      vec4 fragment_main() {\n        return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);\n      }';
+	      } else {
+	        // Used when we want to stress the GPU a bit more.
+	        // Stolen with love from https://www.clicktorelease.com/code/codevember-2016/4/
+	        return '\n      precision mediump float;\n\n      uniform sampler2D diffuse;\n      varying vec2 vTexCoord;\n      varying vec3 vLight;\n\n      vec2 dimensions = vec2(64, 64);\n      float seed = 0.42;\n\n      vec2 hash( vec2 p ) {\n        p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));\n        return fract(sin(p)*18.5453);\n      }\n\n      vec3 hash3( vec2 p ) {\n          vec3 q = vec3( dot(p,vec2(127.1,311.7)),\n                 dot(p,vec2(269.5,183.3)),\n                 dot(p,vec2(419.2,371.9)) );\n        return fract(sin(q)*43758.5453);\n      }\n\n      float iqnoise( in vec2 x, float u, float v ) {\n        vec2 p = floor(x);\n        vec2 f = fract(x);\n        float k = 1.0+63.0*pow(1.0-v,4.0);\n        float va = 0.0;\n        float wt = 0.0;\n        for( int j=-2; j<=2; j++ )\n          for( int i=-2; i<=2; i++ ) {\n            vec2 g = vec2( float(i),float(j) );\n            vec3 o = hash3( p + g )*vec3(u,u,1.0);\n            vec2 r = g - f + o.xy;\n            float d = dot(r,r);\n            float ww = pow( 1.0-smoothstep(0.0,1.414,sqrt(d)), k );\n            va += o.z*ww;\n            wt += ww;\n          }\n        return va/wt;\n      }\n\n      // return distance, and cell id\n      vec2 voronoi( in vec2 x ) {\n        vec2 n = floor( x );\n        vec2 f = fract( x );\n        vec3 m = vec3( 8.0 );\n        for( int j=-1; j<=1; j++ )\n          for( int i=-1; i<=1; i++ ) {\n            vec2  g = vec2( float(i), float(j) );\n            vec2  o = hash( n + g );\n            vec2  r = g - f + (0.5+0.5*sin(seed+6.2831*o));\n            float d = dot( r, r );\n            if( d<m.x )\n              m = vec3( d, o );\n          }\n        return vec2( sqrt(m.x), m.y+m.z );\n      }\n\n      void main() {\n        vec2 uv = ( vTexCoord );\n        uv *= vec2( 10., 10. );\n        uv += seed;\n        vec2 p = 0.5 - 0.5*sin( 0.*vec2(1.01,1.71) );\n\n        vec2 c = voronoi( uv );\n        vec3 col = vec3( c.y / 2. );\n\n        float f = iqnoise( 1. * uv + c.y, p.x, p.y );\n        col *= 1.0 + .25 * vec3( f );\n\n        gl_FragColor = vec4(vLight, 1.0) * texture2D(diffuse, vTexCoord) * vec4( col, 1. );\n      }';
+	      }
 	    }
 	  }]);
 	
@@ -4015,35 +4025,40 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _classCallCheck(this, CubeSea);
 	
+	    // Test variables
+	    // If true, use a very heavyweight shader to stress the GPU.
 	    var _this2 = _possibleConstructorReturn(this, (CubeSea.__proto__ || Object.getPrototypeOf(CubeSea)).call(this));
 	
-	    _this2._grid_size = options.grid_size ? options.grid_size : 10;
+	    _this2.heavy_gpu = !!options.heavy_gpu;
+	
+	    // Number and size of the static cubes. Warning, large values
+	    // don't render right due to overflow of the int16 indices.
+	    _this2.cube_count = options.cube_count || (_this2.heavy_gpu ? 12 : 10);
+	    _this2.cube_scale = options.cube_scale || 1.0;
+	
+	    // Draw only half the world cubes. Helps test variable render cost
+	    // when combined with heavyGpu.
+	    _this2.half_only = !!options.half_only;
+	
+	    // Automatically spin the world cubes. Intended for automated testing,
+	    // not recommended for viewing in a headset.
+	    _this2.auto_rotate = !!options.auto_rotate;
+	
 	    _this2._texture = new _texture.UrlTexture(options.image_url || 'media/textures/cube-sea.png');
+	
+	    _this2._material = new CubeSeaMaterial();
+	    _this2._material.base_color.texture = _this2._texture;
+	
+	    _this2._render_primitive = null;
 	    return _this2;
 	  }
 	
 	  _createClass(CubeSea, [{
 	    key: 'onRendererChanged',
 	    value: function onRendererChanged(renderer) {
+	      this._render_primitive = null;
+	
 	      var box_builder = new _boxBuilder.BoxBuilder();
-	
-	      // Build the cube sea
-	      var half_grid = this._grid_size * 0.5;
-	      for (var x = 0; x < this._grid_size; ++x) {
-	        for (var y = 0; y < this._grid_size; ++y) {
-	          for (var z = 0; z < this._grid_size; ++z) {
-	            var pos = [x - half_grid, y - half_grid, z - half_grid];
-	            // Don't place a cube in the center of the grid.
-	            if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
-	              box_builder.pushCube(pos, 0.4);
-	            }
-	          }
-	        }
-	      }
-	
-	      var cube_sea_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
-	
-	      box_builder.primitive_stream.clear();
 	
 	      // Build the spinning "hero" cubes
 	      box_builder.pushCube([0, 0.25, -0.8], 0.1);
@@ -4051,13 +4066,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      box_builder.pushCube([0, 0.25, 0.8], 0.1);
 	      box_builder.pushCube([-0.8, 0.25, 0], 0.1);
 	
-	      var hero_primitive = box_builder.primitive_stream.finishPrimitive(renderer);
+	      var hero_primitive = box_builder.finishPrimitive(renderer);
 	
-	      var material = new CubeSeaMaterial();
-	      material.base_color.texture = this._texture;
+	      this.hero_node = renderer.createMesh(hero_primitive, this._material);
 	
-	      this.cube_sea_node = renderer.createMesh(cube_sea_primitive, material);
-	      this.hero_node = renderer.createMesh(hero_primitive, material);
+	      this.rebuildCubes(box_builder);
+	
+	      this.cube_sea_node = new _node.Node();
+	      this.cube_sea_node.addRenderPrimitive(this._render_primitive);
 	
 	      this.addNode(this.cube_sea_node);
 	      this.addNode(this.hero_node);
@@ -4065,8 +4081,46 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this.waitForComplete();
 	    }
 	  }, {
+	    key: 'rebuildCubes',
+	    value: function rebuildCubes(box_builder) {
+	      if (!this._renderer) return;
+	
+	      if (!box_builder) box_builder = new _boxBuilder.BoxBuilder();else box_builder.clear();
+	
+	      var size = 0.4 * this.cube_scale;
+	
+	      // Build the cube sea
+	      var half_grid = this.cube_count * 0.5;
+	      for (var x = 0; x < this.cube_count; ++x) {
+	        for (var y = 0; y < this.cube_count; ++y) {
+	          for (var z = 0; z < this.cube_count; ++z) {
+	            var pos = [x - half_grid, y - half_grid, z - half_grid];
+	            // Only draw cubes on one side. Useful for testing variable render
+	            // cost that depends on view direction.
+	            if (this.half_only && pos[0] < 0) continue;
+	
+	            // Don't place a cube in the center of the grid.
+	            if (pos[0] == 0 && pos[1] == 0 && pos[2] == 0) continue;
+	
+	            box_builder.pushCube(pos, size);
+	          }
+	        }
+	      }
+	
+	      var cube_sea_primitive = box_builder.finishPrimitive(this._renderer);
+	
+	      if (!this._render_primitive) {
+	        this._render_primitive = this._renderer.createRenderPrimitive(cube_sea_primitive, this._material);
+	      } else {
+	        this._render_primitive.setPrimitive(cube_sea_primitive);
+	      }
+	    }
+	  }, {
 	    key: 'onUpdate',
 	    value: function onUpdate(timestamp, frame_delta) {
+	      if (this.auto_rotate) {
+	        mat4.fromRotation(this.cube_sea_node.matrix, timestamp / 500, [0, -1, 0]);
+	      }
 	      mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
 	    }
 	  }]);

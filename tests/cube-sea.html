@@ -31,13 +31,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link href='../css/common.css' rel='stylesheet'></link>
 
     <script src='../js/third-party/gl-matrix-min.js'></script>
+    <script src='../js/third-party/dat.gui.min.js'></script>
+    <script src='../js/third-party/wglu-url.js'></script>
     <script src='../js/cottontail/build/cottontail.js'></script>
 
     <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
-      <details open>
+      <details id='details-panel' open>
         <summary>Cube Sea</summary>
         <p>
           All hail the cube sea! It's not very interesting to look at, but it's
@@ -50,6 +52,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      let cubeSea = new CubeSea({
+        image_url: '../media/textures/cube-sea.png',
+        cube_count: WGLUUrl.getInt('cubeCount'),
+        cube_scale: WGLUUrl.getFloat('cubeScale'),
+        half_only: WGLUUrl.getBool('halfOnly'),
+        auto_rotate: WGLUUrl.getBool('autorotate')
+      });
+
+      function updateCubeSea() {
+        cubeSea.rebuildCubes()
+      }
+
+      // TODO: Save altered values out to a query string
+      let gui = new dat.GUI({ autoPlace: false });
+      gui.add(cubeSea, 'cube_count').onFinishChange(updateCubeSea);
+      gui.add(cubeSea, 'cube_scale', 0.5, 2.0).onFinishChange(updateCubeSea);
+      //gui.add(cubeSea, 'heavy_gpu');
+      gui.add(cubeSea, 'half_only').onFinishChange(updateCubeSea);
+      gui.add(cubeSea, 'auto_rotate');
+
+      let detailsPanel = document.getElementById('details-panel');
+      detailsPanel.appendChild(gui.domElement);
+      detailsPanel.appendChild(document.createElement('br'));
+
+      // TODO: Test variables that still need to be implemented
+      // Busy wait for the specified time to simulate CPU intensive JS.
+      /*var simulatedWorkTimeMs = WGLUUrl.getFloat('workTime', 0);
+
+      // Don't produce frames at all. Simulates a broken app.
+      var noFrames = WGLUUrl.getBool('noFrames', false);
+
+      // Use 1024x1024 per eye instead of the recommended base render
+      // resolution.
+      var standardSize = WGLUUrl.getBool('standardSize', false);
+
+      // Multiply the recommended render resolution (or standardSize) in each
+      // direction. renderScale=2 means 4x the pixel count.
+      var renderScale = WGLUUrl.getFloat('renderScale', 1.0);
+
+      // Support for automated latency testing.
+      var latencyPatch = WGLUUrl.getBool('latencyPatch', false);
+      var pureFlickerApp = WGLUUrl.getBool('pureFlickerApp', false);
+
+      // Only submit every Nth presentation frame. The first frame is
+      // rendered, so a large value can be used to simulate a splash screen.
+      var submitInterval = WGLUUrl.getInt('submitInterval', 1);
+
+      // Resize the canvas every N frames, toggling between full and half
+      // resolution.
+      var canvasResizeInterval = WGLUUrl.getInt('canvasResizeInterval', 0);*/
+
       // XR globals.
       let xrButton = null;
       let xrExclusiveFrameOfRef = null;
@@ -59,9 +112,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      scene.addNode(new CubeSea({
-        image_url: '../media/textures/cube-sea.png'
-      }));
+      scene.addNode(cubeSea);
 
       function initXR() {
         xrButton = new XRDeviceButton({
