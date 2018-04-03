@@ -80,6 +80,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       gui.add(appSettings, 'noFrames');
       gui.add(appSettings, 'submitInterval');
       gui.add(appSettings, 'simulatedWorkTimeMs');
+      gui.close();
 
       let detailsPanel = document.getElementById('details-panel');
       detailsPanel.appendChild(gui.domElement);
