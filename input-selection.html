@@ -58,8 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/camp/camp.gltf');
-      scene.setSkybox({ image_url: 'media/textures/eilenriede-park-2k.png' });
+      let scene = new GLTF2Scene('media/gltf/cube-room/cube-room.gltf');
       scene.standingStats(true);
 
       let boxes = [];
@@ -141,9 +140,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.addNode(box_node);
           }
 
-          addBox(-1.0, 1.6, -1.1,  1.0, 0.0, 0.0);
-          addBox(0.0, 1.7, -1.3,  0.0, 1.0, 0.0);
-          addBox(1.0, 1.6, -1.1,  0.0, 0.0, 1.0);
+          addBox(-1.0, 1.6, -1.3,  1.0, 0.0, 0.0);
+          addBox(0.0, 1.7, -1.5,  0.0, 1.0, 0.0);
+          addBox(1.0, 1.6, -1.3,  0.0, 0.0, 1.0);
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);
