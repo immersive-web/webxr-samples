@@ -48,13 +48,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           tradeoff for the lifetime of the session. 
           <a class="back" href="./">Back</a>
           <br/>
-
-          <select id='framebufferScaleSelect'>
-            <option value='0.0' selected>Default - Allow the system to decide</option>
-            <option value='1.2'>1.2 - 'Superscaling' for extreme quality</option>
-            <option value='1.0'>1.0 - 1:1 pixel utilization</option>
-            <option value='0.5'>0.5 - Low res for high performance</option>
-          </select>
+          <hr/>
+          <input id='framebufferScaleSelect' value='0.0' min='0.0' max='1.25' step='0.25' type='range'/><br/>
+          <span id='framebufferScaleLabel'></span>
         </p>
       </details>
     </header>
@@ -66,6 +62,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       'use strict';
 
       let scaleSelect = document.getElementById('framebufferScaleSelect');
+      let scaleLabel = document.getElementById('framebufferScaleLabel');
+
+      function updateLabel() {
+        let value = parseFloat(scaleSelect.value);
+        let label = `Framebuffer scale: ${scaleSelect.value}`;
+        switch (value) {
+          case 0.0: label += ' - Default, system decides'; break;
+          case 0.5: label += ' - Half res'; break;
+          case 1.0: label += ' - 1:1 pixel utilization'; break;
+          case 1.25: label += ' - "Superscaling", extreme quality'; break;
+        }
+        scaleLabel.innerHTML = label;
+      }
+
+      scaleSelect.addEventListener('change', updateLabel);
+      updateLabel();
 
       // XR globals.
       let xrButton = null;
