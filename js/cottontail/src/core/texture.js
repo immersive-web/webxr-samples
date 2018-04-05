@@ -93,6 +93,10 @@ export class ImageTexture extends Texture {
   get texture_key() {
     return this._img.src;
   }
+
+  get source() {
+    return this._img;
+  }
 }
 
 export class UrlTexture extends ImageTexture {
@@ -108,6 +112,50 @@ export class BlobTexture extends ImageTexture {
     let img = new Image();
     super(img);
     img.src = window.URL.createObjectURL(blob);
+  }
+}
+
+export class VideoTexture extends Texture {
+  constructor(video) {
+    super();
+
+    this._video = video;
+
+    if (video.readyState >= 2) {
+      this._promise = Promise.resolve(this);
+    } else if (video.error) {
+      this._promise = Promise.reject(video.error);
+    } else {
+      this._promise = new Promise((resolve, reject) => {
+        video.addEventListener('loadeddata', () => resolve(this));
+        video.addEventListener('error', reject);
+      });
+    }
+  }
+
+  get format() {
+    // TODO: Can be RGB in some cases.
+    return GL.RGBA;
+  }
+
+  get width() {
+    return this._video.videoWidth;
+  }
+
+  get height() {
+    return this._video.videoHeight;
+  }
+
+  waitForComplete() {
+    return this._promise;
+  }
+
+  get texture_key() {
+    return this._video.src;
+  }
+
+  get source() {
+    return this._video;
   }
 }
 

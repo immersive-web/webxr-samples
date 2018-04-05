@@ -29,6 +29,7 @@ import { PbrMaterial } from './materials/pbr.js'
 
 import { ButtonNode } from './nodes/button-node.js'
 import { CubeSea } from './nodes/cube-sea.js'
+import { VideoNode } from './nodes/video.js'
 
 import { WebXRView, Scene } from './scenes/scene.js'
 import { GLTF2Scene } from './scenes/gltf2.js'
@@ -54,6 +55,7 @@ export {
 
   ButtonNode,
   CubeSea,
+  VideoNode,
 
   WebXRView,
   Scene,

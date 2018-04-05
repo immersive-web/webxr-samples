@@ -78,7 +78,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.GLTF2Scene = exports.Scene = exports.WebXRView = exports.CubeSea = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
+	exports.GLTF2Scene = exports.Scene = exports.WebXRView = exports.VideoNode = exports.CubeSea = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
 	var _node = __webpack_require__(1);
 	
@@ -96,13 +96,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _cubeSea = __webpack_require__(12);
 	
-	var _scene = __webpack_require__(13);
+	var _video = __webpack_require__(13);
 	
-	var _gltf = __webpack_require__(20);
+	var _scene = __webpack_require__(14);
+	
+	var _gltf = __webpack_require__(21);
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
-	// Copyright 2018 The Immersive Web Community Group
+	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
+	  XRWebGLLayer.prototype.getViewport = function (view) {
+	    return view.getViewport(this);
+	  };
+	} // Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
 	// of this software and associated documentation files (the "Software"), to deal
@@ -122,12 +128,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
-	  XRWebGLLayer.prototype.getViewport = function (view) {
-	    return view.getViewport(this);
-	  };
-	}
-	
 	exports.Node = _node.Node;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
@@ -137,6 +137,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.PbrMaterial = _pbr.PbrMaterial;
 	exports.ButtonNode = _buttonNode.ButtonNode;
 	exports.CubeSea = _cubeSea.CubeSea;
+	exports.VideoNode = _video.VideoNode;
 	exports.WebXRView = _scene.WebXRView;
 	exports.Scene = _scene.Scene;
 	exports.GLTF2Scene = _gltf.GLTF2Scene;
@@ -2078,10 +2079,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, texture._type, texture._data);
 	          this._setSamplerParameters(texture);
 	        } else {
+	          // Initialize the texture to black
+	          gl.bindTexture(gl.TEXTURE_2D, texture_handle);
+	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, gl.UNSIGNED_BYTE, null);
+	          this._setSamplerParameters(texture);
+	
 	          texture.waitForComplete().then(function () {
 	            gl.bindTexture(gl.TEXTURE_2D, texture_handle);
-	            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture._img);
+	            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
 	            _this5._setSamplerParameters(texture);
+	
+	            if (texture instanceof _texture.VideoTexture) {
+	              // "Listen for updates" to the video frames and copy to the texture.
+	              var _updateFrame = function _updateFrame() {
+	                if (!texture._video.paused && !texture._video.waiting) {
+	                  gl.bindTexture(gl.TEXTURE_2D, texture_handle);
+	                  gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+	                  window.setTimeout(_updateFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
+	                }
+	              };
+	
+	              texture._video.addEventListener('playing', _updateFrame);
+	            }
 	          });
 	        }
 	
@@ -2933,6 +2952,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    get: function get() {
 	      return this._img.src;
 	    }
+	  }, {
+	    key: 'source',
+	    get: function get() {
+	      return this._img;
+	    }
 	  }]);
 	
 	  return ImageTexture;
@@ -2972,10 +2996,71 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return BlobTexture;
 	}(ImageTexture);
 	
+	var VideoTexture = exports.VideoTexture = function (_Texture2) {
+	  _inherits(VideoTexture, _Texture2);
+	
+	  function VideoTexture(video) {
+	    _classCallCheck(this, VideoTexture);
+	
+	    var _this4 = _possibleConstructorReturn(this, (VideoTexture.__proto__ || Object.getPrototypeOf(VideoTexture)).call(this));
+	
+	    _this4._video = video;
+	
+	    if (video.readyState >= 2) {
+	      _this4._promise = Promise.resolve(_this4);
+	    } else if (video.error) {
+	      _this4._promise = Promise.reject(video.error);
+	    } else {
+	      _this4._promise = new Promise(function (resolve, reject) {
+	        video.addEventListener('loadeddata', function () {
+	          return resolve(_this4);
+	        });
+	        video.addEventListener('error', reject);
+	      });
+	    }
+	    return _this4;
+	  }
+	
+	  _createClass(VideoTexture, [{
+	    key: 'waitForComplete',
+	    value: function waitForComplete() {
+	      return this._promise;
+	    }
+	  }, {
+	    key: 'format',
+	    get: function get() {
+	      // TODO: Can be RGB in some cases.
+	      return GL.RGBA;
+	    }
+	  }, {
+	    key: 'width',
+	    get: function get() {
+	      return this._video.videoWidth;
+	    }
+	  }, {
+	    key: 'height',
+	    get: function get() {
+	      return this._video.videoHeight;
+	    }
+	  }, {
+	    key: 'texture_key',
+	    get: function get() {
+	      return this._video.src;
+	    }
+	  }, {
+	    key: 'source',
+	    get: function get() {
+	      return this._video;
+	    }
+	  }]);
+	
+	  return VideoTexture;
+	}(Texture);
+	
 	var next_data_texture_index = 0;
 	
-	var DataTexture = exports.DataTexture = function (_Texture2) {
-	  _inherits(DataTexture, _Texture2);
+	var DataTexture = exports.DataTexture = function (_Texture3) {
+	  _inherits(DataTexture, _Texture3);
 	
 	  function DataTexture(data, width, height) {
 	    var format = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : GL.RGBA;
@@ -2983,16 +3068,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _classCallCheck(this, DataTexture);
 	
-	    var _this4 = _possibleConstructorReturn(this, (DataTexture.__proto__ || Object.getPrototypeOf(DataTexture)).call(this));
+	    var _this5 = _possibleConstructorReturn(this, (DataTexture.__proto__ || Object.getPrototypeOf(DataTexture)).call(this));
 	
-	    _this4._data = data;
-	    _this4._width = width;
-	    _this4._height = height;
-	    _this4._format = format;
-	    _this4._type = type;
-	    _this4._key = 'DATA_' + next_data_texture_index;
+	    _this5._data = data;
+	    _this5._width = width;
+	    _this5._height = height;
+	    _this5._format = format;
+	    _this5._type = type;
+	    _this5._key = 'DATA_' + next_data_texture_index;
 	    next_data_texture_index++;
-	    return _this4;
+	    return _this5;
 	  }
 	
 	  _createClass(DataTexture, [{
@@ -3028,11 +3113,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var color_data = new Uint8Array([r * 255.0, g * 255.0, b * 255.0, a * 255.0]);
 	
-	    var _this5 = _possibleConstructorReturn(this, (ColorTexture.__proto__ || Object.getPrototypeOf(ColorTexture)).call(this, color_data, 1, 1));
+	    var _this6 = _possibleConstructorReturn(this, (ColorTexture.__proto__ || Object.getPrototypeOf(ColorTexture)).call(this, color_data, 1, 1));
 	
-	    _this5.mipmap = false;
-	    _this5._key = 'COLOR_' + color_data[0] + '_' + color_data[1] + '_' + color_data[2] + '_' + color_data[3];
-	    return _this5;
+	    _this6.mipmap = false;
+	    _this6._key = 'COLOR_' + color_data[0] + '_' + color_data[1] + '_' + color_data[2] + '_' + color_data[3];
+	    return _this6;
 	  }
 	
 	  return ColorTexture;
@@ -4137,25 +4222,165 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.VideoNode = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _material = __webpack_require__(4);
+	
+	var _primitive = __webpack_require__(8);
+	
+	var _node = __webpack_require__(1);
+	
+	var _texture = __webpack_require__(6);
+	
+	var _buttonNode = __webpack_require__(11);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	/*
+	Node for displaying 2D or stereo videos on a quad.
+	*/
+	
+	var GL = WebGLRenderingContext; // For enums
+	
+	var VideoMaterial = function (_Material) {
+	  _inherits(VideoMaterial, _Material);
+	
+	  function VideoMaterial() {
+	    _classCallCheck(this, VideoMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (VideoMaterial.__proto__ || Object.getPrototypeOf(VideoMaterial)).call(this));
+	
+	    _this.image = _this.defineSampler("diffuse");
+	
+	    _this.tex_coord_scale_offset = _this.defineUniform("texCoordScaleOffset", [1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0], 4);
+	    return _this;
+	  }
+	
+	  _createClass(VideoMaterial, [{
+	    key: 'material_name',
+	    get: function get() {
+	      return 'VIDEO_PLAYER';
+	    }
+	  }, {
+	    key: 'vertex_source',
+	    get: function get() {
+	      return '\n    uniform int EYE_INDEX;\n    uniform vec4 texCoordScaleOffset[2];\n    attribute vec3 POSITION;\n    attribute vec2 TEXCOORD_0;\n    varying vec2 vTexCoord;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      vec4 scaleOffset = texCoordScaleOffset[EYE_INDEX];\n      vTexCoord = (TEXCOORD_0 * scaleOffset.xy) + scaleOffset.zw;\n      vec4 out_vec = proj * view * model * vec4(POSITION, 1.0);\n      return out_vec;\n    }';
+	    }
+	  }, {
+	    key: 'fragment_source',
+	    get: function get() {
+	      return '\n    uniform sampler2D diffuse;\n    varying vec2 vTexCoord;\n\n    vec4 fragment_main() {\n      return texture2D(diffuse, vTexCoord);\n    }';
+	    }
+	  }]);
+	
+	  return VideoMaterial;
+	}(_material.Material);
+	
+	var VideoNode = exports.VideoNode = function (_Node) {
+	  _inherits(VideoNode, _Node);
+	
+	  function VideoNode(options) {
+	    _classCallCheck(this, VideoNode);
+	
+	    var _this2 = _possibleConstructorReturn(this, (VideoNode.__proto__ || Object.getPrototypeOf(VideoNode)).call(this));
+	
+	    _this2._video = options.video;
+	    _this2._display_mode = options.display_mode || "mono";
+	
+	    _this2._video_texture = new _texture.VideoTexture(_this2._video);
+	    return _this2;
+	  }
+	
+	  _createClass(VideoNode, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      var vertices = [-1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, -1.0, 0.0, 1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 1.0];
+	      var indices = [0, 2, 1, 0, 3, 2];
+	
+	      var vertex_buffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(vertices));
+	      var index_buffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+	
+	      var attribs = [new _primitive.PrimitiveAttribute("POSITION", vertex_buffer, 3, GL.FLOAT, 20, 0), new _primitive.PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, GL.FLOAT, 20, 12)];
+	
+	      var primitive = new _primitive.Primitive(attribs, indices.length);
+	      primitive.setIndexBuffer(index_buffer);
+	      primitive.setBounds([-1.0, -1.0, 0.0], [1.0, 1.0, 0.015]);
+	
+	      var material = new VideoMaterial();
+	      material.image.texture = this._video_texture;
+	
+	      switch (this._display_mode) {
+	        case "mono":
+	          material.tex_coord_scale_offset.value = [1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0];
+	          break;
+	        case "stereoTopBottom":
+	          material.tex_coord_scale_offset.value = [1.0, 0.5, 0.0, 0.0, 1.0, 0.5, 0.0, 0.5];
+	          break;
+	        case "stereoLeftRight":
+	          material.tex_coord_scale_offset.value = [0.5, 1.0, 0.0, 0.0, 0.5, 1.0, 0.5, 0.0];
+	          break;
+	      }
+	
+	      var render_primitive = renderer.createRenderPrimitive(primitive, material);
+	      this.addRenderPrimitive(render_primitive);
+	    }
+	  }]);
+
+	  return VideoNode;
+	}(_node.Node);
+
+/***/ }),
+/* 14 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
 	exports.Scene = exports.WebXRView = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
 	var _renderer = __webpack_require__(3);
 	
-	var _boundsRenderer = __webpack_require__(14);
+	var _boundsRenderer = __webpack_require__(15);
 	
-	var _inputRenderer = __webpack_require__(15);
+	var _inputRenderer = __webpack_require__(16);
 	
-	var _skybox = __webpack_require__(16);
+	var _skybox = __webpack_require__(17);
 	
-	var _statsViewer = __webpack_require__(17);
+	var _statsViewer = __webpack_require__(18);
 	
 	var _program = __webpack_require__(5);
 	
 	var _node = __webpack_require__(1);
 	
-	var _gltf = __webpack_require__(19);
+	var _gltf = __webpack_require__(20);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -4575,7 +4800,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4723,7 +4948,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5231,7 +5456,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5404,7 +5629,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5422,7 +5647,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _primitive = __webpack_require__(8);
 	
-	var _sevenSegmentText = __webpack_require__(18);
+	var _sevenSegmentText = __webpack_require__(19);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -5680,7 +5905,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5912,7 +6137,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -6584,7 +6809,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -6596,9 +6821,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _scene = __webpack_require__(13);
+	var _scene = __webpack_require__(14);
 	
-	var _gltf = __webpack_require__(19);
+	var _gltf = __webpack_require__(20);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	

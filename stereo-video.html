@@ -26,7 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>Room Scale</title>
+    <title>Stereo Video Player</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
@@ -38,11 +38,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <body>
     <header>
       <details open>
-        <summary>Room Scale</summary>
+        <summary>Stereo Video Player</summary>
         <p>
-          This sample demonstrates using a 'stage' frame of reference to provide
-          room scale tracking. If stage bounds are provided by the XRDevice, they
-          will be represented as a green ground plane.
+          This sample demonstrates how to play a stereo 3D video.
           <a class="back" href="./">Back</a>
         </p>
       </summary>
@@ -59,9 +57,49 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/camp/camp.gltf');
-      scene.standingStats(true); // Position the stats at standing height.
-      scene.setSkybox({ image_url: 'media/textures/eilenriede-park-2k.png' });
+      let scene = new GLTF2Scene('media/gltf/home-theater/home-theater.gltf');
+      scene.enableStats(false);
+
+      let video = document.createElement('video');
+      video.loop = true;
+      video.src = 'media/video/lucas-walk-480p.mov';
+
+      let videoNode = new VideoNode({ video: video });
+      videoNode.selectable = true;
+      scene.addNode(videoNode);
+
+      // Move back to the position of the in-room screen and size to cover it.
+      // Values determined experimentally and with many refreshes.
+      videoNode.translation = [0.025, 0.275, -4.4];
+      videoNode.scale = [2.1, 1.1, 1.0];
+
+      video.addEventListener('loadeddata', () => {
+        // Once the video has loaded up adjust the aspect ratio of the "screen"
+        // to fit the video's native shape.
+        let aspect = video.videoWidth / video.videoHeight;
+        if (aspect < 2.0) {
+          videoNode.scale = [aspect * 1.1, 1.1, 1.0];
+        } else {
+          videoNode.scale = [2.1, 2.1 / aspect, 1.0];
+        }
+      });
+
+      // Add a button to the scene to play/pause the movie.
+      let play_texture = new UrlTexture('media/textures/play-button.png');
+      let pause_texture = new UrlTexture('media/textures/pause-button.png');
+
+      // Create a button that toggles the audio state when clicked.
+      let play_button = new ButtonNode(play_texture, () => {
+        if (video.paused) {
+          video.play();
+          play_button.icon_texture = pause_texture;
+        } else {
+          video.pause();
+          play_button.icon_texture = play_texture;
+        }
+      });
+      play_button.translation = [0, -0.3, -0.65];
+      scene.addNode(play_button);
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -104,6 +142,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', (ev) => {
+          let frameOfRef = ev.frame.session.exclusive ?
+                           xrExclusiveFrameOfRef :
+                           xrNonExclusiveFrameOfRef;
+          scene.handleSelect(ev.inputSource, ev.frame, frameOfRef);
+        });
 
         if (!gl) {
           gl = createWebGLContext({
@@ -113,17 +157,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
+
+          // Loads a generic controller mesh.
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
+            scene.inputRenderer.setControllerMesh(controller_mesh);
+          });
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        // Get a stage frame of reference, which will align the user's physical
-        // floor with Y=0 and can provide boundaries that indicate where the
-        // user can safely walk. If the system can't natively provide stage
-        // coordinates (for example, with a 3DoF device) then it will return an
-        // emulated stage, where the view is translated up by a static height so
-        // that the scene still renders in approximately the right place.
-        session.requestFrameOfReference('stage').then((frameOfRef) => {
+        // In this case we're going to use an eyeLevel frame of reference
+        // because we want to users head to appear in the right place relative
+        // to the center chair, as if they're sitting in it, rather than
+        // somewhere in the room relative to the floor.
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           if (session.exclusive) {
             xrExclusiveFrameOfRef = frameOfRef;
             scene.setBounds(frameOfRef.bounds);
@@ -157,10 +204,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        // Every XR frame uses basically the same render loop, so for the sake
-        // of keeping the sample code focused on the interesting bits most
-        // samples after this one will start using this helper function to hide
-        // away the majority of the rendering logic.
+        scene.updateInputSources(frame, frameOfRef);
+
         scene.drawXRFrame(frame, pose);
 
         scene.endFrame();

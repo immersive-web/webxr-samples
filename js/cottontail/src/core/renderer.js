@@ -21,7 +21,7 @@
 import { CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc } from './material.js'
 import { Node } from './node.js'
 import { Program } from './program.js'
-import { DataTexture } from './texture.js'
+import { DataTexture, VideoTexture } from './texture.js'
 
 export const ATTRIB = {
   POSITION: 1,
@@ -685,12 +685,29 @@ export class Renderer {
         gl.bindTexture(gl.TEXTURE_2D, texture_handle);
         gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, texture._type, texture._data);
         this._setSamplerParameters(texture);
-
       } else {
+        // Initialize the texture to black
+        gl.bindTexture(gl.TEXTURE_2D, texture_handle);
+        gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, gl.UNSIGNED_BYTE, null);
+        this._setSamplerParameters(texture);
+
         texture.waitForComplete().then(() => {
           gl.bindTexture(gl.TEXTURE_2D, texture_handle);
-          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture._img);
+          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
           this._setSamplerParameters(texture);
+
+          if (texture instanceof VideoTexture) {
+            // "Listen for updates" to the video frames and copy to the texture.
+            function updateFrame() {
+              if (!texture._video.paused && !texture._video.waiting) {
+                gl.bindTexture(gl.TEXTURE_2D, texture_handle);
+                gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+                window.setTimeout(updateFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
+              }
+            }
+
+            texture._video.addEventListener('playing', updateFrame);
+          }
         });
       }
 
