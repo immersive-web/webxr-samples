@@ -4348,6 +4348,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var render_primitive = renderer.createRenderPrimitive(primitive, material);
 	      this.addRenderPrimitive(render_primitive);
 	    }
+	  }, {
+	    key: 'aspectRatio',
+	    get: function get() {
+	      var width = this._video.videoWidth;
+	      var height = this._video.videoHeight;
+	
+	      switch (this._display_mode) {
+	        case 'stereoTopBottom':
+	          height *= 0.5;break;
+	        case 'stereoLeftRight':
+	          width *= 0.5;break;
+	      }
+	
+	      if (!height || !width) {
+	        return 1;
+	      }
+	
+	      return width / height;
+	    }
 	  }]);
 
 	  return VideoNode;

@@ -82,6 +82,22 @@ export class VideoNode extends Node {
     this._video_texture = new VideoTexture(this._video);
   }
 
+  get aspectRatio() {
+    let width = this._video.videoWidth;
+    let height = this._video.videoHeight;
+
+    switch (this._display_mode) {
+      case 'stereoTopBottom': height *= 0.5; break;
+      case 'stereoLeftRight': width *= 0.5; break;
+    }
+
+    if (!height || !width) {
+      return 1;
+    }
+
+    return width / height;
+  }
+
   onRendererChanged(renderer) {
     let vertices = [
       -1.0,  1.0, 0.0,  0.0, 0.0,

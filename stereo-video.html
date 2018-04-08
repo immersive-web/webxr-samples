@@ -64,7 +64,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       video.loop = true;
       video.src = 'media/video/bbb-trailer-480p.mov';
 
-      let videoNode = new VideoNode({ video: video });
+      let videoNode = new VideoNode({
+        video: video,
+        display_mode: 'mono'
+      });
       videoNode.selectable = true;
       scene.addNode(videoNode);
 
@@ -76,7 +79,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       video.addEventListener('loadeddata', () => {
         // Once the video has loaded up adjust the aspect ratio of the "screen"
         // to fit the video's native shape.
-        let aspect = video.videoWidth / video.videoHeight;
+        let aspect = videoNode.aspectRatio;
         if (aspect < 2.0) {
           videoNode.scale = [aspect * 1.1, 1.1, 1.0];
         } else {
