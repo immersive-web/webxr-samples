@@ -49,7 +49,7 @@ var WGLUUrl = (function() {
       var vars = query.split("&");
       for (var i = 0; i < vars.length; i++) {
         var pair = vars[i].split("=");
-        urlArgs[pair[0].toLowerCase()] = unescape(pair[1]);
+        urlArgs[pair[0].toLowerCase()] = decodeURIComponent(pair[1]);
       }
     }
   }

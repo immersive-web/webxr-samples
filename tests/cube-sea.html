@@ -52,66 +52,170 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // Helper methods for saving dat.gui-edited parameters in the URL hash.
+      // Only non-default values are saved.
+      var paramTypes = {};
+      var paramValues = {};
+      var paramDefaults = {};
+      function getBoolParam(name, opt_default) {
+        paramTypes[name] = 'bool';
+        if (!opt_default) opt_default = false;
+        paramDefaults[name] = opt_default;
+        let val = WGLUUrl.getBool(name, opt_default);
+        paramValues[name] = val;
+        return val;
+      }
+      function getIntParam(name, opt_default) {
+        paramTypes[name] = 'int';
+        paramDefaults[name] = opt_default;
+        let val = WGLUUrl.getInt(name, opt_default);
+        paramValues[name] = val;
+        return val;
+      }
+      function getFloatParam(name, opt_default) {
+        paramTypes[name] = 'float';
+        paramDefaults[name] = opt_default;
+        let val = WGLUUrl.getFloat(name, opt_default);
+        paramValues[name] = val;
+        return val;
+      }
+      function getStringParam(name, opt_default) {
+        paramTypes[name] = 'string';
+        paramDefaults[name] = opt_default;
+        let val = WGLUUrl.getString(name, opt_default);
+        paramValues[name] = val;
+        return val;
+      }
+      function updateHash() {
+        let pairs = [];
+        for (let rawKey in paramTypes) {
+          let rawVal = paramValues[rawKey];
+          if (rawVal == paramDefaults[rawKey])
+            continue;
+          let type = paramTypes[rawKey];
+          let keyString = encodeURIComponent(rawKey);
+          let valString;
+          if (type == 'bool') {
+            valString = rawVal ? '1' : '0';
+          } else if (type == 'float') {
+            valString = encodeURIComponent((rawVal+0).toFixed(3));
+          } else {
+            valString = encodeURIComponent(rawVal);
+          }
+          pairs.push(keyString + '=' + valString);
+        }
+        let newHash = '#' + pairs.join('&');
+        document.location.hash = newHash;
+      }
+      function getParamSaver(name, opt_apply_func) {
+        if (!(name in paramTypes))
+          throw new Error('unknown param name: ' + name);
+        return (value) => {
+          paramValues[name] = value;
+          updateHash();
+          if (opt_apply_func) {
+            opt_apply_func(value);
+          }
+        };
+      }
+
       let cubeSea = new CubeSea({
         image_url: '../media/textures/cube-sea.png',
-        cube_count: WGLUUrl.getInt('cubeCount'),
-        cube_scale: WGLUUrl.getFloat('cubeScale'),
-        half_only: WGLUUrl.getBool('halfOnly'),
-        auto_rotate: WGLUUrl.getBool('autorotate'),
+
+        // Number and size of the static cubes. Use the larger
+        // cube count from heavyGpu to avoid inconsistent defaults.
+        cube_count: getIntParam('cubeCount', 12),
+        cube_scale: getFloatParam('cubeScale'),
+
+        // If true, use a very heavyweight shader to stress the GPU.
+        heavy_gpu: getBoolParam('heavyGpu'),
+
+        // Draw only half the world cubes. Helps test variable render cost
+        // when combined with heavyGpu.
+        half_only: getBoolParam('halfOnly'),
+
+        // Automatically spin the world cubes. Intended for automated testing,
+        // not recommended for viewing in a headset.
+        auto_rotate: getBoolParam('autorotate'),
       });
 
       let appSettings = {
-        noFrames: WGLUUrl.getBool('noFrames', false),
-        submitInterval: WGLUUrl.getInt('submitInterval', 1),
-        simulatedWorkTimeMs: WGLUUrl.getFloat('workTime', 0),
+        // Framebuffer scale override. 0 = default
+        framebufferScale: getFloatParam('framebufferScale', 0),
+
+        // Viewport scale
+        viewportScale: getFloatParam('viewportScale', 1),
+
+        // Don't produce frames at all. Simulates a broken app.
+        noFrames: getBoolParam('noFrames', false),
+
+        // Only submit every Nth presentation frame. The first frame is
+        // rendered, so a large value can be used to simulate a splash screen.
+        submitInterval: getIntParam('submitInterval', 1),
+
+        // Busy wait for the specified time to simulate CPU intensive JS.
+        simulatedWorkTimeMs: getFloatParam('workTime', 0),
+
+        antialias: getBoolParam('antialias', true),
       };
 
       function updateCubeSea() {
         cubeSea.rebuildCubes()
       }
 
-      // TODO: Save altered values out to a query string
+      // Add GUI fields to edit URL parameters. The dat.gui name (2nd arg)
+      // is the name of the dict parameter. The getParamSaver name is the
+      // name of the hash parameter which may be different.
       let gui = new dat.GUI({ autoPlace: false });
-      gui.add(cubeSea, 'cube_count').onFinishChange(updateCubeSea);
-      gui.add(cubeSea, 'cube_scale', 0.5, 2.0).onFinishChange(updateCubeSea);
-      //gui.add(cubeSea, 'heavy_gpu');
-      gui.add(cubeSea, 'half_only').onFinishChange(updateCubeSea);
-      gui.add(cubeSea, 'auto_rotate');
-      gui.add(appSettings, 'noFrames');
-      gui.add(appSettings, 'submitInterval');
-      gui.add(appSettings, 'simulatedWorkTimeMs');
+      var folderScene = gui.addFolder('Scene options');
+      folderScene.add(cubeSea, 'cube_count', 4, 14, 1).onFinishChange(
+          getParamSaver('cubeCount', updateCubeSea));
+      folderScene.add(cubeSea, 'cube_scale', 0.2, 2.0, 0.05).onFinishChange(
+          getParamSaver('cubeScale', updateCubeSea));
+      folderScene.add(cubeSea, 'half_only').onFinishChange(
+          getParamSaver('halfOnly', updateCubeSea));
+      // heavy_gpu currently only gets read on startup.
+      folderScene.add(cubeSea, 'heavy_gpu').onFinishChange(
+          getParamSaver('heavyGpu', () => { window.location.reload(false); }));
+      folderScene.add(appSettings, 'simulatedWorkTimeMs', 0, 20, 1).onFinishChange(
+          getParamSaver('workTime'));
+      folderScene.open();
+
+      var folderRender = gui.addFolder('Rendering options');
+      folderRender.add(appSettings, 'framebufferScale', 0, 1, 0.125).onFinishChange(
+          getParamSaver('framebufferScale'));
+      folderRender.add(appSettings, 'viewportScale', 0.25, 1, 0.125).onFinishChange(
+          getParamSaver('viewportScale'));
+      folderRender.add(appSettings, 'antialias').onFinishChange(
+          getParamSaver('antialias'));
+      folderRender.open();
+
+      var folderTest = gui.addFolder('Regression testing');
+      folderTest.add(appSettings, 'noFrames').onFinishChange(
+          getParamSaver('noFrames'));
+      folderTest.add(appSettings, 'submitInterval').onFinishChange(
+          getParamSaver('submitInterval'));
+      folderTest.add(cubeSea, 'auto_rotate').onFinishChange(
+          getParamSaver('autorotate', updateCubeSea));
+      // Don't auto-open this folder, it's not very interesting for interactive use.
+
       gui.close();
 
       let detailsPanel = document.getElementById('details-panel');
       detailsPanel.appendChild(gui.domElement);
       detailsPanel.appendChild(document.createElement('br'));
 
-      // TODO: Test variables that still need to be implemented
-      // Busy wait for the specified time to simulate CPU intensive JS.
-      /*var simulatedWorkTimeMs = WGLUUrl.getFloat('workTime', 0);
-
-      // Don't produce frames at all. Simulates a broken app.
-      var noFrames = WGLUUrl.getBool('noFrames', false);
-
+      // TODO: Test variables that still need to be implemented, assuming
+      // they are applicable to WebXR.
+      /*
       // Use 1024x1024 per eye instead of the recommended base render
       // resolution.
-      var standardSize = WGLUUrl.getBool('standardSize', false);
-
-      // Multiply the recommended render resolution (or standardSize) in each
-      // direction. renderScale=2 means 4x the pixel count.
-      var renderScale = WGLUUrl.getFloat('renderScale', 1.0);
+      var standardSize = getBoolParam('standardSize', false);
 
       // Support for automated latency testing.
-      var latencyPatch = WGLUUrl.getBool('latencyPatch', false);
-      var pureFlickerApp = WGLUUrl.getBool('pureFlickerApp', false);
-
-      // Only submit every Nth presentation frame. The first frame is
-      // rendered, so a large value can be used to simulate a splash screen.
-      var submitInterval = WGLUUrl.getInt('submitInterval', 1);
-
-      // Resize the canvas every N frames, toggling between full and half
-      // resolution.
-      var canvasResizeInterval = WGLUUrl.getInt('canvasResizeInterval', 0);*/
+      var latencyPatch = getBoolParam('latencyPatch', false);
+      var pureFlickerApp = getBoolParam('pureFlickerApp', false);
+      */
 
       // XR globals.
       let xrButton = null;
@@ -179,7 +283,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           });
         }
 
-        session.baseLayer = new XRWebGLLayer(session, gl);
+        session.baseLayer = new XRWebGLLayer(session, gl, {
+          framebufferScaleFactor: appSettings.framebufferScale,
+          antialias: appSettings.antialias});
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           if (session.exclusive) {
@@ -224,6 +330,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             tmp = Math.sin(Math.cos(Math.tan(tmp)));
           }
         }
+
+        session.baseLayer.requestViewportScaling(appSettings.viewportScale);
 
         session.requestAnimationFrame(onXRFrame);
 

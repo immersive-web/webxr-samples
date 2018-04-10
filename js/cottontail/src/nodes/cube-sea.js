@@ -131,7 +131,7 @@ class CubeSeaMaterial extends Material {
         return vec2( sqrt(m.x), m.y+m.z );
       }
 
-      void main() {
+      vec4 fragment_main() {
         vec2 uv = ( vTexCoord );
         uv *= vec2( 10., 10. );
         uv += seed;
@@ -143,7 +143,7 @@ class CubeSeaMaterial extends Material {
         float f = iqnoise( 1. * uv + c.y, p.x, p.y );
         col *= 1.0 + .25 * vec3( f );
 
-        gl_FragColor = vec4(vLight, 1.0) * texture2D(diffuse, vTexCoord) * vec4( col, 1. );
+        return vec4(vLight, 1.0) * texture2D(diffuse, vTexCoord) * vec4( col, 1. );
       }`;
     }
   }
@@ -172,7 +172,7 @@ export class CubeSea extends Node {
 
     this._texture = new UrlTexture(options.image_url || 'media/textures/cube-sea.png');
 
-    this._material = new CubeSeaMaterial();
+    this._material = new CubeSeaMaterial(this.heavy_gpu);
     this._material.base_color.texture = this._texture;
 
     this._render_primitive = null;
@@ -235,6 +235,12 @@ export class CubeSea extends Node {
       }
     }
 
+    if (this.cube_count > 12) {
+      // Each cube has 6 sides with 2 triangles and 3 indices per triangle, so
+      // the total number of indices needed is cube_count^3 * 36. This exceeds
+      // the short index range past 12 cubes.
+      box_builder.index_type = 5125;  // gl.UNSIGNED_INT
+    }
     let cube_sea_primitive = box_builder.finishPrimitive(this._renderer);
 
     if (!this._render_primitive) {
