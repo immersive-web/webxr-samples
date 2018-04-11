@@ -208,6 +208,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this._hover_frame_id = -1;
 	    this._render_primitives = null;
 	    this._renderer = null;
+	
+	    this._select_handler = null;
 	  }
 	
 	  _createClass(Node, [{
@@ -713,7 +715,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
 	      }
 	
-	      if (this.selectable) {
+	      if (this.selectable && this.visible) {
 	        var intersection = this._hitTestSelectableNode(ray_matrix);
 	        if (intersection) {
 	          return {
@@ -758,12 +760,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      return result;
 	    }
-	
-	    // Called when a selectable node is selected.
-	
 	  }, {
 	    key: 'onSelect',
-	    value: function onSelect() {}
+	    value: function onSelect(value) {
+	      this._select_handler = value;
+	    }
+	  }, {
+	    key: 'handleSelect',
+	
+	
+	    // Called when a selectable node is selected.
+	    value: function handleSelect() {
+	      if (this._select_handler) this._select_handler();
+	    }
 	
 	    // Called when a selectable element is pointed at.
 	
@@ -906,6 +915,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    key: 'renderPrimitives',
 	    get: function get() {
 	      return this._render_primitives;
+	    }
+	  }, {
+	    key: 'selectHandler',
+	    get: function get() {
+	      return this._select_handler;
 	    }
 	  }]);
 
@@ -3879,7 +3893,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this3.selectable = true;
 	
-	    _this3._callback = callback;
+	    _this3._select_handler = callback;
 	    _this3._icon_texture = icon_texture;
 	    _this3._hovered = false;
 	    _this3._hover_t = 0;
@@ -3957,13 +3971,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      icon_material.icon.texture = this._icon_texture;
 	      this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
 	      this.addRenderPrimitive(this._icon_render_primitive);
-	    }
-	  }, {
-	    key: 'onSelect',
-	    value: function onSelect() {
-	      if (this._callback) {
-	        this._callback();
-	      }
 	    }
 	  }, {
 	    key: 'onHoverStart',
@@ -4635,7 +4642,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	        if (hit_result) {
 	          // Render a cursor at the intersection point.
-	          hit_result.node.onSelect();
+	          hit_result.node.handleSelect();
 	        }
 	      }
 	    }

@@ -68,13 +68,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         video: video,
         display_mode: 'mono'
       });
+      
+      // When the video is clicked we'll pause it if it's playing.
+      videoNode.onSelect(() => {
+        if (!video.paused) {
+          play_button.visible = true;
+          video.pause();
+        }
+      });
       videoNode.selectable = true;
-      scene.addNode(videoNode);
 
       // Move back to the position of the in-room screen and size to cover it.
       // Values determined experimentally and with many refreshes.
       videoNode.translation = [0.025, 0.275, -4.4];
       videoNode.scale = [2.1, 1.1, 1.0];
+      scene.addNode(videoNode);
 
       video.addEventListener('loadeddata', () => {
         // Once the video has loaded up adjust the aspect ratio of the "screen"
@@ -89,19 +97,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Add a button to the scene to play/pause the movie.
       let play_texture = new UrlTexture('media/textures/play-button.png');
-      let pause_texture = new UrlTexture('media/textures/pause-button.png');
 
-      // Create a button that toggles the audio state when clicked.
+      // Create a button that plays the video when clicked.
       let play_button = new ButtonNode(play_texture, () => {
+        // Play the video and hide the button.
         if (video.paused) {
+          play_button.visible = false;
           video.play();
-          play_button.icon_texture = pause_texture;
-        } else {
-          video.pause();
-          play_button.icon_texture = play_texture;
         }
       });
-      play_button.translation = [0, -0.3, -0.65];
+      // Move the play button to the center of the screen and make it much
+      // bigger.
+      play_button.translation = [0.025, 0.275, -4.3];
+      play_button.scale = [5.0, 5.0, 5.0];
       scene.addNode(play_button);
 
       function initXR() {

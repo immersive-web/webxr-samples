@@ -49,6 +49,8 @@ export class Node {
     this._hover_frame_id = -1;
     this._render_primitives = null;
     this._renderer = null;
+
+    this._select_handler = null;
   }
 
   _setRenderer(renderer) {
@@ -375,7 +377,7 @@ export class Node {
       vec3.transformMat4(ray_origin, ray_origin, ray_matrix);
     }
 
-    if (this.selectable) {
+    if (this.selectable && this.visible) {
       let intersection = this._hitTestSelectableNode(ray_matrix);
       if (intersection) {
         return {
@@ -399,9 +401,18 @@ export class Node {
     return result;
   }
 
-  // Called when a selectable node is selected.
-  onSelect() {
+  onSelect(value) {
+    this._select_handler = value;
+  }
 
+  get selectHandler() {
+    return this._select_handler;
+  }
+
+  // Called when a selectable node is selected.
+  handleSelect() {
+    if (this._select_handler)
+      this._select_handler();
   }
 
   // Called when a selectable element is pointed at.

@@ -125,7 +125,7 @@ export class ButtonNode extends Node {
     // All buttons are selectable by default.
     this.selectable = true;
 
-    this._callback = callback;
+    this._select_handler = callback;
     this._icon_texture = icon_texture;
     this._hovered = false;
     this._hover_t = 0;
@@ -212,12 +212,6 @@ export class ButtonNode extends Node {
     icon_material.icon.texture = this._icon_texture;
     this._icon_render_primitive = renderer.createRenderPrimitive(icon_primitive, icon_material);
     this.addRenderPrimitive(this._icon_render_primitive);
-  }
-
-  onSelect() {
-    if (this._callback) {
-      this._callback();
-    }
   }
 
   onHoverStart() {

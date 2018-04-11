@@ -194,7 +194,7 @@ export class Scene extends Node {
 
       if (hit_result) {
         // Render a cursor at the intersection point.
-        hit_result.node.onSelect();
+        hit_result.node.handleSelect();
       }
     }
   }
