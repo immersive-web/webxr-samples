@@ -28,7 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <title>Barebones WebXR</title>
 
-    <link href='../css/common.css' rel='stylesheet'></link>
+    <link href='css/common.css' rel='stylesheet'></link>
   </head>
   <body>
     <header>
@@ -40,7 +40,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           headset's display to a slowly changing color to prove it's working.
           <a class="back" href="./">Back</a>
         </p>
-        <button id="xr-button" disabled>VR not found</button>
+        <button id="xr-button" disabled>XR not found</button>
       </details>
     </header>
     <main style='text-align: center;'>
@@ -66,18 +66,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           navigator.xr.requestDevice().then((device) => {
             xrDevice = device;
             // If the device allows creation of exclusive sessions set it as the
-            // target of the 'Enter VR' button.
+            // target of the 'Enter XR' button.
             device.supportsSession({exclusive: true}).then(() => {
               // Updates the button to start an XR session when clicked.
               xrButton.addEventListener('click', onButtonClicked);
-              xrButton.innerHTML = 'Enter VR';
+              xrButton.innerHTML = 'Enter XR';
               xrButton.disabled = false;
             });
           });
         }
       }
 
-      // Called when the user clicks the button to enter VR. If we don't have a
+      // Called when the user clicks the button to enter XR. If we don't have a
       // session already we'll request one, and if we do we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
@@ -91,7 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         xrSession = session;
-        xrButton.innerHTML = 'Exit VR';
+        xrButton.innerHTML = 'Exit XR';
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.

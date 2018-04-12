@@ -150,6 +150,13 @@
             { title: 'Spectator Mode', category: 'Advanced Techniques',
               path: 'spectator-mode.html',
               description: 'Demonstrates rendering a 3rd person view of the scene to an external monitor.' },
+
+            { tag: 'hr' },
+            { tag: 'br' },
+
+            { title: 'Barebones', category: 'WIN32_LEAN_AND_MEAN',
+              path: 'xr-barebones.html',
+              description: 'Extremely simple use of WebXR with no library dependencies. Doesn\'t render anything exciting.' },
           ];
 
           let mainElement = document.getElementById("main");
@@ -157,6 +164,11 @@
           // Append an element for every item in the pages list.
           for (var i = 0; i < pages.length; ++i) {
             var page = pages[i];
+
+            if (page.tag) {
+              mainElement.appendChild(document.createElement(page.tag));
+              continue;
+            }
 
             let article = document.createElement('article');
 
