@@ -19,39 +19,39 @@
 // SOFTWARE.
 
 export class Program {
-  constructor(gl, vert_src, frag_src, attrib_map, defines) {
+  constructor(gl, vertSrc, fragSrc, attribMap, defines) {
     this._gl = gl;
     this.program = gl.createProgram();
     this.attrib = null;
     this.uniform = null;
     this.defines = {};
 
-    this._first_use = true;
-    this._next_use_callbacks = [];
+    this._firstUse = true;
+    this._nextUseCallbacks = [];
 
-    let defines_string = '';
+    let definesString = '';
     if (defines) {
       for (let define in defines) {
         this.defines[define] = defines[define];
-        defines_string += `#define ${define} ${defines[define]}\n`;
+        definesString += `#define ${define} ${defines[define]}\n`;
       }
     }
 
-    this._vert_shader = gl.createShader(gl.VERTEX_SHADER);
-    gl.attachShader(this.program, this._vert_shader);
-    gl.shaderSource(this._vert_shader, defines_string + vert_src);
-    gl.compileShader(this._vert_shader);
+    this._vertShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.attachShader(this.program, this._vertShader);
+    gl.shaderSource(this._vertShader, definesString + vertSrc);
+    gl.compileShader(this._vertShader);
 
-    this._frag_shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.attachShader(this.program, this._frag_shader);
-    gl.shaderSource(this._frag_shader, defines_string + frag_src);
-    gl.compileShader(this._frag_shader);
+    this._fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.attachShader(this.program, this._fragShader);
+    gl.shaderSource(this._fragShader, definesString + fragSrc);
+    gl.compileShader(this._fragShader);
 
-    if (attrib_map) {
+    if (attribMap) {
       this.attrib = {};
-      for (let attrib_name in attrib_map) {
-        gl.bindAttribLocation(this.program, attrib_map[attrib_name], attrib_name);
-        this.attrib[attrib_name] = attrib_map[attrib_name];
+      for (let attribName in attribMap) {
+        gl.bindAttribLocation(this.program, attribMap[attribName], attribName);
+        this.attrib[attribName] = attribMap[attribName];
       }
     }
 
@@ -59,7 +59,7 @@ export class Program {
   }
 
   onNextUse(callback) {
-    this._next_use_callbacks.push(callback);
+    this._nextUseCallbacks.push(callback);
   }
 
   use() {
@@ -67,13 +67,13 @@ export class Program {
 
     // If this is the first time the program has been used do all the error checking and
     // attrib/uniform querying needed.
-    if (this._first_use) {
-      this._first_use = false;
+    if (this._firstUse) {
+      this._firstUse = false;
       if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-        if (!gl.getShaderParameter(this._vert_shader, gl.COMPILE_STATUS)) {
-          console.error('Vertex shader compile error: ' + gl.getShaderInfoLog(this._vert_shader));
-        } else if (!gl.getShaderParameter(this._frag_shader, gl.COMPILE_STATUS)) {
-          console.error('Fragment shader compile error: ' + gl.getShaderInfoLog(this._frag_shader));
+        if (!gl.getShaderParameter(this._vertShader, gl.COMPILE_STATUS)) {
+          console.error('Vertex shader compile error: ' + gl.getShaderInfoLog(this._vertShader));
+        } else if (!gl.getShaderParameter(this._fragShader, gl.COMPILE_STATUS)) {
+          console.error('Fragment shader compile error: ' + gl.getShaderInfoLog(this._fragShader));
         } else {
           console.error('Program link error: ' + gl.getProgramInfoLog(this.program));
         }
@@ -82,33 +82,33 @@ export class Program {
       } else {
         if (!this.attrib) {
           this.attrib = {};
-          let attrib_count = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES);
-          for (let i = 0; i < attrib_count; i++) {
-            let attrib_info = gl.getActiveAttrib(this.program, i);
-            this.attrib[attrib_info.name] = gl.getAttribLocation(this.program, attrib_info.name);
+          let attribCount = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES);
+          for (let i = 0; i < attribCount; i++) {
+            let attribInfo = gl.getActiveAttrib(this.program, i);
+            this.attrib[attribInfo.name] = gl.getAttribLocation(this.program, attribInfo.name);
           }
         }
 
         this.uniform = {};
-        let uniform_count = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS);
-        let uniform_name = '';
-        for (let i = 0; i < uniform_count; i++) {
-          let uniform_info = gl.getActiveUniform(this.program, i);
-          uniform_name = uniform_info.name.replace('[0]', '');
-          this.uniform[uniform_name] = gl.getUniformLocation(this.program, uniform_name);
+        let uniformCount = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS);
+        let uniformName = '';
+        for (let i = 0; i < uniformCount; i++) {
+          let uniformInfo = gl.getActiveUniform(this.program, i);
+          uniformName = uniformInfo.name.replace('[0]', '');
+          this.uniform[uniformName] = gl.getUniformLocation(this.program, uniformName);
         }
       }
-      gl.deleteShader(this._vert_shader);
-      gl.deleteShader(this._frag_shader);
+      gl.deleteShader(this._vertShader);
+      gl.deleteShader(this._fragShader);
     }
 
     gl.useProgram(this.program);
 
-    if (this._next_use_callbacks.length) {
-      for (let callback of this._next_use_callbacks) {
+    if (this._nextUseCallbacks.length) {
+      for (let callback of this._nextUseCallbacks) {
         callback(this);
       }
-      this._next_use_callbacks = [];
+      this._nextUseCallbacks = [];
     }
   }
 }

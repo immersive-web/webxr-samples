@@ -18,11 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Material } from '../core/material.js'
-import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
-import { Node } from '../core/node.js'
-import { UrlTexture } from '../core/texture.js'
-import { BoxBuilder } from '../geometry/box-builder.js'
+import {Material} from '../core/material.js';
+import {Node} from '../core/node.js';
+import {UrlTexture} from '../core/texture.js';
+import {BoxBuilder} from '../geometry/box-builder.js';
 
 class CubeSeaMaterial extends Material {
   constructor(heavy = false) {
@@ -30,14 +29,14 @@ class CubeSeaMaterial extends Material {
 
     this.heavy = heavy;
 
-    this.base_color = this.defineSampler("baseColor");
+    this.baseColor = this.defineSampler('baseColor');
   }
 
-  get material_name() {
+  get materialName() {
     return 'CUBE_SEA';
   }
 
-  get vertex_source() {
+  get vertexSource() {
     return `
     attribute vec3 POSITION;
     attribute vec2 TEXCOORD_0;
@@ -59,7 +58,7 @@ class CubeSeaMaterial extends Material {
     }`;
   }
 
-  get fragment_source() {
+  get fragmentSource() {
     if (!this.heavy) {
       return `
       precision mediump float;
@@ -155,105 +154,109 @@ export class CubeSea extends Node {
 
     // Test variables
     // If true, use a very heavyweight shader to stress the GPU.
-    this.heavy_gpu = !!options.heavy_gpu;
+    this.heavyGpu = !!options.heavyGpu;
 
     // Number and size of the static cubes. Warning, large values
     // don't render right due to overflow of the int16 indices.
-    this.cube_count = options.cube_count || (this.heavy_gpu ? 12 : 10);
-    this.cube_scale = options.cube_scale || 1.0;
+    this.cubeCount = options.cubeCount || (this.heavyGpu ? 12 : 10);
+    this.cubeScale = options.cubeScale || 1.0;
 
     // Draw only half the world cubes. Helps test variable render cost
     // when combined with heavyGpu.
-    this.half_only = !!options.half_only;
+    this.halfOnly = !!options.halfOnly;
 
     // Automatically spin the world cubes. Intended for automated testing,
     // not recommended for viewing in a headset.
-    this.auto_rotate = !!options.auto_rotate;
+    this.autoRotate = !!options.autoRotate;
 
-    this._texture = new UrlTexture(options.image_url || 'media/textures/cube-sea.png');
+    this._texture = new UrlTexture(options.imageUrl || 'media/textures/cube-sea.png');
 
-    this._material = new CubeSeaMaterial(this.heavy_gpu);
-    this._material.base_color.texture = this._texture;
+    this._material = new CubeSeaMaterial(this.heavyGpu);
+    this._material.baseColor.texture = this._texture;
 
-    this._render_primitive = null;
+    this._renderPrimitive = null;
   }
 
   onRendererChanged(renderer) {
-    this._render_primitive = null;
+    this._renderPrimitive = null;
 
-    let box_builder = new BoxBuilder();
+    let boxBuilder = new BoxBuilder();
 
     // Build the spinning "hero" cubes
-    box_builder.pushCube([0, 0.25, -0.8], 0.1);
-    box_builder.pushCube([0.8, 0.25, 0], 0.1);
-    box_builder.pushCube([0, 0.25, 0.8], 0.1);
-    box_builder.pushCube([-0.8, 0.25, 0], 0.1);
+    boxBuilder.pushCube([0, 0.25, -0.8], 0.1);
+    boxBuilder.pushCube([0.8, 0.25, 0], 0.1);
+    boxBuilder.pushCube([0, 0.25, 0.8], 0.1);
+    boxBuilder.pushCube([-0.8, 0.25, 0], 0.1);
 
-    let hero_primitive = box_builder.finishPrimitive(renderer);
+    let heroPrimitive = boxBuilder.finishPrimitive(renderer);
 
-    this.hero_node = renderer.createMesh(hero_primitive, this._material);
+    this.heroNode = renderer.createMesh(heroPrimitive, this._material);
 
-    this.rebuildCubes(box_builder);
+    this.rebuildCubes(boxBuilder);
 
-    this.cube_sea_node = new Node();
-    this.cube_sea_node.addRenderPrimitive(this._render_primitive);
+    this.cubeSeaNode = new Node();
+    this.cubeSeaNode.addRenderPrimitive(this._renderPrimitive);
 
-    this.addNode(this.cube_sea_node);
-    this.addNode(this.hero_node);
+    this.addNode(this.cubeSeaNode);
+    this.addNode(this.heroNode);
 
     return this.waitForComplete();
   }
 
-  rebuildCubes(box_builder) {
-    if (!this._renderer)
+  rebuildCubes(boxBuilder) {
+    if (!this._renderer) {
       return;
+    }
 
-    if (!box_builder)
-      box_builder = new BoxBuilder();
-    else
-      box_builder.clear();
+    if (!boxBuilder) {
+      boxBuilder = new BoxBuilder();
+    } else {
+      boxBuilder.clear();
+    }
 
-    let size = 0.4 * this.cube_scale;
+    let size = 0.4 * this.cubeScale;
 
     // Build the cube sea
-    let half_grid = this.cube_count * 0.5;
-    for (let x = 0; x < this.cube_count; ++x) {
-      for (let y = 0; y < this.cube_count; ++y) {
-        for (let z = 0; z < this.cube_count; ++z) {
-          let pos = [x - half_grid, y - half_grid, z - half_grid];
+    let halfGrid = this.cubeCount * 0.5;
+    for (let x = 0; x < this.cubeCount; ++x) {
+      for (let y = 0; y < this.cubeCount; ++y) {
+        for (let z = 0; z < this.cubeCount; ++z) {
+          let pos = [x - halfGrid, y - halfGrid, z - halfGrid];
           // Only draw cubes on one side. Useful for testing variable render
           // cost that depends on view direction.
-          if (this.half_only && pos[0] < 0)
+          if (this.halfOnly && pos[0] < 0) {
             continue;
+          }
 
           // Don't place a cube in the center of the grid.
-          if (pos[0] == 0 && pos[1] == 0 && pos[2] == 0)
+          if (pos[0] == 0 && pos[1] == 0 && pos[2] == 0) {
             continue;
+          }
 
-          box_builder.pushCube(pos, size);
+          boxBuilder.pushCube(pos, size);
         }
       }
     }
 
-    if (this.cube_count > 12) {
+    if (this.cubeCount > 12) {
       // Each cube has 6 sides with 2 triangles and 3 indices per triangle, so
-      // the total number of indices needed is cube_count^3 * 36. This exceeds
+      // the total number of indices needed is cubeCount^3 * 36. This exceeds
       // the short index range past 12 cubes.
-      box_builder.index_type = 5125;  // gl.UNSIGNED_INT
+      boxBuilder.indexType = 5125; // gl.UNSIGNED_INT
     }
-    let cube_sea_primitive = box_builder.finishPrimitive(this._renderer);
+    let cubeSeaPrimitive = boxBuilder.finishPrimitive(this._renderer);
 
-    if (!this._render_primitive) {
-      this._render_primitive = this._renderer.createRenderPrimitive(cube_sea_primitive, this._material);
+    if (!this._renderPrimitive) {
+      this._renderPrimitive = this._renderer.createRenderPrimitive(cubeSeaPrimitive, this._material);
     } else {
-      this._render_primitive.setPrimitive(cube_sea_primitive);
+      this._renderPrimitive.setPrimitive(cubeSeaPrimitive);
     }
   }
 
-  onUpdate(timestamp, frame_delta) {
-    if (this.auto_rotate) {
-      mat4.fromRotation(this.cube_sea_node.matrix, timestamp / 500, [0, -1, 0]);
+  onUpdate(timestamp, frameDelta) {
+    if (this.autoRotate) {
+      mat4.fromRotation(this.cubeSeaNode.matrix, timestamp / 500, [0, -1, 0]);
     }
-    mat4.fromRotation(this.hero_node.matrix, timestamp / 2000, [0, 1, 0]);
+    mat4.fromRotation(this.heroNode.matrix, timestamp / 2000, [0, 1, 0]);
   }
 }

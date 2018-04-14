@@ -14,12 +14,15 @@
     "build-debug": "webpack --config webpack.config.debug.js",
     "build-all": "webpack && webpack --config webpack.config.debug.js",
     "watch": "webpack --watch",
-    "watch-debug": "webpack --config webpack.config.debug.js --watch"
+    "watch-debug": "webpack --config webpack.config.debug.js --watch",
+    "lint": "eslint -c .eslintrc.json src"
   },
   "devDependencies": {
     "babel-core": "^6.7.6",
     "babel-loader": "^6.2.4",
     "babel-preset-env": "^1.6.1",
+    "eslint": "^4.19.1",
+    "eslint-config-google": "^0.9.1",
     "webpack": "^1.12.15"
   }
 }

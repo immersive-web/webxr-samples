@@ -19,33 +19,33 @@
 // SOFTWARE.
 
 export class PrimitiveAttribute {
-  constructor(name, buffer, component_count, component_type, stride, byte_offset) {
+  constructor(name, buffer, componentCount, componentType, stride, byteOffset) {
     this.name = name;
     this.buffer = buffer;
-    this.component_count = component_count || 3;
-    this.component_type = component_type || 5126; // gl.FLOAT;
+    this.componentCount = componentCount || 3;
+    this.componentType = componentType || 5126; // gl.FLOAT;
     this.stride = stride || 0;
-    this.byte_offset = byte_offset || 0;
+    this.byteOffset = byteOffset || 0;
     this.normalized = false;
   }
 }
 
 export class Primitive {
-  constructor(attributes, element_count, mode) {
+  constructor(attributes, elementCount, mode) {
     this.attributes = attributes || [];
-    this.element_count = element_count || 0;
+    this.elementCount = elementCount || 0;
     this.mode = mode || 4; // gl.TRIANGLES;
-    this.index_buffer = null;
-    this.index_byte_offset = 0;
-    this.index_type = 0;
+    this.indexBuffer = null;
+    this.indexByteOffset = 0;
+    this.indexType = 0;
     this._min = null;
     this._max = null;
   }
 
-  setIndexBuffer(index_buffer, byte_offset, index_type) {
-    this.index_buffer = index_buffer;
-    this.index_byte_offset = byte_offset || 0;
-    this.index_type = index_type || 5123; // gl.UNSIGNED_SHORT;
+  setIndexBuffer(indexBuffer, byteOffset, indexType) {
+    this.indexBuffer = indexBuffer;
+    this.indexByteOffset = byteOffset || 0;
+    this.indexType = indexType || 5123; // gl.UNSIGNED_SHORT;
   }
 
   setBounds(min, max) {

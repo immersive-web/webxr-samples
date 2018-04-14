@@ -18,20 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { PbrMaterial } from '../materials/pbr.js'
-import { Node } from '../core/node.js'
-import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
-import { ImageTexture, ColorTexture } from '../core/texture.js'
+import {PbrMaterial} from '../materials/pbr.js';
+import {Node} from '../core/node.js';
+import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
+import {ImageTexture, ColorTexture} from '../core/texture.js';
 
 const GL = WebGLRenderingContext; // For enums
 
 const GLB_MAGIC = 0x46546C67;
 const CHUNK_TYPE = {
   JSON: 0x4E4F534A,
-  BIN: 0x004E4942
+  BIN: 0x004E4942,
 };
 
-function isAbsoluteUri (uri) {
+function isAbsoluteUri(uri) {
   let absRegEx = new RegExp('^'+window.location.protocol, 'i');
   return !!uri.match(absRegEx);
 }
@@ -125,11 +125,11 @@ export class GLTF2Loader {
 
   loadFromJson(json, baseUrl, binaryChunk) {
     if (!json.asset) {
-      throw new Error("Missing asset description.");
+      throw new Error('Missing asset description.');
     }
 
-    if (json.asset.minVersion != "2.0" && json.asset.version != "2.0") {
-      throw new Error("Incompatible asset version.");
+    if (json.asset.minVersion != '2.0' && json.asset.version != '2.0') {
+      throw new Error('Incompatible asset version.');
     }
 
     let buffers = [];
@@ -155,16 +155,15 @@ export class GLTF2Loader {
 
     let textures = [];
     if (json.textures) {
-      let i = 0;
       for (let texture of json.textures) {
         let image = images[texture.source];
         let glTexture = image.texture(bufferViews);
-        if(texture.sampler) {
+        if (texture.sampler) {
           let sampler = sampler[texture.sampler];
-          glTexture.sampler.min_filter = sampler.minFilter;
-          glTexture.sampler.mag_filter = sampler.magFilter;
-          glTexture.sampler.wrap_s = sampler.wrapS;
-          glTexture.sampler.wrap_t = sampler.wrapT;
+          glTexture.sampler.minFilter = sampler.minFilter;
+          glTexture.sampler.magFilter = sampler.magFilter;
+          glTexture.sampler.wrapS = sampler.wrapS;
+          glTexture.sampler.wrapT = sampler.wrapT;
         }
         textures.push(glTexture);
       }
@@ -183,37 +182,38 @@ export class GLTF2Loader {
         let glMaterial = new PbrMaterial();
         let pbr = material.pbrMetallicRoughness || {};
 
-        glMaterial.base_color_factor.value = pbr.baseColorFactor || [1, 1, 1, 1];
-        glMaterial.base_color.texture = getTexture(pbr.baseColorTexture);
-        glMaterial.metallic_roughness_factor.value = [
-            pbr.metallicFactor || 1.0,
-            pbr.roughnessFactor || 1.0
+        glMaterial.baseColorFactor.value = pbr.baseColorFactor || [1, 1, 1, 1];
+        glMaterial.baseColor.texture = getTexture(pbr.baseColorTexture);
+        glMaterial.metallicRoughnessFactor.value = [
+          pbr.metallicFactor || 1.0,
+          pbr.roughnessFactor || 1.0,
         ];
-        glMaterial.metallic_roughness.texture = getTexture(pbr.metallicRoughnessTexture);
+        glMaterial.metallicRoughness.texture = getTexture(pbr.metallicRoughnessTexture);
         glMaterial.normal.texture = getTexture(json.normalTexture);
         glMaterial.occlusion.texture = getTexture(json.occlusionTexture);
-        glMaterial.occlusion_strength.value = (json.occlusionTexture && json.occlusionTexture.strength) ? json.occlusionTexture.strength : 1.0;
-        glMaterial.emissive_factor.value = material.emissiveFactor || [0, 0, 0];
+        glMaterial.occlusionStrength.value = (json.occlusionTexture && json.occlusionTexture.strength) ?
+                                              json.occlusionTexture.strength : 1.0;
+        glMaterial.emissiveFactor.value = material.emissiveFactor || [0, 0, 0];
         glMaterial.emissive.texture = getTexture(json.emissiveTexture);
         if (!glMaterial.emissive.texture && json.emissiveFactor) {
           glMaterial.emissive.texture = new ColorTexture(1.0, 1.0, 1.0, 1.0);
         }
 
-        switch(material.alphaMode) {
-          case "BLEND":
+        switch (material.alphaMode) {
+          case 'BLEND':
             glMaterial.state.blend = true;
             break;
-          case "MASK":
+          case 'MASK':
             // Not really supported.
             glMaterial.state.blend = true;
             break;
-          default: // Includes "OPAQUE"
+          default: // Includes 'OPAQUE'
             glMaterial.state.blend = false;
         }
 
-        //glMaterial.alpha_mode = material.alphaMode;
-        //glMaterial.alpha_cutoff = material.alphaCutoff;
-        glMaterial.state.cull_face = !(material.doubleSided);
+        // glMaterial.alpha_mode = material.alphaMode;
+        // glMaterial.alpha_cutoff = material.alphaCutoff;
+        glMaterial.state.cullFace = !(material.doubleSided);
 
         materials.push(glMaterial);
       }
@@ -236,9 +236,9 @@ export class GLTF2Loader {
         }
 
         let attributes = [];
-        let element_count = 0;
-        /*let glPrimitive = new GLTF2Primitive(primitive, material);
-        glMesh.primitives.push(glPrimitive);*/
+        let elementCount = 0;
+        /* let glPrimitive = new GLTF2Primitive(primitive, material);
+        glMesh.primitives.push(glPrimitive); */
 
         let min = null;
         let max = null;
@@ -246,7 +246,7 @@ export class GLTF2Loader {
         for (let name in primitive.attributes) {
           let accessor = accessors[primitive.attributes[name]];
           let bufferView = bufferViews[accessor.bufferView];
-          element_count = accessor.count;
+          elementCount = accessor.count;
 
           let glAttribute = new PrimitiveAttribute(
             name,
@@ -258,15 +258,15 @@ export class GLTF2Loader {
           );
           glAttribute.normalized = accessor.normalized || false;
 
-          if (name == "POSITION") {
+          if (name == 'POSITION') {
             min = accessor.min;
             max = accessor.max;
           }
-          
+
           attributes.push(glAttribute);
         }
 
-        let glPrimitive = new Primitive(attributes, element_count, primitive.mode);
+        let glPrimitive = new Primitive(attributes, elementCount, primitive.mode);
 
         if ('indices' in primitive) {
           let accessor = accessors[primitive.indices];
@@ -279,7 +279,7 @@ export class GLTF2Loader {
           );
           glPrimitive.indexType = accessor.componentType;
           glPrimitive.indexByteOffset = accessor.byteOffset || 0;
-          glPrimitive.element_count = accessor.count;
+          glPrimitive.elementCount = accessor.count;
         }
 
         if (min && max) {
@@ -293,15 +293,15 @@ export class GLTF2Loader {
       }
     }
 
-    let scene_node = new Node();
+    let sceneNode = new Node();
     let scene = json.scenes[json.scene];
     for (let nodeId of scene.nodes) {
       let node = json.nodes[nodeId];
-      scene_node.addNode(
+      sceneNode.addNode(
           this.processNodes(node, json.nodes, meshes));
     }
 
-    return scene_node;
+    return sceneNode;
   }
 
   processNodes(node, nodes, meshes) {
@@ -318,14 +318,17 @@ export class GLTF2Loader {
     if (node.matrix) {
       glNode.matrix = new Float32Array(node.matrix);
     } else if (node.translation || node.rotation || node.scale) {
-      if (node.translation)
+      if (node.translation) {
         glNode.translation = new Float32Array(node.translation);
+      }
 
-      if (node.rotation)
+      if (node.rotation) {
         glNode.rotation = new Float32Array(node.rotation);
+      }
 
-      if (node.scale)
+      if (node.scale) {
         glNode.scale = new Float32Array(node.scale);
+      }
     }
 
     if (node.children) {
@@ -389,7 +392,7 @@ class GLTF2Resource {
     if (!this._dataPromise) {
       if (isDataUri(this.json.uri)) {
         let base64String = this.json.uri.replace('data:application/octet-stream;base64,', '');
-        let binaryArray = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
+        let binaryArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
         this._dataPromise = Promise.resolve(binaryArray.buffer);
         return this._dataPromise;
       }
@@ -414,7 +417,7 @@ class GLTF2Resource {
       } else {
         let view = bufferViews[this.json.bufferView];
         view.dataView().then((dataView) => {
-          let blob = new Blob([dataView], { type: this.json.mimeType } );
+          let blob = new Blob([dataView], {type: this.json.mimeType});
           img.src = window.URL.createObjectURL(blob);
         });
       }

@@ -18,21 +18,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Node } from './core/node.js'
-import { Renderer, createWebGLContext } from './core/renderer.js'
-import { UrlTexture } from './core/texture.js'
+import {Node} from './core/node.js';
+import {Renderer, createWebGLContext} from './core/renderer.js';
+import {UrlTexture} from './core/texture.js';
 
-import { PrimitiveStream } from './geometry/primitive-stream.js'
-import { BoxBuilder } from './geometry/box-builder.js'
+import {PrimitiveStream} from './geometry/primitive-stream.js';
+import {BoxBuilder} from './geometry/box-builder.js';
 
-import { PbrMaterial } from './materials/pbr.js'
+import {PbrMaterial} from './materials/pbr.js';
 
-import { ButtonNode } from './nodes/button-node.js'
-import { CubeSea } from './nodes/cube-sea.js'
-import { VideoNode } from './nodes/video.js'
+import {ButtonNode} from './nodes/button-node.js';
+import {CubeSea} from './nodes/cube-sea.js';
+import {VideoNode} from './nodes/video.js';
 
-import { WebXRView, Scene } from './scenes/scene.js'
-import { GLTF2Scene } from './scenes/gltf2.js'
+import {WebXRView, Scene} from './scenes/scene.js';
+import {GLTF2Scene} from './scenes/gltf2.js';
 
 // A very short-term polyfill to address a change in the location of the
 // getViewport call. This should dissapear within a month or so.
@@ -59,5 +59,5 @@ export {
 
   WebXRView,
   Scene,
-  GLTF2Scene
+  GLTF2Scene,
 };

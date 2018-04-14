@@ -18,57 +18,57 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { PrimitiveStream, GeometryBuilderBase } from './primitive-stream.js'
+import {GeometryBuilderBase} from './primitive-stream.js';
 
 export class ConeBuilder extends GeometryBuilderBase {
   pushCone(size = 0.5) {
-    let stream = this.primitive_stream;
-    let cone_segments = 64;
+    let stream = this.primitiveStream;
+    let coneSegments = 64;
 
     stream.startGeometry();
 
     // Cone side vertices
-    for (let i = 0; i < cone_segments; ++i) {
-      idx = stream.next_vertex_index;
+    for (let i = 0; i < coneSegments; ++i) {
+      let idx = stream.nextVertexIndex;
 
       stream.pushTriangle(idx, idx + 1, idx + 2);
 
-      let rad = ((Math.PI * 2) / cone_segments) * i;
-      let rad2 = ((Math.PI * 2) / cone_segments) * (i + 1);
+      let rad = ((Math.PI * 2) / coneSegments) * i;
+      let rad2 = ((Math.PI * 2) / coneSegments) * (i + 1);
 
       stream.pushVertex(
           Math.sin(rad) * (size / 2), -size, Math.cos(rad) * (size / 2),
-          i / cone_segments, 0.0,
+          i / coneSegments, 0.0,
           Math.sin(rad), 0.25, Math.cos(rad));
 
       stream.pushVertex(
           Math.sin(rad2) * (size / 2), -size, Math.cos(rad2) * (size / 2),
-          i / cone_segments, 0.0,
+          i / coneSegments, 0.0,
           Math.sin(rad2), 0.25, Math.cos(rad2));
 
       stream.pushVertex(
           0, size, 0,
-          i / cone_segments, 1.0,
+          i / coneSegments, 1.0,
           Math.sin((rad + rad2) / 2), 0.25, Math.cos((rad + rad2) / 2));
     }
 
     // Base triangles
-    let base_center_index = stream.next_vertex_index;
+    let baseCenterIndex = stream.nextVertexIndex;
     stream.pushVertex(
         0, -size, 0,
         0.5, 0.5,
         0, -1, 0);
-    for (let i = 0; i < cone_segments; ++i) {
-      idx = stream.next_vertex_index;
-      stream.pushTriangle(base_center_index, idx, idx + 1);
-      let rad = ((Math.PI * 2) / cone_segments) * i;
-      let rad2 = ((Math.PI * 2) / cone_segments) * (i + 1);
+    for (let i = 0; i < coneSegments; ++i) {
+      let idx = stream.nextVertexIndex;
+      stream.pushTriangle(baseCenterIndex, idx, idx + 1);
+      let rad = ((Math.PI * 2) / coneSegments) * i;
+      let rad2 = ((Math.PI * 2) / coneSegments) * (i + 1);
       stream.pushVertex(
-          Math.sin(rad2) * (size / 2.0), -size, Math.cos(rad2) * (size  / 2.0),
+          Math.sin(rad2) * (size / 2.0), -size, Math.cos(rad2) * (size / 2.0),
           (Math.sin(rad2) + 1.0) * 0.5, (Math.cos(rad2) + 1.0) * 0.5,
           0, -1, 0);
       stream.pushVertex(
-          Math.sin(rad) * (size / 2.0), -size, Math.cos(rad) * (size  / 2.0),
+          Math.sin(rad) * (size / 2.0), -size, Math.cos(rad) * (size / 2.0),
           (Math.sin(rad) + 1.0) * 0.5, (Math.cos(rad) + 1.0) * 0.5,
           0, -1, 0);
     }

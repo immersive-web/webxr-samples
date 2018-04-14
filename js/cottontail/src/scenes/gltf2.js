@@ -18,21 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Scene } from './scene.js'
-import { GLTF2Loader } from '../loaders/gltf2.js'
+import {Scene} from './scene.js';
 
 export class GLTF2Scene extends Scene {
   constructor(url) {
     super();
 
     this.url = url;
-    this.gltf_node = null;
+    this.gltfNode = null;
   }
 
   onRendererChanged(renderer) {
-    return this.gltf2Loader.loadFromUrl(this.url).then((scene_node) => {
-      this.gltf_node = scene_node;
-      this.addNode(this.gltf_node);
+    return this.gltf2Loader.loadFromUrl(this.url).then((sceneNode) => {
+      this.gltfNode = sceneNode;
+      this.addNode(this.gltfNode);
       return this.waitForComplete();
     });
   }

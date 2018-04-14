@@ -22,10 +22,10 @@ const GL = WebGLRenderingContext; // For enums
 
 export class TextureSampler {
   constructor() {
-    this.min_filter = null;
-    this.mag_filter = null;
-    this.wrap_s = null;
-    this.wrap_t = null;
+    this.minFilter = null;
+    this.magFilter = null;
+    this.wrapS = null;
+    this.wrapT = null;
   }
 }
 
@@ -33,11 +33,11 @@ export class Texture {
   constructor() {
     this.sampler = new TextureSampler();
     this.mipmap = true;
-    //TODO: Anisotropy
+    // TODO: Anisotropy
   }
 
   get format() {
-    return GL.RGBA
+    return GL.RGBA;
   }
 
   get width() {
@@ -48,7 +48,7 @@ export class Texture {
     return 0;
   }
 
-  get texture_key() {
+  get textureKey() {
     return null;
   }
 }
@@ -63,7 +63,7 @@ export class ImageTexture extends Texture {
       if (img.naturalWidth) {
         this._promise = Promise.resolve(this);
       } else {
-        this._promise = Promise.reject("Image provided had failed to load.");
+        this._promise = Promise.reject('Image provided had failed to load.');
       }
     } else {
       this._promise = new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ export class ImageTexture extends Texture {
     return this._promise;
   }
 
-  get texture_key() {
+  get textureKey() {
     return this._img.src;
   }
 
@@ -150,7 +150,7 @@ export class VideoTexture extends Texture {
     return this._promise;
   }
 
-  get texture_key() {
+  get textureKey() {
     return this._video.src;
   }
 
@@ -159,7 +159,7 @@ export class VideoTexture extends Texture {
   }
 }
 
-let next_data_texture_index = 0;
+let nextDataTextureIndex = 0;
 
 export class DataTexture extends Texture {
   constructor(data, width, height, format = GL.RGBA, type = GL.UNSIGNED_BYTE) {
@@ -170,8 +170,8 @@ export class DataTexture extends Texture {
     this._height = height;
     this._format = format;
     this._type = type;
-    this._key = `DATA_${next_data_texture_index}`;
-    next_data_texture_index++;
+    this._key = `DATA_${nextDataTextureIndex}`;
+    nextDataTextureIndex++;
   }
 
   get format() {
@@ -186,17 +186,17 @@ export class DataTexture extends Texture {
     return this._height;
   }
 
-  get texture_key() {
+  get textureKey() {
     return this._key;
   }
 }
 
 export class ColorTexture extends DataTexture {
   constructor(r, g, b, a) {
-    let color_data = new Uint8Array([r*255.0, g*255.0, b*255.0, a*255.0]);
-    super(color_data, 1, 1);
+    let colorData = new Uint8Array([r*255.0, g*255.0, b*255.0, a*255.0]);
+    super(colorData, 1, 1);
 
     this.mipmap = false;
-    this._key = `COLOR_${color_data[0]}_${color_data[1]}_${color_data[2]}_${color_data[3]}`;
+    this._key = `COLOR_${colorData[0]}_${colorData[1]}_${colorData[2]}_${colorData[3]}`;
   }
 }

@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Material } from '../core/material.js'
-import { ATTRIB_MASK } from '../core/renderer.js'
+import {Material} from '../core/material.js';
+import {ATTRIB_MASK} from '../core/renderer.js';
 
 const VERTEX_SOURCE = `
 attribute vec3 POSITION, NORMAL;
@@ -217,65 +217,65 @@ export class PbrMaterial extends Material {
   constructor() {
     super();
 
-    this.base_color = this.defineSampler("baseColorTex");
-    this.metallic_roughness = this.defineSampler("metallicRoughnessTex");
-    this.normal = this.defineSampler("normalTex");
-    this.occlusion = this.defineSampler("occlusionTex");
-    this.emissive = this.defineSampler("emissiveTex");
+    this.baseColor = this.defineSampler('baseColorTex');
+    this.metallicRoughness = this.defineSampler('metallicRoughnessTex');
+    this.normal = this.defineSampler('normalTex');
+    this.occlusion = this.defineSampler('occlusionTex');
+    this.emissive = this.defineSampler('emissiveTex');
 
-    this.base_color_factor = this.defineUniform("baseColorFactor", [1.0, 1.0, 1.0, 1.0]);
-    this.metallic_roughness_factor = this.defineUniform("metallicRoughnessFactor", [1.0, 1.0]);
-    this.occlusion_strength = this.defineUniform("occlusionStrength", 1.0);
-    this.emissive_factor = this.defineUniform("emissiveFactor", [0, 0, 0]);
+    this.baseColorFactor = this.defineUniform('baseColorFactor', [1.0, 1.0, 1.0, 1.0]);
+    this.metallicRoughnessFactor = this.defineUniform('metallicRoughnessFactor', [1.0, 1.0]);
+    this.occlusionStrength = this.defineUniform('occlusionStrength', 1.0);
+    this.emissiveFactor = this.defineUniform('emissiveFactor', [0, 0, 0]);
   }
 
-  get material_name() {
+  get materialName() {
     return 'PBR';
   }
 
-  get vertex_source() {
+  get vertexSource() {
     return VERTEX_SOURCE;
   }
 
-  get fragment_source() {
+  get fragmentSource() {
     return FRAGMENT_SOURCE;
   }
 
-  getProgramDefines(render_primitive) {
-    let program_defines = {};
+  getProgramDefines(renderPrimitive) {
+    let programDefines = {};
 
-    if (render_primitive._attribute_mask & ATTRIB_MASK.COLOR_0) {
-      program_defines['USE_VERTEX_COLOR'] = 1;
+    if (renderPrimitive._attributeMask & ATTRIB_MASK.COLOR_0) {
+      programDefines['USE_VERTEX_COLOR'] = 1;
     }
 
-    if (render_primitive._attribute_mask & ATTRIB_MASK.TEXCOORD_0) {
-      if(this.base_color.texture) {
-        program_defines['USE_BASE_COLOR_MAP'] = 1;
+    if (renderPrimitive._attributeMask & ATTRIB_MASK.TEXCOORD_0) {
+      if (this.baseColor.texture) {
+        programDefines['USE_BASE_COLOR_MAP'] = 1;
       }
 
-      if(this.normal.texture && (render_primitive._attribute_mask & ATTRIB_MASK.TANGENT)) {
-        program_defines['USE_NORMAL_MAP'] = 1;
+      if (this.normal.texture && (renderPrimitive._attributeMask & ATTRIB_MASK.TANGENT)) {
+        programDefines['USE_NORMAL_MAP'] = 1;
       }
 
-      if(this.metallic_roughness.texture) {
-        program_defines['USE_METAL_ROUGH_MAP'] = 1;
+      if (this.metallicRoughness.texture) {
+        programDefines['USE_METAL_ROUGH_MAP'] = 1;
       }
 
-      if(this.occlusion.texture) {
-        program_defines['USE_OCCLUSION'] = 1;
+      if (this.occlusion.texture) {
+        programDefines['USE_OCCLUSION'] = 1;
       }
 
-      if(this.emissive.texture) {
-        program_defines['USE_EMISSIVE_TEXTURE'] = 1;
+      if (this.emissive.texture) {
+        programDefines['USE_EMISSIVE_TEXTURE'] = 1;
       }
     }
 
-    if ((!this.metallic_roughness.texture ||
-         !(render_primitive._attribute_mask & ATTRIB_MASK.TEXCOORD_0)) &&
-        this.metallic_roughness_factor.value[1] == 1.0) {
-      program_defines['FULLY_ROUGH'] = 1;
+    if ((!this.metallicRoughness.texture ||
+         !(renderPrimitive._attributeMask & ATTRIB_MASK.TEXCOORD_0)) &&
+        this.metallicRoughnessFactor.value[1] == 1.0) {
+      programDefines['FULLY_ROUGH'] = 1;
     }
 
-    return program_defines;
+    return programDefines;
   }
 }

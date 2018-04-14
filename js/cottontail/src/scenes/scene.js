@@ -18,14 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Renderer, RenderView } from '../core/renderer.js'
-import { BoundsRenderer } from '../nodes/bounds-renderer.js'
-import { InputRenderer } from '../nodes/input-renderer.js'
-import { Skybox } from '../nodes/skybox.js'
-import { StatsViewer } from '../nodes/stats-viewer.js'
-import { Program } from '../core/program.js'
-import { Node } from '../core/node.js'
-import { GLTF2Loader } from '../loaders/gltf2.js'
+import {RenderView} from '../core/renderer.js';
+import {BoundsRenderer} from '../nodes/bounds-renderer.js';
+import {InputRenderer} from '../nodes/input-renderer.js';
+import {Skybox} from '../nodes/skybox.js';
+import {StatsViewer} from '../nodes/stats-viewer.js';
+import {Node} from '../core/node.js';
+import {GLTF2Loader} from '../loaders/gltf2.js';
 
 export class WebXRView extends RenderView {
   constructor(view, pose, layer) {
@@ -43,24 +42,24 @@ export class Scene extends Node {
     super();
 
     this._timestamp = -1;
-    this._frame_delta = 0;
-    this._stats_standing = false;
+    this._frameDelta = 0;
+    this._statsStanding = false;
     this._stats = null;
-    this._stats_enabled = false;
+    this._statsEnabled = false;
     this.enableStats(true); // Ensure the stats are added correctly by default.
-    this._stage_bounds = null;
-    this._bounds_renderer = null;
+    this._stageBounds = null;
+    this._boundsRenderer = null;
 
-    this._input_renderer = null;
-    this._reset_input_end_frame = true;
+    this._inputRenderer = null;
+    this._resetInputEndFrame = true;
 
     this._skybox = null;
-    this._gltf2_loader = null;
+    this._gltf2Loader = null;
 
-    this._last_timestamp = 0;
+    this._lastTimestamp = 0;
 
-    this._hover_frame = 0;
-    this._hovered_nodes = [];
+    this._hoverFrame = 0;
+    this._hoveredNodes = [];
   }
 
   setRenderer(renderer) {
@@ -68,156 +67,157 @@ export class Scene extends Node {
     // wrong.
     renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 
-    this._gltf2_loader = new GLTF2Loader(renderer);
+    this._gltf2Loader = new GLTF2Loader(renderer);
 
     this._setRenderer(renderer);
   }
 
-  setSkybox(image_url) {
+  setSkybox(imageUrl) {
     if (this._skybox) {
       this.removeNode(this._skybox);
       this._skybox = null;
     }
-    if (image_url) {
-      this._skybox = new Skybox(image_url);
+    if (imageUrl) {
+      this._skybox = new Skybox(imageUrl);
       this.addNode(this._skybox);
 
-      if (this._renderer)
+      if (this._renderer) {
         this._skybox.setRenderer(this._renderer);
+      }
     }
   }
 
   loseRenderer() {
     if (this._renderer) {
       this._stats = null;
-      this.texture_loader = null;
       this._renderer = null;
-      this._input_renderer = null;
+      this._inputRenderer = null;
     }
   }
 
   get gltf2Loader() {
-    return this._gltf2_loader;
+    return this._gltf2Loader;
   }
 
   get inputRenderer() {
-    if (!this._input_renderer) {
-      this._input_renderer = new InputRenderer();
-      this.addNode(this._input_renderer);
+    if (!this._inputRenderer) {
+      this._inputRenderer = new InputRenderer();
+      this.addNode(this._inputRenderer);
     }
-    return this._input_renderer;
+    return this._inputRenderer;
   }
 
   // Helper function that automatically adds the appropriate visual elements for
   // all input sources.
-  updateInputSources(frame, frame_of_ref) {
+  updateInputSources(frame, frameOfRef) {
     // FIXME: Check for the existence of the API first. This check should be
     // removed once the input API is part of the official spec.
-    if (!frame.session.getInputSources)
+    if (!frame.session.getInputSources) {
       return;
+    }
 
-    let input_sources = frame.session.getInputSources();
+    let inputSources = frame.session.getInputSources();
 
-    let new_hovered_nodes = [];
-    let last_hover_frame = this._hover_frame;
-    this._hover_frame++;
+    let newHoveredNodes = [];
+    let lastHoverFrame = this._hoverFrame;
+    this._hoverFrame++;
 
-    for (let input_source of input_sources) {
-      let input_pose = frame.getInputPose(input_source, frame_of_ref);
+    for (let inputSource of inputSources) {
+      let inputPose = frame.getInputPose(inputSource, frameOfRef);
 
-      if (!input_pose) {
+      if (!inputPose) {
         continue;
       }
 
       // Any time that we have a grip matrix, we'll render a controller.
-      if (input_pose.gripMatrix) {
-        this.inputRenderer.addController(input_pose.gripMatrix);
+      if (inputPose.gripMatrix) {
+        this.inputRenderer.addController(inputPose.gripMatrix);
       }
 
-      if (input_pose.pointerMatrix) {
-        if (input_source.pointerOrigin == "hand") {
+      if (inputPose.pointerMatrix) {
+        if (inputSource.pointerOrigin == 'hand') {
           // If we have a pointer matrix and the pointer origin is the users
           // hand (as opposed to their head or the screen) use it to render
           // a ray coming out of the input device to indicate the pointer
           // direction.
-          this.inputRenderer.addLaserPointer(input_pose.pointerMatrix);
+          this.inputRenderer.addLaserPointer(inputPose.pointerMatrix);
         }
 
         // If we have a pointer matrix we can also use it to render a cursor
         // for both handheld and gaze-based input sources.
 
         // Check and see if the pointer is pointing at any selectable objects.
-        let hit_result = this.hitTest(input_pose.pointerMatrix);
+        let hitResult = this.hitTest(inputPose.pointerMatrix);
 
-        if (hit_result) {
+        if (hitResult) {
           // Render a cursor at the intersection point.
-          this.inputRenderer.addCursor(hit_result.intersection);
+          this.inputRenderer.addCursor(hitResult.intersection);
 
-          if (hit_result.node._hover_frame_id != last_hover_frame) {
-            hit_result.node.onHoverStart();
+          if (hitResult.node._hoverFrameId != lastHoverFrame) {
+            hitResult.node.onHoverStart();
           }
-          hit_result.node._hover_frame_id = this._hover_frame;
-          new_hovered_nodes.push(hit_result.node);
+          hitResult.node._hoverFrameId = this._hoverFrame;
+          newHoveredNodes.push(hitResult.node);
         } else {
           // Statically render the cursor 1 meters down the ray since we didn't
           // hit anything selectable.
-          let cursor_pos = vec3.fromValues(0, 0, -1.0);
-          vec3.transformMat4(cursor_pos, cursor_pos, input_pose.pointerMatrix);
-          this.inputRenderer.addCursor(cursor_pos);
+          let cursorPos = vec3.fromValues(0, 0, -1.0);
+          vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerMatrix);
+          this.inputRenderer.addCursor(cursorPos);
         }
       }
     }
 
-    for (let hover_node of this._hovered_nodes) {
-      if (hover_node._hover_frame_id != this._hover_frame) {
-        hover_node.onHoverEnd();
+    for (let hoverNode of this._hoveredNodes) {
+      if (hoverNode._hoverFrameId != this._hoverFrame) {
+        hoverNode.onHoverEnd();
       }
     }
 
-    this._hovered_nodes = new_hovered_nodes;
+    this._hoveredNodes = newHoveredNodes;
   }
 
-  handleSelect(input_source, frame, frame_of_ref) {
-    let input_pose = frame.getInputPose(input_source, frame_of_ref);
+  handleSelect(inputSource, frame, frameOfRef) {
+    let inputPose = frame.getInputPose(inputSource, frameOfRef);
 
-    if (!input_pose) {
+    if (!inputPose) {
       return;
     }
 
-    this.handleSelectPointer(input_pose.pointerMatrix);
+    this.handleSelectPointer(inputPose.pointerMatrix);
   }
 
-  handleSelectPointer(pointer_matrix) {
-    if (pointer_matrix) {
+  handleSelectPointer(pointerMatrix) {
+    if (pointerMatrix) {
       // Check and see if the pointer is pointing at any selectable objects.
-      let hit_result = this.hitTest(pointer_matrix);
+      let hitResult = this.hitTest(pointerMatrix);
 
-      if (hit_result) {
+      if (hitResult) {
         // Render a cursor at the intersection point.
-        hit_result.node.handleSelect();
+        hitResult.node.handleSelect();
       }
     }
   }
 
   enableStats(enable) {
-    if (enable == this._stats_enabled)
+    if (enable == this._statsEnabled) {
       return;
+    }
 
-    this._stats_enabled = enable;
+    this._statsEnabled = enable;
 
     if (enable) {
       this._stats = new StatsViewer();
       this._stats.selectable = true;
       this.addNode(this._stats);
 
-      if (this._stats_standing) {
+      if (this._statsStanding) {
         this._stats.translation = [0, 1.4, -0.75];
       } else {
         this._stats.translation = [0, -0.3, -0.5];
       }
       this._stats.scale = [0.3, 0.3, 0.3];
       quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
-
     } else if (!enable) {
       if (this._stats) {
         this.removeNode(this._stats);
@@ -227,9 +227,9 @@ export class Scene extends Node {
   }
 
   standingStats(enable) {
-    this._stats_standing = enable;
+    this._statsStanding = enable;
     if (this._stats) {
-      if (this._stats_standing) {
+      if (this._statsStanding) {
         this._stats.translation = [0, 1.4, -0.75];
       } else {
         this._stats.translation = [0, -0.3, -0.5];
@@ -239,21 +239,21 @@ export class Scene extends Node {
     }
   }
 
-  setBounds(stage_bounds) {
-    this._stage_bounds = stage_bounds;
-    if (stage_bounds && !this._bounds_renderer) {
-      this._bounds_renderer = new BoundsRenderer();
-      this.addNode(this._bounds_renderer);
+  setBounds(stageBounds) {
+    this._stageBounds = stageBounds;
+    if (stageBounds && !this._boundsRenderer) {
+      this._boundsRenderer = new BoundsRenderer();
+      this.addNode(this._boundsRenderer);
     }
-    if (this._bounds_renderer) {
-      this._bounds_renderer.stage_bounds = stage_bounds;
+    if (this._boundsRenderer) {
+      this._boundsRenderer.stageBounds = stageBounds;
     }
   }
 
-  draw(projection_mat, view_mat, eye) {
+  draw(projectionMatrix, viewMatrix, eye) {
     let view = new RenderView();
-    view.projection_matrix = projection_mat;
-    view.view_matrix = view_mat;
+    view.projectionMatrix = projectionMatrix;
+    view.viewMatrix = viewMatrix;
     if (eye) {
       view.eye = eye;
     }
@@ -262,17 +262,17 @@ export class Scene extends Node {
   }
 
   /** Draws the scene into the base layer of the XRFrame's session */
-  drawXRFrame(xr_frame, pose) {
+  drawXRFrame(xrFrame, pose) {
     if (!this._renderer || !pose) {
       return;
     }
 
     let gl = this._renderer.gl;
-    let session = xr_frame.session;
+    let session = xrFrame.session;
     // Assumed to be a XRWebGLLayer for now.
     let layer = session.baseLayer;
 
-    if(!gl) {
+    if (!gl) {
       return;
     }
 
@@ -280,7 +280,7 @@ export class Scene extends Node {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     let views = [];
-    for (let view of xr_frame.views) {
+    for (let view of xrFrame.views) {
       views.push(new WebXRView(view, pose, layer));
     }
 
@@ -289,33 +289,34 @@ export class Scene extends Node {
 
   drawViewArray(views) {
     // Don't draw when we don't have a valid context
-    if (!this._renderer)
+    if (!this._renderer) {
       return;
+    }
 
     this._renderer.drawViews(views, this);
   }
 
   startFrame() {
-    let prev_timestamp = this._timestamp;
+    let prevTimestamp = this._timestamp;
     this._timestamp = performance.now();
     if (this._stats) {
       this._stats.begin();
     }
 
-    if (prev_timestamp >= 0) {
-      this._frame_delta = this._timestamp - prev_timestamp;
+    if (prevTimestamp >= 0) {
+      this._frameDelta = this._timestamp - prevTimestamp;
     } else {
-      this._frame_delta = 0;
+      this._frameDelta = 0;
     }
 
-    this._update(this._timestamp, this._frame_delta);
+    this._update(this._timestamp, this._frameDelta);
 
-    return this._frame_delta;
+    return this._frameDelta;
   }
 
   endFrame() {
-    if (this._input_renderer && this._reset_input_end_frame) {
-      this._input_renderer.reset();
+    if (this._inputRenderer && this._resetInputEndFrame) {
+      this._inputRenderer.reset();
     }
 
     if (this._stats) {

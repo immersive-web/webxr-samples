@@ -60,24 +60,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </header>
 
     <script type="module">
-      import { Scene } from './js/cottontail/src/scenes/scene.js'
-      import { GLTF2Scene } from './js/cottontail/src/scenes/gltf2.js'
-      import { Renderer, createWebGLContext } from './js/cottontail/src/core/renderer.js'
-      import { UrlTexture } from './js/cottontail/src/core/texture.js'
+      import {Scene} from './js/cottontail/src/scenes/scene.js';
+      import {GLTF2Scene} from './js/cottontail/src/scenes/gltf2.js';
+      import {Renderer, createWebGLContext} from './js/cottontail/src/core/renderer.js';
+      import {UrlTexture} from './js/cottontail/src/core/texture.js';
 
-      import { BoxBuilder } from './js/cottontail/src/geometry/box-builder.js'
-      import { PbrMaterial } from './js/cottontail/src/materials/pbr.js'
+      import {BoxBuilder} from './js/cottontail/src/geometry/box-builder.js';
+      import {PbrMaterial} from './js/cottontail/src/materials/pbr.js';
 
-      import { ButtonNode } from './js/cottontail/src/nodes/button-node.js'
-      import { CubeSea } from './js/cottontail/src/nodes/cube-sea.js'
+      import {ButtonNode} from './js/cottontail/src/nodes/button-node.js';
+      import {CubeSea} from './js/cottontail/src/nodes/cube-sea.js';
 
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
                                                 0, 1, 0, 0,
                                                 0, 0, 1, 0,
                                                 0, 1.6, 0, 1]);
 
-      let projection_mat = mat4.create();
-      let view_mat = mat4.create();
+      let projectionMat = mat4.create();
+      let viewMat = mat4.create();
 
       let scene = null;
       let gl = createWebGLContext({antialias: false});
@@ -85,34 +85,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let renderer = new Renderer(gl);
 
-      let box_nodes = [];
+      let boxNodes = [];
 
       function setScene(new_scene) {
         scene = new_scene;
         scene.standingStats(true);
-        scene.setSkybox({ image_url: 'media/textures/milky-way-4k.png' });
+        scene.setSkybox({ imageUrl: 'media/textures/milky-way-4k.png' });
         scene.setRenderer(renderer);
 
         scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((node) => {
           node.selectable = true;
           scene.addNode(node);
-          box_nodes.push(node);
+          boxNodes.push(node);
         });
 
-        let box_builder = new BoxBuilder();
+        let boxBuilder = new BoxBuilder();
 
         function addBox(x, y, z) {
-          box_builder.pushCube([x, y, z], 0.3);
-          let box_primitve = box_builder.primitive_stream.finishPrimitive(renderer);
+          boxBuilder.pushCube([x, y, z], 0.3);
+          let boxPrimitve = boxBuilder.primitive_stream.finishPrimitive(renderer);
 
           let box_material = new PbrMaterial();
           box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
 
-          let node = renderer.createMesh(box_primitve, box_material);
+          let node = renderer.createMesh(boxPrimitve, box_material);
           node.selectable = true;
           scene.addNode(node);
-          box_nodes.push(node);
-          box_builder.clear();
+          boxNodes.push(node);
+          boxBuilder.clear();
         }
         
         /*addBox(0, 0, -1.0);
@@ -138,7 +138,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.canvas.height = gl.canvas.offsetHeight * window.devicePixelRatio;
 
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        mat4.perspective(projection_mat, Math.PI*0.4,
+        mat4.perspective(projectionMat, Math.PI*0.4,
                          gl.canvas.width/gl.canvas.height,
                          0.1, 1000.0);
       }
@@ -195,17 +195,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         vec3.normalize(move_dir, move_dir);
         vec3.scale(move_dir, move_dir, delta * move_speed);
 
-        mat4.identity(view_mat);
-        mat4.rotateY(view_mat, view_mat, -look_yaw);
-        mat4.rotateX(view_mat, view_mat, -look_pitch);
+        mat4.identity(viewMat);
+        mat4.rotateY(viewMat, viewMat, -look_yaw);
+        mat4.rotateX(viewMat, viewMat, -look_pitch);
 
-        vec3.transformMat4(move_dir, move_dir, view_mat);
+        vec3.transformMat4(move_dir, move_dir, viewMat);
         vec3.add(look_pos, look_pos, move_dir);
 
-        mat4.identity(view_mat);
-        mat4.rotateX(view_mat, view_mat, look_pitch);
-        mat4.rotateY(view_mat, view_mat, look_yaw);
-        mat4.translate(view_mat, view_mat, look_pos);
+        mat4.identity(viewMat);
+        mat4.rotateX(viewMat, viewMat, look_pitch);
+        mat4.rotateY(viewMat, viewMat, look_yaw);
+        mat4.translate(viewMat, viewMat, look_pos);
       };
 
       let selected_node = null;
@@ -235,7 +235,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         updateView(frame_delta);
 
         let cursorPos = vec3.fromValues(0, 0, -2.0);
-        mat4.invert(pointer_matrix, view_mat);
+        mat4.invert(pointer_matrix, viewMat);
         vec3.transformMat4(cursorPos, cursorPos, pointer_matrix);
 
         scene.inputRenderer.addCursor(cursorPos);
@@ -245,7 +245,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mat4.translate(mat, mat, [Math.sin(t / 1000), 0, Math.cos(t / 1000)]);
         mat4.rotateY(mat, mat, t / 1000);
 
-        for (let box_node of box_nodes) {
+        for (let box_node of boxNodes) {
           box_node.matrix = mat;
         }
 
@@ -258,7 +258,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         gl.clear(gl.DEPTH_BUFFER_BIT);
 
-        scene.draw(projection_mat, view_mat);
+        scene.draw(projectionMat, viewMat);
 
         scene.endFrame();
       }

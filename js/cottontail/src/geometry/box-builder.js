@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { PrimitiveStream, GeometryBuilderBase } from './primitive-stream.js'
+import {GeometryBuilderBase} from './primitive-stream.js';
 
 export class BoxBuilder extends GeometryBuilderBase {
   pushBox(min, max) {
-    let stream = this.primitive_stream;
+    let stream = this.primitiveStream;
 
     let w = max[0] - min[0];
     let h = max[1] - min[1];
@@ -39,65 +39,65 @@ export class BoxBuilder extends GeometryBuilderBase {
     stream.startGeometry();
 
     // Bottom
-    let idx = stream.next_vertex_index;
+    let idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+1, idx+2);
     stream.pushTriangle(idx, idx+2, idx+3);
 
-    //                 X       Y       Z       U    V     NX    NY   NZ 
-    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz,  0.0, 1.0,  0.0, -1.0, 0.0);
-    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz,  1.0, 1.0,  0.0, -1.0, 0.0);
-    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz,  1.0, 0.0,  0.0, -1.0, 0.0);
-    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz,  0.0, 0.0,  0.0, -1.0, 0.0);
+    //                 X       Y       Z      U    V    NX    NY   NZ
+    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz, 0.0, 1.0, 0.0, -1.0, 0.0);
+    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz, 1.0, 1.0, 0.0, -1.0, 0.0);
+    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz, 1.0, 0.0, 0.0, -1.0, 0.0);
+    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz, 0.0, 0.0, 0.0, -1.0, 0.0);
 
     // Top
-    idx = stream.next_vertex_index;
+    idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+2, idx+1);
     stream.pushTriangle(idx, idx+3, idx+2);
 
-    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz,  0.0, 0.0,  0.0, 1.0, 0.0);
-    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz,  1.0, 0.0,  0.0, 1.0, 0.0);
-    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz,  1.0, 1.0,  0.0, 1.0, 0.0);
-    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz,  0.0, 1.0,  0.0, 1.0, 0.0);
+    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz, 0.0, 0.0, 0.0, 1.0, 0.0);
+    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz, 1.0, 0.0, 0.0, 1.0, 0.0);
+    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz, 1.0, 1.0, 0.0, 1.0, 0.0);
+    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz, 0.0, 1.0, 0.0, 1.0, 0.0);
 
     // Left
-    idx = stream.next_vertex_index;
+    idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+2, idx+1);
     stream.pushTriangle(idx, idx+3, idx+2);
 
-    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz,  0.0, 1.0,  -1.0, 0.0, 0.0);
-    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz,  0.0, 0.0,  -1.0, 0.0, 0.0);
-    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz,  1.0, 0.0,  -1.0, 0.0, 0.0);
-    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz,  1.0, 1.0,  -1.0, 0.0, 0.0);
+    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz, 0.0, 1.0, -1.0, 0.0, 0.0);
+    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz, 0.0, 0.0, -1.0, 0.0, 0.0);
+    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz, 1.0, 0.0, -1.0, 0.0, 0.0);
+    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz, 1.0, 1.0, -1.0, 0.0, 0.0);
 
     // Right
-    idx = stream.next_vertex_index;
+    idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+1, idx+2);
     stream.pushTriangle(idx, idx+2, idx+3);
 
-    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz,  1.0, 1.0,  1.0, 0.0, 0.0);
-    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz,  1.0, 0.0,  1.0, 0.0, 0.0);
-    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz,  0.0, 0.0,  1.0, 0.0, 0.0);
-    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz,  0.0, 1.0,  1.0, 0.0, 0.0);
+    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz, 1.0, 1.0, 1.0, 0.0, 0.0);
+    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz, 1.0, 0.0, 1.0, 0.0, 0.0);
+    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz, 0.0, 0.0, 1.0, 0.0, 0.0);
+    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz, 0.0, 1.0, 1.0, 0.0, 0.0);
 
     // Back
-    idx = stream.next_vertex_index;
+    idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+2, idx+1);
     stream.pushTriangle(idx, idx+3, idx+2);
 
-    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz,  1.0, 1.0,  0.0, 0.0, -1.0);
-    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz,  0.0, 1.0,  0.0, 0.0, -1.0);
-    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz,  0.0, 0.0,  0.0, 0.0, -1.0);
-    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz,  1.0, 0.0,  0.0, 0.0, -1.0);
+    stream.pushVertex(-wh+cx, -hh+cy, -dh+cz, 1.0, 1.0, 0.0, 0.0, -1.0);
+    stream.pushVertex(+wh+cx, -hh+cy, -dh+cz, 0.0, 1.0, 0.0, 0.0, -1.0);
+    stream.pushVertex(+wh+cx, +hh+cy, -dh+cz, 0.0, 0.0, 0.0, 0.0, -1.0);
+    stream.pushVertex(-wh+cx, +hh+cy, -dh+cz, 1.0, 0.0, 0.0, 0.0, -1.0);
 
     // Front
-    idx = stream.next_vertex_index;
+    idx = stream.nextVertexIndex;
     stream.pushTriangle(idx, idx+1, idx+2);
     stream.pushTriangle(idx, idx+2, idx+3);
 
-    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz,  0.0, 1.0,  0.0, 0.0, 1.0);
-    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz,  1.0, 1.0,  0.0, 0.0, 1.0);
-    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz,  1.0, 0.0,  0.0, 0.0, 1.0);
-    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz,  0.0, 0.0,  0.0, 0.0, 1.0);
+    stream.pushVertex(-wh+cx, -hh+cy, +dh+cz, 0.0, 1.0, 0.0, 0.0, 1.0);
+    stream.pushVertex(+wh+cx, -hh+cy, +dh+cz, 1.0, 1.0, 0.0, 0.0, 1.0);
+    stream.pushVertex(+wh+cx, +hh+cy, +dh+cz, 1.0, 0.0, 0.0, 0.0, 1.0);
+    stream.pushVertex(-wh+cx, +hh+cy, +dh+cz, 0.0, 0.0, 0.0, 0.0, 1.0);
 
     stream.endGeometry();
   }

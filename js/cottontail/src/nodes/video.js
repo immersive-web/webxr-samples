@@ -22,11 +22,10 @@
 Node for displaying 2D or stereo videos on a quad.
 */
 
-import { Material } from '../core/material.js'
-import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
-import { Node } from '../core/node.js'
-import { VideoTexture } from '../core/texture.js'
-import { ButtonNode } from './button-node.js'
+import {Material} from '../core/material.js';
+import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
+import {Node} from '../core/node.js';
+import {VideoTexture} from '../core/texture.js';
 
 const GL = WebGLRenderingContext; // For enums
 
@@ -34,18 +33,18 @@ class VideoMaterial extends Material {
   constructor() {
     super();
 
-    this.image = this.defineSampler("diffuse");
+    this.image = this.defineSampler('diffuse');
 
-    this.tex_coord_scale_offset = this.defineUniform("texCoordScaleOffset",
+    this.texCoordScaleOffset = this.defineUniform('texCoordScaleOffset',
                                                       [1.0, 1.0, 0.0, 0.0,
                                                        1.0, 1.0, 0.0, 0.0], 4);
   }
 
-  get material_name() {
+  get materialName() {
     return 'VIDEO_PLAYER';
   }
 
-  get vertex_source() {
+  get vertexSource() {
     return `
     uniform int EYE_INDEX;
     uniform vec4 texCoordScaleOffset[2];
@@ -61,7 +60,7 @@ class VideoMaterial extends Material {
     }`;
   }
 
-  get fragment_source() {
+  get fragmentSource() {
     return `
     uniform sampler2D diffuse;
     varying vec2 vTexCoord;
@@ -77,7 +76,7 @@ export class VideoNode extends Node {
     super();
 
     this._video = options.video;
-    this._display_mode = options.display_mode || "mono";
+    this._displayMode = options.displayMode || 'mono';
 
     this._video_texture = new VideoTexture(this._video);
   }
@@ -86,7 +85,7 @@ export class VideoNode extends Node {
     let width = this._video.videoWidth;
     let height = this._video.videoHeight;
 
-    switch (this._display_mode) {
+    switch (this._displayMode) {
       case 'stereoTopBottom': height *= 0.5; break;
       case 'stereoLeftRight': width *= 0.5; break;
     }
@@ -100,47 +99,47 @@ export class VideoNode extends Node {
 
   onRendererChanged(renderer) {
     let vertices = [
-      -1.0,  1.0, 0.0,  0.0, 0.0,
-       1.0,  1.0, 0.0,  1.0, 0.0,
-       1.0, -1.0, 0.0,  1.0, 1.0,
-      -1.0, -1.0, 0.0,  0.0, 1.0,
+      -1.0, 1.0, 0.0, 0.0, 0.0,
+       1.0, 1.0, 0.0, 1.0, 0.0,
+       1.0, -1.0, 0.0, 1.0, 1.0,
+      -1.0, -1.0, 0.0, 0.0, 1.0,
     ];
     let indices = [
       0, 2, 1,
-      0, 3, 2
+      0, 3, 2,
     ];
 
-    let vertex_buffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(vertices));
-    let index_buffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+    let vertexBuffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(vertices));
+    let indexBuffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
 
     let attribs = [
-      new PrimitiveAttribute("POSITION", vertex_buffer, 3, GL.FLOAT, 20, 0),
-      new PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, GL.FLOAT, 20, 12),
+      new PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 20, 0),
+      new PrimitiveAttribute('TEXCOORD_0', vertexBuffer, 2, GL.FLOAT, 20, 12),
     ];
-  
+
     let primitive = new Primitive(attribs, indices.length);
-    primitive.setIndexBuffer(index_buffer);
+    primitive.setIndexBuffer(indexBuffer);
     primitive.setBounds([-1.0, -1.0, 0.0], [1.0, 1.0, 0.015]);
 
     let material = new VideoMaterial();
     material.image.texture = this._video_texture;
 
-    switch(this._display_mode) {
-      case "mono":
-        material.tex_coord_scale_offset.value = [1.0, 1.0, 0.0, 0.0,
+    switch (this._displayMode) {
+      case 'mono':
+        material.texCoordScaleOffset.value = [1.0, 1.0, 0.0, 0.0,
                                                  1.0, 1.0, 0.0, 0.0];
         break;
-      case "stereoTopBottom":
-        material.tex_coord_scale_offset.value = [1.0, 0.5, 0.0, 0.0,
+      case 'stereoTopBottom':
+        material.texCoordScaleOffset.value = [1.0, 0.5, 0.0, 0.0,
                                                  1.0, 0.5, 0.0, 0.5];
         break;
-      case "stereoLeftRight":
-        material.tex_coord_scale_offset.value = [0.5, 1.0, 0.0, 0.0,
+      case 'stereoLeftRight':
+        material.texCoordScaleOffset.value = [0.5, 1.0, 0.0, 0.0,
                                                  0.5, 1.0, 0.5, 0.0];
         break;
     }
 
-    let render_primitive = renderer.createRenderPrimitive(primitive, material);
-    this.addRenderPrimitive(render_primitive);
+    let renderPrimitive = renderer.createRenderPrimitive(primitive, material);
+    this.addRenderPrimitive(renderPrimitive);
   }
 }

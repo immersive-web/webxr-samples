@@ -18,63 +18,63 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
+import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 
 const GL = WebGLRenderingContext; // For enums
 
-const temp_vec3 = vec3.create();
+const tempVec3 = vec3.create();
 
 export class PrimitiveStream {
   constructor(options) {
     this._vertices = [];
     this._indices = [];
 
-    this._geometry_started = false;
+    this._geometryStarted = false;
 
-    this._vertex_offset = 0;
-    this._vertex_index = 0;
-    this._high_index = 0;
+    this._vertexOffset = 0;
+    this._vertexIndex = 0;
+    this._highIndex = 0;
 
-    this._flip_winding = false;
-    this._invert_normals = false;
+    this._flipWinding = false;
+    this._invertNormals = false;
     this._transform = null;
-    this._normal_transform = null;
+    this._normalTransform = null;
     this._min = null;
     this._max = null;
   }
 
-  set flip_winding(value) {
-    if (this._geometry_started) {
-      throw new Error(`Cannot change flip_winding before ending the current geometry.`);
+  set flipWinding(value) {
+    if (this._geometryStarted) {
+      throw new Error(`Cannot change flipWinding before ending the current geometry.`);
     }
-    this._flip_winding = value;
+    this._flipWinding = value;
   }
 
-  get flip_winding() {
-    this._flip_winding;
+  get flipWinding() {
+    this._flipWinding;
   }
 
-  set invert_normals(value) {
-    if (this._geometry_started) {
-      throw new Error(`Cannot change invert_normals before ending the current geometry.`);
+  set invertNormals(value) {
+    if (this._geometryStarted) {
+      throw new Error(`Cannot change invertNormals before ending the current geometry.`);
     }
-    this._invert_normals = value;
+    this._invertNormals = value;
   }
 
-  get invert_normals() {
-    this._invert_normals;
+  get invertNormals() {
+    this._invertNormals;
   }
 
   set transform(value) {
-    if (this._geometry_started) {
+    if (this._geometryStarted) {
       throw new Error(`Cannot change transform before ending the current geometry.`);
     }
     this._transform = value;
     if (this._transform) {
-      if (!this._normal_transform) {
-        this._normal_transform = mat3.create();
+      if (!this._normalTransform) {
+        this._normalTransform = mat3.create();
       }
-      mat3.fromMat4(this._normal_transform, this._transform);
+      mat3.fromMat4(this._normalTransform, this._transform);
     }
   }
 
@@ -83,55 +83,56 @@ export class PrimitiveStream {
   }
 
   startGeometry() {
-    if (this._geometry_started) {
+    if (this._geometryStarted) {
       throw new Error(`Attempted to start a new geometry before the previous one was ended.`);
     }
 
-    this._geometry_started = true;
-    this._vertex_index = 0;
-    this._high_index = 0;
+    this._geometryStarted = true;
+    this._vertexIndex = 0;
+    this._highIndex = 0;
   }
 
   endGeometry() {
-    if (!this._geometry_started) {
+    if (!this._geometryStarted) {
       throw new Error(`Attempted to end a geometry before one was started.`);
     }
 
-    if (this._high_index >= this._vertex_index) {
-      throw new Error(`Geometry contains indices that are out of bounds. (Contains an index of ${this._high_index} when the vertex count is ${this._vertex_index})`);
+    if (this._highIndex >= this._vertexIndex) {
+      throw new Error(`Geometry contains indices that are out of bounds.
+                       (Contains an index of ${this._highIndex} when the vertex count is ${this._vertexIndex})`);
     }
 
-    this._geometry_started = false;
-    this._vertex_offset += this._vertex_index;
+    this._geometryStarted = false;
+    this._vertexOffset += this._vertexIndex;
 
     // TODO: Anything else need to be done to finish processing here?
   }
 
   pushVertex(x, y, z, u, v, nx, ny, nz) {
-    if (!this._geometry_started) {
+    if (!this._geometryStarted) {
       throw new Error(`Cannot push vertices before calling startGeometry().`);
     }
 
     // Transform the incoming vertex if we have a transformation matrix
     if (this._transform) {
-      temp_vec3[0] = x;
-      temp_vec3[1] = y;
-      temp_vec3[2] = z;
-      vec3.transformMat4(temp_vec3, temp_vec3, this._transform);
-      x = temp_vec3[0];
-      y = temp_vec3[1];
-      z = temp_vec3[2];
+      tempVec3[0] = x;
+      tempVec3[1] = y;
+      tempVec3[2] = z;
+      vec3.transformMat4(tempVec3, tempVec3, this._transform);
+      x = tempVec3[0];
+      y = tempVec3[1];
+      z = tempVec3[2];
 
-      temp_vec3[0] = nx;
-      temp_vec3[1] = ny;
-      temp_vec3[2] = nz;
-      vec3.transformMat3(temp_vec3, temp_vec3, this._normal_transform);
-      nx = temp_vec3[0];
-      ny = temp_vec3[1];
-      nz = temp_vec3[2];
+      tempVec3[0] = nx;
+      tempVec3[1] = ny;
+      tempVec3[2] = nz;
+      vec3.transformMat3(tempVec3, tempVec3, this._normalTransform);
+      nx = tempVec3[0];
+      ny = tempVec3[1];
+      nz = tempVec3[2];
     }
 
-    if (this._invert_normals) {
+    if (this._invertNormals) {
       nx *= -1.0;
       ny *= -1.0;
       nz *= -1.0;
@@ -151,59 +152,59 @@ export class PrimitiveStream {
       this._max = vec3.fromValues(x, y, z);
     }
 
-    return this._vertex_index++;
+    return this._vertexIndex++;
   }
 
-  get next_vertex_index() {
-    return this._vertex_index;
+  get nextVertexIndex() {
+    return this._vertexIndex;
   }
 
-  pushTriangle(idx_a, idx_b, idx_c) {
-    if (!this._geometry_started) {
+  pushTriangle(idxA, idxB, idxC) {
+    if (!this._geometryStarted) {
       throw new Error(`Cannot push triangles before calling startGeometry().`);
     }
 
-    this._high_index = Math.max(this._high_index, idx_a, idx_b, idx_c);
+    this._highIndex = Math.max(this._highIndex, idxA, idxB, idxC);
 
-    idx_a += this._vertex_offset;
-    idx_b += this._vertex_offset;
-    idx_c += this._vertex_offset;
+    idxA += this._vertexOffset;
+    idxB += this._vertexOffset;
+    idxC += this._vertexOffset;
 
-    if (this._flip_winding) {
-      this._indices.push(idx_c, idx_b, idx_a);
+    if (this._flipWinding) {
+      this._indices.push(idxC, idxB, idxA);
     } else {
-      this._indices.push(idx_a, idx_b, idx_c);
+      this._indices.push(idxA, idxB, idxC);
     }
   }
 
   clear() {
-    if (this._geometry_started) {
+    if (this._geometryStarted) {
       throw new Error(`Cannot clear before ending the current geometry.`);
     }
 
     this._vertices = [];
     this._indices = [];
-    this._vertex_offset = 0;
+    this._vertexOffset = 0;
     this._min = null;
     this._max = null;
   }
 
   finishPrimitive(renderer) {
-    if (!this._vertex_offset) {
+    if (!this._vertexOffset) {
       throw new Error(`Attempted to call finishPrimitive() before creating any geometry.`);
     }
 
-    let vertex_buffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(this._vertices));
-    let index_buffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(this._indices));
+    let vertexBuffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(this._vertices));
+    let indexBuffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(this._indices));
 
     let attribs = [
-      new PrimitiveAttribute("POSITION", vertex_buffer, 3, GL.FLOAT, 32, 0),
-      new PrimitiveAttribute("TEXCOORD_0", vertex_buffer, 2, GL.FLOAT, 32, 12),
-      new PrimitiveAttribute("NORMAL", vertex_buffer, 3, GL.FLOAT, 32, 20),
+      new PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 32, 0),
+      new PrimitiveAttribute('TEXCOORD_0', vertexBuffer, 2, GL.FLOAT, 32, 12),
+      new PrimitiveAttribute('NORMAL', vertexBuffer, 3, GL.FLOAT, 32, 20),
     ];
-  
+
     let primitive = new Primitive(attribs, this._indices.length);
-    primitive.setIndexBuffer(index_buffer);
+    primitive.setIndexBuffer(indexBuffer);
     primitive.setBounds(this._min, this._max);
 
     return primitive;
@@ -211,19 +212,19 @@ export class PrimitiveStream {
 }
 
 export class GeometryBuilderBase {
-  constructor(primitive_stream) {
-    if (primitive_stream) {
-      this._stream = primitive_stream;
+  constructor(primitiveStream) {
+    if (primitiveStream) {
+      this._stream = primitiveStream;
     } else {
       this._stream = new PrimitiveStream();
     }
   }
 
-  set primitive_stream(value) {
+  set primitiveStream(value) {
     this._stream = value;
   }
 
-  get primitive_stream() {
+  get primitiveStream() {
     return this._stream;
   }
 

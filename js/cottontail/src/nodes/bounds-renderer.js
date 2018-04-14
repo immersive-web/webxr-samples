@@ -25,9 +25,9 @@ XRStageBounds' `geometry` is a series of XRStageBoundsPoints (in
 clockwise-order) with `x` and `z` properties for each.
 */
 
-import { Material } from '../core/material.js'
-import { Node } from '../core/node.js'
-import { Primitive, PrimitiveAttribute } from '../core/primitive.js'
+import {Material} from '../core/material.js';
+import {Node} from '../core/node.js';
+import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 
 const GL = WebGLRenderingContext; // For enums
 
@@ -36,16 +36,16 @@ class BoundsMaterial extends Material {
     super();
 
     this.state.blend = true;
-    this.state.blend_func_src = GL.SRC_ALPHA;
-    this.state.blend_func_dst = GL.ONE;
-    this.state.depth_test = false;
+    this.state.blendFuncSrc = GL.SRC_ALPHA;
+    this.state.blendFuncDst = GL.ONE;
+    this.state.depthTest = false;
   }
 
-  get material_name() {
+  get materialName() {
     return 'BOUNDS_RENDERER';
   }
 
-  get vertex_source() {
+  get vertexSource() {
     return `
     attribute vec2 POSITION;
 
@@ -54,7 +54,7 @@ class BoundsMaterial extends Material {
     }`;
   }
 
-  get fragment_source() {
+  get fragmentSource() {
     return `
     precision mediump float;
 
@@ -68,23 +68,23 @@ export class BoundsRenderer extends Node {
   constructor() {
     super();
 
-    this._stage_bounds = null;
+    this._stageBounds = null;
   }
 
   onRendererChanged(renderer) {
-    this.stage_bounds = this._stage_bounds;
+    this.stageBounds = this._stageBounds;
   }
 
-  get stage_bounds() {
-    return this._stage_bounds;
+  get stageBounds() {
+    return this._stageBounds;
   }
 
-  set stage_bounds(stage_bounds) {
-    if (this._stage_bounds) {
+  set stageBounds(stageBounds) {
+    if (this._stageBounds) {
       this.clearRenderPrimitives();
     }
-    this._stage_bounds = stage_bounds;
-    if (!stage_bounds || stage_bounds.length === 0 || !this._renderer) {
+    this._stageBounds = stageBounds;
+    if (!stageBounds || stageBounds.length === 0 || !this._renderer) {
       return;
     }
 
@@ -93,26 +93,26 @@ export class BoundsRenderer extends Node {
 
     // Tessellate the bounding points from XRStageBounds and connect
     // each point to a neighbor and 0,0,0.
-    const point_count = stage_bounds.geometry.length;
-    for (let i = 0; i < point_count; i++) {
-      const point = stage_bounds.geometry[i];
+    const pointCount = stageBounds.geometry.length;
+    for (let i = 0; i < pointCount; i++) {
+      const point = stageBounds.geometry[i];
       verts.push(point.x, 0, point.z);
-      indices.push(i, i === 0 ? point_count - 1 : i - 1, point_count);
+      indices.push(i, i === 0 ? pointCount - 1 : i - 1, pointCount);
     }
     // Center point
     verts.push(0, 0, 0);
 
-    let vertex_buffer = this._renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(verts));
-    let index_buffer = this._renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+    let vertexBuffer = this._renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(verts));
+    let indexBuffer = this._renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
 
     let attribs = [
-      new PrimitiveAttribute("POSITION", vertex_buffer, 3, gl.FLOAT, 12, 0),
+      new PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 12, 0),
     ];
-  
-    let primitive = new Primitive(attribs, indices.length);
-    primitive.setIndexBuffer(index_buffer);
 
-    let render_primitive = this._renderer.createRenderPrimitive(primitive, new BoundsMaterial());
-    this.addRenderPrimitive(render_primitive);
+    let primitive = new Primitive(attribs, indices.length);
+    primitive.setIndexBuffer(indexBuffer);
+
+    let renderPrimitive = this._renderer.createRenderPrimitive(primitive, new BoundsMaterial());
+    this.addRenderPrimitive(renderPrimitive);
   }
 }

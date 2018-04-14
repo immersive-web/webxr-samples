@@ -22,21 +22,21 @@ const GL = WebGLRenderingContext; // For enums
 
 export const CAP = {
   // Enable caps
-  CULL_FACE:    0x001,
-  BLEND:        0x002,
-  DEPTH_TEST:   0x004,
+  CULL_FACE: 0x001,
+  BLEND: 0x002,
+  DEPTH_TEST: 0x004,
   STENCIL_TEST: 0x008,
-  COLOR_MASK:   0x010,
-  DEPTH_MASK:   0x020,
-  STENCIL_MASK: 0x040
+  COLOR_MASK: 0x010,
+  DEPTH_MASK: 0x020,
+  STENCIL_MASK: 0x040,
 };
 
 export const MAT_STATE = {
-  CAPS_RANGE:      0x000000FF,
-  BLEND_SRC_SHIFT:  8,
-  BLEND_SRC_RANGE:  0x00000F00,
-  BLEND_DST_SHIFT:  12,
-  BLEND_DST_RANGE:  0x0000F000,
+  CAPS_RANGE: 0x000000FF,
+  BLEND_SRC_SHIFT: 8,
+  BLEND_SRC_RANGE: 0x00000F00,
+  BLEND_DST_SHIFT: 12,
+  BLEND_DST_RANGE: 0x0000F000,
   BLEND_FUNC_RANGE: 0x0000FF00,
   DEPTH_FUNC_SHIFT: 16,
   DEPTH_FUNC_RANGE: 0x000F0000,
@@ -44,20 +44,20 @@ export const MAT_STATE = {
 
 export const RENDER_ORDER = {
   // Render opaque objects first.
-  OPAQUE:      0,
+  OPAQUE: 0,
 
   // Render the sky after all opaque object to save fill rate.
-  SKY:         1,
+  SKY: 1,
 
   // Render transparent objects next so that the opaqe objects show through.
   TRANSPARENT: 2,
 
   // Finally render purely additive effects like pointer rays so that they
   // can render without depth mask.
-  ADDITIVE:    3,
+  ADDITIVE: 3,
 
   // Render order will be picked based on the material properties.
-  DEFAULT:     4,
+  DEFAULT: 4,
 };
 
 export function stateToBlendFunc(state, mask, shift) {
@@ -79,14 +79,16 @@ export class MaterialState {
                   CAP.DEPTH_MASK;
 
     // Use a fairly commonly desired blend func as the default.
-    this.blend_func_src = GL.SRC_ALPHA;
-    this.blend_func_dst = GL.ONE_MINUS_SRC_ALPHA;
+    this.blendFuncSrc = GL.SRC_ALPHA;
+    this.blendFuncDst = GL.ONE_MINUS_SRC_ALPHA;
 
-    this.depth_func = GL.LESS;
+    this.depthFunc = GL.LESS;
   }
 
-  get cull_face() { return !!(this._state & CAP.CULL_FACE); }
-  set cull_face(value) {
+  get cullFace() {
+    return !!(this._state & CAP.CULL_FACE);
+  }
+  set cullFace(value) {
     if (value) {
       this._state |= CAP.CULL_FACE;
     } else {
@@ -94,7 +96,9 @@ export class MaterialState {
     }
   }
 
-  get blend() { return !!(this._state & CAP.BLEND); }
+  get blend() {
+    return !!(this._state & CAP.BLEND);
+  }
   set blend(value) {
     if (value) {
       this._state |= CAP.BLEND;
@@ -103,8 +107,10 @@ export class MaterialState {
     }
   }
 
-  get depth_test() { return !!(this._state & CAP.DEPTH_TEST); }
-  set depth_test(value) {
+  get depthTest() {
+    return !!(this._state & CAP.DEPTH_TEST);
+  }
+  set depthTest(value) {
     if (value) {
       this._state |= CAP.DEPTH_TEST;
     } else {
@@ -112,8 +118,10 @@ export class MaterialState {
     }
   }
 
-  get stencil_test() { return !!(this._state & CAP.STENCIL_TEST); }
-  set stencil_test(value) {
+  get stencilTest() {
+    return !!(this._state & CAP.STENCIL_TEST);
+  }
+  set stencilTest(value) {
     if (value) {
       this._state |= CAP.STENCIL_TEST;
     } else {
@@ -121,8 +129,10 @@ export class MaterialState {
     }
   }
 
-  get color_mask() { return !!(this._state & CAP.COLOR_MASK); }
-  set color_mask(value) {
+  get colorMask() {
+    return !!(this._state & CAP.COLOR_MASK);
+  }
+  set colorMask(value) {
     if (value) {
       this._state |= CAP.COLOR_MASK;
     } else {
@@ -130,8 +140,10 @@ export class MaterialState {
     }
   }
 
-  get depth_mask() { return !!(this._state & CAP.DEPTH_MASK); }
-  set depth_mask(value) {
+  get depthMask() {
+    return !!(this._state & CAP.DEPTH_MASK);
+  }
+  set depthMask(value) {
     if (value) {
       this._state |= CAP.DEPTH_MASK;
     } else {
@@ -139,17 +151,19 @@ export class MaterialState {
     }
   }
 
-  get depth_func() {
-    return ((this._state & MAT_STATE.DEPTH_FUNC_RANGE) >> MAT_STATE.DEPTH_FUNC_SHIFT) + WebGLRenderingContext.NEVER;
+  get depthFunc() {
+    return ((this._state & MAT_STATE.DEPTH_FUNC_RANGE) >> MAT_STATE.DEPTH_FUNC_SHIFT) + GL.NEVER;
   }
-  set depth_func(value) {
-    value = value - WebGLRenderingContext.NEVER;
+  set depthFunc(value) {
+    value = value - GL.NEVER;
     this._state &= ~MAT_STATE.DEPTH_FUNC_RANGE;
-    this._state |= (value << MAT_STATE.DEPTH_FUNC_SHIFT)
+    this._state |= (value << MAT_STATE.DEPTH_FUNC_SHIFT);
   }
 
-  get stencil_mask() { return !!(this._state & CAP.STENCIL_MASK); }
-  set stencil_mask(value) {
+  get stencilMask() {
+    return !!(this._state & CAP.STENCIL_MASK);
+  }
+  set stencilMask(value) {
     if (value) {
       this._state |= CAP.STENCIL_MASK;
     } else {
@@ -157,31 +171,31 @@ export class MaterialState {
     }
   }
 
-  get blend_func_src() {
+  get blendFuncSrc() {
     return stateToBlendFunc(this._state, MAT_STATE.BLEND_SRC_RANGE, MAT_STATE.BLEND_SRC_SHIFT);
   }
-  set blend_func_src(value) {
-    switch(value) {
+  set blendFuncSrc(value) {
+    switch (value) {
       case 0:
       case 1:
         break;
       default:
-        value = (value - WebGLRenderingContext.SRC_COLOR) + 2;
+        value = (value - GL.SRC_COLOR) + 2;
     }
     this._state &= ~MAT_STATE.BLEND_SRC_RANGE;
     this._state |= (value << MAT_STATE.BLEND_SRC_SHIFT);
   }
 
-  get blend_func_dst() {
+  get blendFuncDst() {
     return stateToBlendFunc(this._state, MAT_STATE.BLEND_DST_RANGE, MAT_STATE.BLEND_DST_SHIFT);
   }
-  set blend_func_dst(value) {
-    switch(value) {
+  set blendFuncDst(value) {
+    switch (value) {
       case 0:
       case 1:
         break;
       default:
-        value = (value - WebGLRenderingContext.SRC_COLOR) + 2;
+        value = (value - GL.SRC_COLOR) + 2;
     }
     this._state &= ~MAT_STATE.BLEND_DST_RANGE;
     this._state |= (value << MAT_STATE.BLEND_DST_SHIFT);
@@ -189,8 +203,8 @@ export class MaterialState {
 }
 
 class MaterialSampler {
-  constructor(uniform_name) {
-    this._uniform_name = uniform_name;
+  constructor(uniformName) {
+    this._uniformName = uniformName;
     this._texture = null;
   }
 
@@ -204,13 +218,13 @@ class MaterialSampler {
 }
 
 class MaterialUniform {
-  constructor(uniform_name, default_value, length) {
-    this._uniform_name = uniform_name;
-    this._value = default_value;
+  constructor(uniformName, defaultValue, length) {
+    this._uniformName = uniformName;
+    this._value = defaultValue;
     this._length = length;
     if (!this._length) {
-      if (default_value instanceof Array) {
-        this._length = default_value.length;
+      if (defaultValue instanceof Array) {
+        this._length = defaultValue.length;
       } else {
         this._length = 1;
       }
@@ -229,36 +243,36 @@ class MaterialUniform {
 export class Material {
   constructor() {
     this.state = new MaterialState;
-    this.render_order = RENDER_ORDER.DEFAULT;
+    this.renderOrder = RENDER_ORDER.DEFAULT;
     this._samplers = [];
     this._uniforms = [];
   }
 
-  defineSampler(uniform_name) {
-    let sampler = new MaterialSampler(uniform_name);
+  defineSampler(uniformName) {
+    let sampler = new MaterialSampler(uniformName);
     this._samplers.push(sampler);
     return sampler;
   }
 
-  defineUniform(uniform_name, default_value=null, length=0) {
-    let uniform = new MaterialUniform(uniform_name, default_value, length);
+  defineUniform(uniformName, defaultValue=null, length=0) {
+    let uniform = new MaterialUniform(uniformName, defaultValue, length);
     this._uniforms.push(uniform);
     return uniform;
   }
 
-  get material_name() {
+  get materialName() {
     return null;
   }
 
-  get vertex_source() {
+  get vertexSource() {
     return null;
   }
 
-  get fragment_source() {
-    return null
+  get fragmentSource() {
+    return null;
   }
 
-  getProgramDefines(render_primitive) {
+  getProgramDefines(renderPrimitive) {
     return {};
   }
 }
