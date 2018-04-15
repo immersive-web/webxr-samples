@@ -57,32 +57,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       var paramTypes = {};
       var paramValues = {};
       var paramDefaults = {};
-      function getBoolParam(name, opt_default) {
+      function getBoolParam(name, optDefault) {
         paramTypes[name] = 'bool';
-        if (!opt_default) opt_default = false;
-        paramDefaults[name] = opt_default;
-        let val = WGLUUrl.getBool(name, opt_default);
+        if (!optDefault) optDefault = false;
+        paramDefaults[name] = optDefault;
+        let val = WGLUUrl.getBool(name, optDefault);
         paramValues[name] = val;
         return val;
       }
-      function getIntParam(name, opt_default) {
+      function getIntParam(name, optDefault) {
         paramTypes[name] = 'int';
-        paramDefaults[name] = opt_default;
-        let val = WGLUUrl.getInt(name, opt_default);
+        paramDefaults[name] = optDefault;
+        let val = WGLUUrl.getInt(name, optDefault);
         paramValues[name] = val;
         return val;
       }
-      function getFloatParam(name, opt_default) {
+      function getFloatParam(name, optDefault) {
         paramTypes[name] = 'float';
-        paramDefaults[name] = opt_default;
-        let val = WGLUUrl.getFloat(name, opt_default);
+        paramDefaults[name] = optDefault;
+        let val = WGLUUrl.getFloat(name, optDefault);
         paramValues[name] = val;
         return val;
       }
-      function getStringParam(name, opt_default) {
+      function getStringParam(name, optDefault) {
         paramTypes[name] = 'string';
-        paramDefaults[name] = opt_default;
-        let val = WGLUUrl.getString(name, opt_default);
+        paramDefaults[name] = optDefault;
+        let val = WGLUUrl.getString(name, optDefault);
         paramValues[name] = val;
         return val;
       }
@@ -107,36 +107,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let newHash = '#' + pairs.join('&');
         document.location.hash = newHash;
       }
-      function getParamSaver(name, opt_apply_func) {
+      function getParamSaver(name, optApplyFunc) {
         if (!(name in paramTypes))
           throw new Error('unknown param name: ' + name);
         return (value) => {
           paramValues[name] = value;
           updateHash();
-          if (opt_apply_func) {
-            opt_apply_func(value);
+          if (optApplyFunc) {
+            optApplyFunc(value);
           }
         };
       }
 
       let cubeSea = new CubeSea({
-        image_url: '../media/textures/cube-sea.png',
+        imageUrl: '../media/textures/cube-sea.png',
 
         // Number and size of the static cubes. Use the larger
         // cube count from heavyGpu to avoid inconsistent defaults.
-        cube_count: getIntParam('cubeCount', 12),
-        cube_scale: getFloatParam('cubeScale'),
+        cubeCount: getIntParam('cubeCount', 12),
+        cubeScale: getFloatParam('cubeScale'),
 
         // If true, use a very heavyweight shader to stress the GPU.
-        heavy_gpu: getBoolParam('heavyGpu'),
+        heavyGpu: getBoolParam('heavyGpu'),
 
         // Draw only half the world cubes. Helps test variable render cost
         // when combined with heavyGpu.
-        half_only: getBoolParam('halfOnly'),
+        halfOnly: getBoolParam('halfOnly'),
 
         // Automatically spin the world cubes. Intended for automated testing,
         // not recommended for viewing in a headset.
-        auto_rotate: getBoolParam('autorotate'),
+        autoRotate: getBoolParam('autorotate'),
       });
 
       let appSettings = {
@@ -168,14 +168,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // name of the hash parameter which may be different.
       let gui = new dat.GUI({ autoPlace: false });
       var folderScene = gui.addFolder('Scene options');
-      folderScene.add(cubeSea, 'cube_count', 4, 14, 1).onFinishChange(
+      folderScene.add(cubeSea, 'cubeCount', 4, 14, 1).onFinishChange(
           getParamSaver('cubeCount', updateCubeSea));
-      folderScene.add(cubeSea, 'cube_scale', 0.2, 2.0, 0.05).onFinishChange(
+      folderScene.add(cubeSea, 'cubeScale', 0.2, 2.0, 0.05).onFinishChange(
           getParamSaver('cubeScale', updateCubeSea));
-      folderScene.add(cubeSea, 'half_only').onFinishChange(
+      folderScene.add(cubeSea, 'halfOnly').onFinishChange(
           getParamSaver('halfOnly', updateCubeSea));
-      // heavy_gpu currently only gets read on startup.
-      folderScene.add(cubeSea, 'heavy_gpu').onFinishChange(
+      // heavyGpu currently only gets read on startup.
+      folderScene.add(cubeSea, 'heavyGpu').onFinishChange(
           getParamSaver('heavyGpu', () => { window.location.reload(false); }));
       folderScene.add(appSettings, 'simulatedWorkTimeMs', 0, 20, 1).onFinishChange(
           getParamSaver('workTime'));
@@ -195,7 +195,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           getParamSaver('noFrames'));
       folderTest.add(appSettings, 'submitInterval').onFinishChange(
           getParamSaver('submitInterval'));
-      folderTest.add(cubeSea, 'auto_rotate').onFinishChange(
+      folderTest.add(cubeSea, 'autoRotate').onFinishChange(
           getParamSaver('autorotate', updateCubeSea));
       // Don't auto-open this folder, it's not very interesting for interactive use.
 
@@ -278,8 +278,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
-          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 

@@ -202,15 +202,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // Gather all the values needed for one view and push it into the
             // array of views to be drawn. WebXRView is a utility class that
             // holds all the necessary values for drawing a single view.
-            let render_view = new WebXRView();
+            let renderView = new WebXRView();
 
             // In future samples we'll hide this part away as well by using the
             // scene.drawXRViews() function, which handles gathering these
             // values internally.
-            render_view.projection_matrix = view.projectionMatrix;
-            render_view.view_matrix = pose.getViewMatrix(view);
-            render_view.viewport = session.baseLayer.getViewport(view);
-            views.push(render_view);
+            renderView.projectionMatrix = view.projectionMatrix;
+            renderView.viewMatrix = pose.getViewMatrix(view);
+            renderView.viewport = session.baseLayer.getViewport(view);
+            views.push(renderView);
           }
 
           scene.drawViewArray(views);

@@ -99,7 +99,7 @@ export class SevenSegmentText extends Node {
         let idx = segments[i];
         let segment = segmentIndices[idx];
         character.count += segment.length;
-        indices.push.apply(indices, segment);
+        indices.push(...segment);
       }
 
       characters[c] = character;

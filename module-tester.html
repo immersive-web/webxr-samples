@@ -87,8 +87,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let boxNodes = [];
 
-      function setScene(new_scene) {
-        scene = new_scene;
+      function setScene(newScene) {
+        scene = newScene;
         scene.standingStats(true);
         scene.setSkybox({ imageUrl: 'media/textures/milky-way-4k.png' });
         scene.setRenderer(renderer);
@@ -103,12 +103,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         function addBox(x, y, z) {
           boxBuilder.pushCube([x, y, z], 0.3);
-          let boxPrimitve = boxBuilder.primitive_stream.finishPrimitive(renderer);
+          let boxPrimitve = boxBuilder.primitiveStream.finishPrimitive(renderer);
 
-          let box_material = new PbrMaterial();
-          box_material.base_color_factor.value = [0.0, 0.3, 1.0, 1.0];
+          let boxMaterial = new PbrMaterial();
+          boxMaterial.baseColorFactor.value = [0.0, 0.3, 1.0, 1.0];
 
-          let node = renderer.createMesh(boxPrimitve, box_material);
+          let node = renderer.createMesh(boxPrimitve, boxMaterial);
           node.selectable = true;
           scene.addNode(node);
           boxNodes.push(node);
@@ -127,7 +127,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         let button = new ButtonNode(new UrlTexture('media/textures/play-button.png'), () => {
           // Do something?
-          button.icon_texture = new UrlTexture('media/textures/pause-button.png');
+          button.iconTexture = new UrlTexture('media/textures/pause-button.png');
           console.log("Button clicked");
         });
         scene.addNode(button);
@@ -146,97 +146,97 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       onResize();
 
       // Simple flight controls
-      let pressed_keys = new Array(256);
-      let select_started = false;
-      let select_pending = false;
-      let look_yaw = 0;
-      let look_pitch = 0;
-      let look_pos = [0, 0, 0];
-      const look_speed = 0.0025;
-      const move_speed = 0.0025;
-      window.addEventListener('keydown', (ev) => pressed_keys[ev.keyCode] = true);
-      window.addEventListener('keyup', (ev) => pressed_keys[ev.keyCode] = false);
+      let pressedKeys = new Array(256);
+      let selectStarted = false;
+      let selectPending = false;
+      let lookYaw = 0;
+      let lookPitch = 0;
+      let lookPos = [0, 0, 0];
+      const lookSpeed = 0.0025;
+      const moveSpeed = 0.0025;
+      window.addEventListener('keydown', (ev) => pressedKeys[ev.keyCode] = true);
+      window.addEventListener('keyup', (ev) => pressedKeys[ev.keyCode] = false);
       window.addEventListener('mousemove', (ev) => {
         // Only rotate when the left button is pressed
         if (ev.buttons && 1) {
-          look_yaw += ev.movementX * look_speed;
+          lookYaw += ev.movementX * lookSpeed;
 
-          look_pitch += ev.movementY * look_speed;
-          if (look_pitch < -Math.PI*0.5)
-              look_pitch = -Math.PI*0.5;
-          if (look_pitch > Math.PI*0.5)
-              look_pitch = Math.PI*0.5;
+          lookPitch += ev.movementY * lookSpeed;
+          if (lookPitch < -Math.PI*0.5)
+              lookPitch = -Math.PI*0.5;
+          if (lookPitch > Math.PI*0.5)
+              lookPitch = Math.PI*0.5;
         }
       });
 
       function updateView(delta) {
-        if (pressed_keys[' '.charCodeAt(0)]) {
-          select_started = true;
-        } else if (select_started) {
-          select_started = false;
-          select_pending = true;
+        if (pressedKeys[' '.charCodeAt(0)]) {
+          selectStarted = true;
+        } else if (selectStarted) {
+          selectStarted = false;
+          selectPending = true;
         }
 
-        let move_dir = [0, 0, 0];
+        let moveDir = [0, 0, 0];
 
-        if(pressed_keys['W'.charCodeAt(0)]) {
-            move_dir[2] += 1;
+        if(pressedKeys['W'.charCodeAt(0)]) {
+            moveDir[2] += 1;
         }
-        if(pressed_keys['S'.charCodeAt(0)]) {
-            move_dir[2] -= 1;
+        if(pressedKeys['S'.charCodeAt(0)]) {
+            moveDir[2] -= 1;
         }
-        if(pressed_keys['A'.charCodeAt(0)]) {
-            move_dir[0] += 1;
+        if(pressedKeys['A'.charCodeAt(0)]) {
+            moveDir[0] += 1;
         }
-        if(pressed_keys['D'.charCodeAt(0)]) {
-            move_dir[0] -= 1;
+        if(pressedKeys['D'.charCodeAt(0)]) {
+            moveDir[0] -= 1;
         }
 
-        vec3.normalize(move_dir, move_dir);
-        vec3.scale(move_dir, move_dir, delta * move_speed);
+        vec3.normalize(moveDir, moveDir);
+        vec3.scale(moveDir, moveDir, delta * moveSpeed);
 
         mat4.identity(viewMat);
-        mat4.rotateY(viewMat, viewMat, -look_yaw);
-        mat4.rotateX(viewMat, viewMat, -look_pitch);
+        mat4.rotateY(viewMat, viewMat, -lookYaw);
+        mat4.rotateX(viewMat, viewMat, -lookPitch);
 
-        vec3.transformMat4(move_dir, move_dir, viewMat);
-        vec3.add(look_pos, look_pos, move_dir);
+        vec3.transformMat4(moveDir, moveDir, viewMat);
+        vec3.add(lookPos, lookPos, moveDir);
 
         mat4.identity(viewMat);
-        mat4.rotateX(viewMat, viewMat, look_pitch);
-        mat4.rotateY(viewMat, viewMat, look_yaw);
-        mat4.translate(viewMat, viewMat, look_pos);
+        mat4.rotateX(viewMat, viewMat, lookPitch);
+        mat4.rotateY(viewMat, viewMat, lookYaw);
+        mat4.translate(viewMat, viewMat, lookPos);
       };
 
-      let selected_node = null;
+      let selectedNode = null;
 
-      function checkRay(pointer_matrix) {
-        if (selected_node) {
-          //selected_node.visible = true;
+      function checkRay(pointerMatrix) {
+        if (selectedNode) {
+          //selectedNode.visible = true;
         }
-        let hit_result = scene.hitTest(pointer_matrix);
-        if (hit_result) {
-          selected_node = hit_result.node;
-          //selected_node.visible = false;
-          scene.inputRenderer.addCursor(hit_result.intersection);
+        let hitResult = scene.hitTest(pointerMatrix);
+        if (hitResult) {
+          selectedNode = hitResult.node;
+          //selectedNode.visible = false;
+          scene.inputRenderer.addCursor(hitResult.intersection);
         } else {
-          selected_node = null;
+          selectedNode = null;
         }
       }
 
-      let pointer_matrix = mat4.create();
+      let pointerMatrix = mat4.create();
       function onGLFrame(t) {
         window.requestAnimationFrame(onGLFrame);
 
         if (!scene)
           return;
 
-        let frame_delta = scene.startFrame();
-        updateView(frame_delta);
+        let frameDelta = scene.startFrame();
+        updateView(frameDelta);
 
         let cursorPos = vec3.fromValues(0, 0, -2.0);
-        mat4.invert(pointer_matrix, viewMat);
-        vec3.transformMat4(cursorPos, cursorPos, pointer_matrix);
+        mat4.invert(pointerMatrix, viewMat);
+        vec3.transformMat4(cursorPos, cursorPos, pointerMatrix);
 
         scene.inputRenderer.addCursor(cursorPos);
 
@@ -245,15 +245,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mat4.translate(mat, mat, [Math.sin(t / 1000), 0, Math.cos(t / 1000)]);
         mat4.rotateY(mat, mat, t / 1000);
 
-        for (let box_node of boxNodes) {
-          box_node.matrix = mat;
+        for (let boxNode of boxNodes) {
+          boxNode.matrix = mat;
         }
 
-        checkRay(pointer_matrix);
+        checkRay(pointerMatrix);
 
-        if (select_pending) {
-          select_pending = false;
-          scene.handleSelectPointer(pointer_matrix);
+        if (selectPending) {
+          selectPending = false;
+          scene.handleSelectPointer(pointerMatrix);
         }
 
         gl.clear(gl.DEPTH_BUFFER_BIT);

@@ -60,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let renderer = null;
       let scene = new GLTF2Scene('../media/gltf/garage/garage.gltf');
       scene.enableStats(false);
-      scene._reset_input_end_frame = false;
+      scene._resetInputEndFrame = false;
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -114,8 +114,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           scene.setRenderer(renderer);
 
-          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 

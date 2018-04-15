@@ -66,13 +66,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let videoNode = new VideoNode({
         video: video,
-        display_mode: 'mono'
+        displayMode: 'mono'
       });
       
       // When the video is clicked we'll pause it if it's playing.
       videoNode.onSelect(() => {
         if (!video.paused) {
-          play_button.visible = true;
+          playButton.visible = true;
           video.pause();
         }
       });
@@ -96,21 +96,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
 
       // Add a button to the scene to play/pause the movie.
-      let play_texture = new UrlTexture('media/textures/play-button.png');
+      let playTexture = new UrlTexture('media/textures/play-button.png');
 
       // Create a button that plays the video when clicked.
-      let play_button = new ButtonNode(play_texture, () => {
+      let playButton = new ButtonNode(playTexture, () => {
         // Play the video and hide the button.
         if (video.paused) {
-          play_button.visible = false;
+          playButton.visible = false;
           video.play();
         }
       });
       // Move the play button to the center of the screen and make it much
       // bigger.
-      play_button.translation = [0.025, 0.275, -4.3];
-      play_button.scale = [5.0, 5.0, 5.0];
-      scene.addNode(play_button);
+      playButton.translation = [0.025, 0.275, -4.3];
+      playButton.scale = [5.0, 5.0, 5.0];
+      scene.addNode(playButton);
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -170,8 +170,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.setRenderer(renderer);
 
           // Loads a generic controller mesh.
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 

@@ -1002,6 +1002,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	
 	    // Borrowed from:
+	    // eslint-disable-next-line max-len
 	    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
 	    value: function intersectsAABB(min, max) {
 	      var r = this;
@@ -1421,7 +1422,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	      if (!this._promise) {
 	        if (!this._material) {
-	          return Promise.reject("RenderPrimitive does not have a material");
+	          return Promise.reject('RenderPrimitive does not have a material');
 	        }
 	
 	        var completionPromises = [];
@@ -2005,9 +2006,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	            program = primitive._material._program;
 	            program.use();
 	
-	            if (program.uniform.LIGHT_DIRECTION) gl.uniform3fv(program.uniform.LIGHT_DIRECTION, DEF_LIGHT_DIR);
+	            if (program.uniform.LIGHT_DIRECTION) {
+	              gl.uniform3fv(program.uniform.LIGHT_DIRECTION, DEF_LIGHT_DIR);
+	            }
 	
-	            if (program.uniform.LIGHT_COLOR) gl.uniform3fv(program.uniform.LIGHT_COLOR, DEF_LIGHT_COLOR);
+	            if (program.uniform.LIGHT_COLOR) {
+	              gl.uniform3fv(program.uniform.LIGHT_COLOR, DEF_LIGHT_COLOR);
+	            }
 	
 	            if (views.length == 1) {
 	              gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
@@ -2114,11 +2119,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	        throw new Error('Texure does not have a valid key');
 	      }
 	
+	      var gl = this._gl;
+	      var textureHandle = null;
+	
+	      function updateVideoFrame() {
+	        if (!texture._video.paused && !texture._video.waiting) {
+	          gl.bindTexture(gl.TEXTURE_2D, textureHandle);
+	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+	          window.setTimeout(updateVideoFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
+	        }
+	      }
+	
 	      if (key in this._textureCache) {
 	        return this._textureCache[key];
 	      } else {
-	        var gl = this._gl;
-	        var textureHandle = gl.createTexture();
+	        textureHandle = gl.createTexture();
 	        this._textureCache[key] = textureHandle;
 	
 	        if (texture instanceof _texture.DataTexture) {
@@ -2138,15 +2153,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	            if (texture instanceof _texture.VideoTexture) {
 	              // "Listen for updates" to the video frames and copy to the texture.
-	              var _updateFrame = function _updateFrame() {
-	                if (!texture._video.paused && !texture._video.waiting) {
-	                  gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-	                  gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-	                  window.setTimeout(_updateFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
-	                }
-	              };
-	
-	              texture._video.addEventListener('playing', _updateFrame);
+	              texture._video.addEventListener('playing', updateVideoFrame);
 	            }
 	          });
 	        }
@@ -5999,6 +6006,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _primitive = __webpack_require__(8);
 	
+	function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
@@ -6104,7 +6113,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          var idx = segments[i];
 	          var segment = segmentIndices[idx];
 	          character.count += segment.length;
-	          indices.push.apply(indices, segment);
+	          indices.push.apply(indices, _toConsumableArray(segment));
 	        }
 	
 	        characters[c] = character;

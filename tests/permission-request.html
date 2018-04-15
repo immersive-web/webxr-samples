@@ -122,41 +122,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           scene.setRenderer(renderer);
 
-          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
 
-          let check_texture = new UrlTexture('../media/textures/check-button.png');
-          let x_texture = new UrlTexture('../media/textures/x-button.png');
+          let checkTexture = new UrlTexture('../media/textures/check-button.png');
+          let xTexture = new UrlTexture('../media/textures/x-button.png');
 
-          function addPermissionButton(icon_url, callback, y_angle, y_offset) {
-            let button = new ButtonNode(new UrlTexture(icon_url), () => {
+          function addPermissionButton(iconUrl, callback, yAngle, yOffset) {
+            let button = new ButtonNode(new UrlTexture(iconUrl), () => {
               callback(
-                () => { button.icon_texture = check_texture; }, // Success callback
-                () => { button.icon_texture = x_texture; } // Failure callback
+                () => { button.iconTexture = checkTexture; }, // Success callback
+                () => { button.iconTexture = xTexture; } // Failure callback
               )
             });
             mat4.identity(button.matrix);
-            mat4.translate(button.matrix, button.matrix, [0, y_offset, 0]);
-            mat4.rotateY(button.matrix, button.matrix, y_angle);
+            mat4.translate(button.matrix, button.matrix, [0, yOffset, 0]);
+            mat4.rotateY(button.matrix, button.matrix, yAngle);
             mat4.translate(button.matrix, button.matrix, [0, 0, -BUTTON_GRID_DISTANCE]);
             scene.addNode(button);
           }
 
           // Builds a cylindrical grid of buttons
-          function addPermissionButtons(button_list) {
-            let count = button_list.length;
+          function addPermissionButtons(buttonList) {
+            let count = buttonList.length;
             let rows = Math.ceil(count / BUTTON_PER_ROW);
-            let first_row_offset = (rows / 2) * BUTTON_ROW_HEIGHT;
-            let angle_per_button = BUTTON_ROW_ARC / BUTTON_PER_ROW;
-            let row_angle_offset = (BUTTON_ROW_ARC * 0.5) - (angle_per_button * 0.5)
+            let firstRowOffset = (rows / 2) * BUTTON_ROW_HEIGHT;
+            let anglePerButton = BUTTON_ROW_ARC / BUTTON_PER_ROW;
+            let rowAngleOffset = (BUTTON_ROW_ARC * 0.5) - (anglePerButton * 0.5)
 
             for (let i = 0; i < count; ++i) {
-              let button = button_list[i];
-              let y_angle = row_angle_offset - ((i % BUTTON_PER_ROW) * angle_per_button);
+              let button = buttonList[i];
+              let yAngle = rowAngleOffset - ((i % BUTTON_PER_ROW) * anglePerButton);
               let row = Math.floor(i / BUTTON_PER_ROW);
-              let y_offset = BUTTON_GRID_HEIGHT + (first_row_offset - (row * BUTTON_ROW_HEIGHT));
-              addPermissionButton(button.icon, button.callback, y_angle, y_offset);
+              let yOffset = BUTTON_GRID_HEIGHT + (firstRowOffset - (row * BUTTON_ROW_HEIGHT));
+              addPermissionButton(button.icon, button.callback, yAngle, yOffset);
             }
           }
 

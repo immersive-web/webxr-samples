@@ -60,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new GLTF2Scene('media/gltf/cave/cave.gltf');
-      scene.setSkybox({ image_url: 'media/textures/eilenriede-park-2k.png' });
+      scene.setSkybox({ imageUrl: 'media/textures/eilenriede-park-2k.png' });
 
       scene.standingStats(true);
 
@@ -116,8 +116,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.setRenderer(renderer);
 
           // Loads a generic controller mesh.
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 
@@ -165,7 +165,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
 
           if (inputPose.pointerMatrix) {
-            if (inputSource.pointerOrigin == "hand") {
+            if (inputSource.pointerOrigin == 'hand') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer

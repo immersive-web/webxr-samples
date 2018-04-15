@@ -136,8 +136,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           scene.setRenderer(renderer);
 
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 
@@ -198,8 +198,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Load up a mesh that we can use to visualize the headset's pose.
         if (!headset) {
-          scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headset_mesh) => {
-            headset = headset_mesh;
+          scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headsetMesh) => {
+            headset = headsetMesh;
             scene.addNode(headset);
           });
         }

@@ -62,8 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new Scene();
 
       scene.setSkybox({
-        image_url: 'media/textures/chess-pano-4k.jpg',
-        display_mode: 'stereoTopBottom'
+        imageUrl: 'media/textures/chess-pano-4k.jpg',
+        displayMode: 'stereoTopBottom'
       });
 
       function initXR() {
@@ -115,8 +115,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           renderer = new Renderer(gl);
           scene.setRenderer(renderer);
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
         }
 
@@ -168,16 +168,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (pose) {
           let views = [];
           for (let view of frame.views) {
-            let render_view = new WebXRView();
-            render_view.projection_matrix = view.projectionMatrix;
-            render_view.view_matrix = pose.getViewMatrix(view);
-            render_view.viewport = session.baseLayer.getViewport(view);
+            let renderView = new WebXRView();
+            renderView.projectionMatrix = view.projectionMatrix;
+            renderView.viewMatrix = pose.getViewMatrix(view);
+            renderView.viewport = session.baseLayer.getViewport(view);
 
             // It's important to take into account which eye the view is
             // associated with in cases like this, since it informs which half
             // of the stereo image should be used when rendering the view.
-            render_view.eye = view.eye
-            views.push(render_view);
+            renderView.eye = view.eye
+            views.push(renderView);
           }
 
           scene.updateInputSources(frame, frameOfRef);

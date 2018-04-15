@@ -254,7 +254,7 @@ class RenderPrimitive {
   waitForComplete() {
     if (!this._promise) {
       if (!this._material) {
-        return Promise.reject("RenderPrimitive does not have a material");
+        return Promise.reject('RenderPrimitive does not have a material');
       }
 
       let completionPromises = [];
@@ -624,11 +624,13 @@ export class Renderer {
         program = primitive._material._program;
         program.use();
 
-        if (program.uniform.LIGHT_DIRECTION)
+        if (program.uniform.LIGHT_DIRECTION) {
           gl.uniform3fv(program.uniform.LIGHT_DIRECTION, DEF_LIGHT_DIR);
+        }
 
-        if (program.uniform.LIGHT_COLOR)
+        if (program.uniform.LIGHT_COLOR) {
           gl.uniform3fv(program.uniform.LIGHT_COLOR, DEF_LIGHT_COLOR);
+        }
 
         if (views.length == 1) {
           gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
@@ -698,11 +700,21 @@ export class Renderer {
       throw new Error('Texure does not have a valid key');
     }
 
+    let gl = this._gl;
+    let textureHandle = null;
+
+    function updateVideoFrame() {
+      if (!texture._video.paused && !texture._video.waiting) {
+        gl.bindTexture(gl.TEXTURE_2D, textureHandle);
+        gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+        window.setTimeout(updateVideoFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
+      }
+    }
+
     if (key in this._textureCache) {
       return this._textureCache[key];
     } else {
-      let gl = this._gl;
-      let textureHandle = gl.createTexture();
+      textureHandle = gl.createTexture();
       this._textureCache[key] = textureHandle;
 
       if (texture instanceof DataTexture) {
@@ -724,15 +736,7 @@ export class Renderer {
 
           if (texture instanceof VideoTexture) {
             // "Listen for updates" to the video frames and copy to the texture.
-            function updateFrame() {
-              if (!texture._video.paused && !texture._video.waiting) {
-                gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-                gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-                window.setTimeout(updateFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
-              }
-            }
-
-            texture._video.addEventListener('playing', updateFrame);
+            texture._video.addEventListener('playing', updateVideoFrame);
           }
         });
       }

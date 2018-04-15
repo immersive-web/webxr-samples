@@ -67,9 +67,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new GLTF2Scene('media/gltf/garage/garage.gltf');
       scene.standingStats(true);
 
-      let play_texture = null;
-      let pause_texture = null;
-      let play_button = null;
+      let playTexture = null;
+      let pauseTexture = null;
+      let playButton = null;
       let stereo = null;
 
       // Audio scene globals
@@ -204,8 +204,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           source.bufferSource.start(0);
         }
 
-        if (play_button) {
-          play_button.icon_texture = pause_texture;
+        if (playButton) {
+          playButton.iconTexture = pauseTexture;
         }
       }
 
@@ -221,8 +221,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         audioContext.suspend();
 
-        if (play_button) {
-          play_button.icon_texture = play_texture;
+        if (playButton) {
+          playButton.iconTexture = playTexture;
         }
       }
 
@@ -308,27 +308,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           scene.setRenderer(renderer);
 
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controller_mesh) => {
-            scene.inputRenderer.setControllerMesh(controller_mesh);
+          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
+            scene.inputRenderer.setControllerMesh(controllerMesh);
           });
 
-          scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((stereo_mesh) => {
-            stereo = stereo_mesh;
+          scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((stereoMesh) => {
+            stereo = stereoMesh;
           });
 
-          play_texture = new UrlTexture('media/textures/play-button.png');
-          pause_texture = new UrlTexture('media/textures/pause-button.png');
+          playTexture = new UrlTexture('media/textures/play-button.png');
+          pauseTexture = new UrlTexture('media/textures/pause-button.png');
 
           // Create a button that toggles the audio state when clicked.
-          play_button = new ButtonNode(play_texture, () => {
+          playButton = new ButtonNode(playTexture, () => {
             if (audioContext.state == 'running') {
               pauseAudio();
             } else {
               playAudio();
             }
           });
-          play_button.translation = [0, 1.2, -0.65];
-          scene.addNode(play_button);
+          playButton.translation = [0, 1.2, -0.65];
+          scene.addNode(playButton);
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);
@@ -358,9 +358,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      let dragging_source = null;
-      let dragging_input = null;
-      let dragging_transform = mat4.create();
+      let draggingSource = null;
+      let draggingInput = null;
+      let draggingTransform = mat4.create();
 
       function hitTest(inputSource, frame, frameOfRef) {
         let inputPose = frame.getInputPose(inputSource, frameOfRef);
@@ -369,14 +369,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         if (inputPose.pointerMatrix) {
-          let hit_result = scene.hitTest(inputPose.pointerMatrix)
-          if (hit_result) {
+          let hitResult = scene.hitTest(inputPose.pointerMatrix)
+          if (hitResult) {
             for (let source of audioSources) {
-              if (hit_result.node ==  source.node) {
-                dragging_source = source;
-                dragging_input = inputSource;
-                mat4.invert(dragging_transform, inputPose.pointerMatrix);
-                mat4.multiply(dragging_transform, dragging_transform, source.node.matrix);
+              if (hitResult.node ==  source.node) {
+                draggingSource = source;
+                draggingInput = inputSource;
+                mat4.invert(draggingTransform, inputPose.pointerMatrix);
+                mat4.multiply(draggingTransform, draggingTransform, source.node.matrix);
                 return true;
               }
             }
@@ -394,11 +394,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSelectEnd(ev) {
-        dragging_source =  null;
-        dragging_input = null;
+        draggingSource =  null;
+        draggingInput = null;
       }
 
-      let tmp_matrix = mat4.create();
+      let tmpMatrix = mat4.create();
       function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
@@ -412,13 +412,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         scene.updateInputSources(frame, frameOfRef);
 
-        if (dragging_source) {
-          let dragging_pose = frame.getInputPose(dragging_input, frameOfRef);
-          if (dragging_pose) {
-            let pos = dragging_source.position;
-            mat4.multiply(tmp_matrix, dragging_pose.pointerMatrix, dragging_transform);
-            vec3.transformMat4(pos, [0, 0, 0], tmp_matrix);
-            dragging_source.source.setPosition(pos[0], pos[1], pos[2]);
+        if (draggingSource) {
+          let draggingPose = frame.getInputPose(draggingInput, frameOfRef);
+          if (draggingPose) {
+            let pos = draggingSource.position;
+            mat4.multiply(tmpMatrix, draggingPose.pointerMatrix, draggingTransform);
+            vec3.transformMat4(pos, [0, 0, 0], tmpMatrix);
+            draggingSource.source.setPosition(pos[0], pos[1], pos[2]);
           }
         }
 

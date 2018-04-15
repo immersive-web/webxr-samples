@@ -60,6 +60,7 @@ export class Ray {
   }
 
   // Borrowed from:
+  // eslint-disable-next-line max-len
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
   intersectsAABB(min, max) {
     let r = this;
