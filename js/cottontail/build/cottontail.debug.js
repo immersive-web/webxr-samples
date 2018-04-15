@@ -6217,6 +6217,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var handedness = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'right';
 	
 	      this._controllerNode = controllerNode;
+	      this._controllerNode.visible = false;
+	      // FIXME: Temporary fix to initialize for cloning.
+	      this.addNode(this._controllerNode);
 	      this._controllerNodeHandedness = handedness;
 	    }
 	  }, {

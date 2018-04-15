@@ -235,6 +235,9 @@ export class InputRenderer extends Node {
 
   setControllerMesh(controllerNode, handedness = 'right') {
     this._controllerNode = controllerNode;
+    this._controllerNode.visible = false;
+    // FIXME: Temporary fix to initialize for cloning.
+    this.addNode(this._controllerNode);
     this._controllerNodeHandedness = handedness;
   }
 

@@ -72,6 +72,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let playTexture = new UrlTexture('media/textures/play-button.png');
       let pauseTexture = new UrlTexture('media/textures/pause-button.png');
       let stereo = new Gltf2Node({url: 'media/gltf/stereo/stereo.gltf'});
+      // FIXME: Temporary fix to initialize for cloning.
+      stereo.visible = false;
+      scene.addNode(stereo);
 
       // Audio scene globals
       let audioContext = new AudioContext();
@@ -177,6 +180,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         for (let source of audioSources) {
           if (!source.node) {
             source.node = stereo.clone();
+            source.node.visible = true;
             source.node.selectable = true;
             scene.addNode(source.node);
           }

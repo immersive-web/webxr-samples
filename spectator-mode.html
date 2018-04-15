@@ -197,10 +197,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Load up a mesh that we can use to visualize the headset's pose.
         if (!headset) {
-          scene.gltf2Loader.loadFromUrl('media/gltf/headset/headset.gltf').then((headsetMesh) => {
-            headset = headsetMesh;
-            scene.addNode(headset);
-          });
+          headset = new Gltf2Node('media/gltf/headset/headset.gltf');
+          scene.addNode(headset);
         }
       }
 
