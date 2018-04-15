@@ -78,7 +78,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.Scene = exports.WebXRView = exports.VideoNode = exports.SkyboxNode = exports.Gltf2Node = exports.CubeSea = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
+	exports.Scene = exports.WebXRView = exports.VideoNode = exports.SkyboxNode = exports.Gltf2Node = exports.CubeSeaNode = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
 	var _node = __webpack_require__(1);
 	
@@ -92,7 +92,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _pbr = __webpack_require__(10);
 	
-	var _buttonNode = __webpack_require__(11);
+	var _button = __webpack_require__(11);
 	
 	var _cubeSea = __webpack_require__(12);
 	
@@ -139,8 +139,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
 	exports.BoxBuilder = _boxBuilder.BoxBuilder;
 	exports.PbrMaterial = _pbr.PbrMaterial;
-	exports.ButtonNode = _buttonNode.ButtonNode;
-	exports.CubeSea = _cubeSea.CubeSea;
+	exports.ButtonNode = _button.ButtonNode;
+	exports.CubeSeaNode = _cubeSea.CubeSeaNode;
 	exports.Gltf2Node = _gltf.Gltf2Node;
 	exports.SkyboxNode = _skybox.SkyboxNode;
 	exports.VideoNode = _video.VideoNode;
@@ -4080,7 +4080,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.CubeSea = undefined;
+	exports.CubeSeaNode = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
@@ -4158,17 +4158,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return CubeSeaMaterial;
 	}(_material.Material);
 	
-	var CubeSea = exports.CubeSea = function (_Node) {
-	  _inherits(CubeSea, _Node);
+	var CubeSeaNode = exports.CubeSeaNode = function (_Node) {
+	  _inherits(CubeSeaNode, _Node);
 	
-	  function CubeSea() {
+	  function CubeSeaNode() {
 	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	
-	    _classCallCheck(this, CubeSea);
+	    _classCallCheck(this, CubeSeaNode);
 	
 	    // Test variables
 	    // If true, use a very heavyweight shader to stress the GPU.
-	    var _this2 = _possibleConstructorReturn(this, (CubeSea.__proto__ || Object.getPrototypeOf(CubeSea)).call(this));
+	    var _this2 = _possibleConstructorReturn(this, (CubeSeaNode.__proto__ || Object.getPrototypeOf(CubeSeaNode)).call(this));
 	
 	    _this2.heavyGpu = !!options.heavyGpu;
 	
@@ -4194,7 +4194,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return _this2;
 	  }
 	
-	  _createClass(CubeSea, [{
+	  _createClass(CubeSeaNode, [{
 	    key: 'onRendererChanged',
 	    value: function onRendererChanged(renderer) {
 	      this._renderPrimitive = null;
@@ -4282,7 +4282,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  }]);
 
-	  return CubeSea;
+	  return CubeSeaNode;
 	}(_node.Node);
 
 /***/ }),

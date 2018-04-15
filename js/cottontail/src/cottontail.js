@@ -27,8 +27,8 @@ import {BoxBuilder} from './geometry/box-builder.js';
 
 import {PbrMaterial} from './materials/pbr.js';
 
-import {ButtonNode} from './nodes/button-node.js';
-import {CubeSea} from './nodes/cube-sea.js';
+import {ButtonNode} from './nodes/button.js';
+import {CubeSeaNode} from './nodes/cube-sea.js';
 import {Gltf2Node} from './nodes/gltf2.js';
 import {SkyboxNode} from './nodes/skybox.js';
 import {VideoNode} from './nodes/video.js';
@@ -55,7 +55,7 @@ export {
   PbrMaterial,
 
   ButtonNode,
-  CubeSea,
+  CubeSeaNode,
   Gltf2Node,
   SkyboxNode,
   VideoNode,

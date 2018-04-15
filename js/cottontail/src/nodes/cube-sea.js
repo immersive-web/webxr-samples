@@ -148,7 +148,7 @@ class CubeSeaMaterial extends Material {
   }
 }
 
-export class CubeSea extends Node {
+export class CubeSeaNode extends Node {
   constructor(options = {}) {
     super();
 

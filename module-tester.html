@@ -70,8 +70,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {BoxBuilder} from './js/cottontail/src/geometry/box-builder.js';
       import {PbrMaterial} from './js/cottontail/src/materials/pbr.js';
 
-      import {ButtonNode} from './js/cottontail/src/nodes/button-node.js';
-      import {CubeSea} from './js/cottontail/src/nodes/cube-sea.js';
+      import {ButtonNode} from './js/cottontail/src/nodes/button.js';
+      import {CubeSeaNode} from './js/cottontail/src/nodes/cube-sea.js';
       import {Gltf2Node} from './js/cottontail/src/nodes/gltf2.js';
 
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
@@ -274,7 +274,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           case 'void':
             break;
           case 'cube-sea':
-            scene.addNode(new CubeSea());
+            scene.addNode(new CubeSeaNode());
             break;
           default:
             scene.addNode(new Gltf2Node({url: `media/gltf/${sceneSelect.value}/${sceneSelect.value}.gltf`}));
