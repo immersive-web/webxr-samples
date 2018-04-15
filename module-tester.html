@@ -52,16 +52,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <select id='scene-select'>
           <option value='void' selected>Void</option>
           <option value='cube-sea'>Cube Sea</option>
+          <option value='space'>Space (glTF)</option>
           <option value='camp'>Camp (glTF)</option>
-          <option value='garage'>Garage (glTF)</option>
           <option value='cave'>Cave (glTF)</option>
+          <option value='garage'>Garage (glTF)</option>
+          <option value='cube-room'>Cube Room (glTF)</option>
+          <option value='home-theater'>Home Theater (glTF)</option>
         </select>
       </details>
     </header>
 
     <script type="module">
       import {Scene} from './js/cottontail/src/scenes/scene.js';
-      import {GLTF2Scene} from './js/cottontail/src/scenes/gltf2.js';
       import {Renderer, createWebGLContext} from './js/cottontail/src/core/renderer.js';
       import {UrlTexture} from './js/cottontail/src/core/texture.js';
 
@@ -70,6 +72,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       import {ButtonNode} from './js/cottontail/src/nodes/button-node.js';
       import {CubeSea} from './js/cottontail/src/nodes/cube-sea.js';
+      import {Gltf2Node} from './js/cottontail/src/nodes/gltf2.js';
 
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
                                                 0, 1, 0, 0,
@@ -90,14 +93,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function setScene(newScene) {
         scene = newScene;
         scene.standingStats(true);
-        scene.setSkybox({ imageUrl: 'media/textures/milky-way-4k.png' });
-        scene.setRenderer(renderer);
+        scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
 
-        scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((node) => {
-          node.selectable = true;
-          scene.addNode(node);
-          boxNodes.push(node);
-        });
+        let stereo = new Gltf2Node({url: 'media/gltf/stereo/stereo.gltf'});
+        stereo.selectable = true;
+        boxNodes.push(stereo);
+        scene.addNode(stereo);
+
+        scene.setRenderer(renderer);
 
         let boxBuilder = new BoxBuilder();
 
@@ -266,27 +269,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let sceneSelect = document.getElementById('scene-select');
       function onSceneSelected() {
+        let scene = new Scene();
         switch(sceneSelect.value) {
           case 'void':
-            setScene(new Scene());
-            return;
+            break;
           case 'cube-sea':
-            let scene = new Scene();
             scene.addNode(new CubeSea());
-            setScene(scene);
-            return;
-          case 'camp':
-            setScene(new GLTF2Scene('media/gltf/camp/camp.gltf'));
-            return;
-          case 'garage':
-            setScene(new GLTF2Scene('media/gltf/garage/garage.gltf'));
-            return;
-          case 'cave':
-            setScene(new GLTF2Scene('media/gltf/cave/cave.gltf'));
-            return;
+            break;
           default:
-            console.error(`Unknown Scene: ${sceneSelect.value}`);
+            scene.addNode(new Gltf2Node({url: `media/gltf/${sceneSelect.value}/${sceneSelect.value}.gltf`}));
+            break;
         }
+        setScene(scene);
       }
       sceneSelect.addEventListener('change', onSceneSelected);
       onSceneSelected();

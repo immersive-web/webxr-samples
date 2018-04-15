@@ -58,7 +58,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/cube-room/cube-room.gltf');
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
       scene.standingStats(true);
 
       let boxes = [];
@@ -114,10 +115,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
-
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
-            scene.inputRenderer.setControllerMesh(controllerMesh);
-          });
+          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
 
           // Create several boxes to use for hit testing.
           let boxBuilder = new BoxBuilder();

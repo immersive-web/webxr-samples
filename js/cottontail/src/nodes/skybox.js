@@ -80,11 +80,11 @@ class SkyboxMaterial extends Material {
   }
 }
 
-export class Skybox extends Node {
+export class SkyboxNode extends Node {
   constructor(options) {
     super();
 
-    this._imageUrl = options.imageUrl;
+    this._url = options.url;
     this._displayMode = options.displayMode || 'mono';
     this._rotationY = options.rotationY || 0;
   }
@@ -139,7 +139,7 @@ export class Skybox extends Node {
     primitive.setIndexBuffer(indexBuffer);
 
     let material = new SkyboxMaterial();
-    material.image.texture = new UrlTexture(this._imageUrl);
+    material.image.texture = new UrlTexture(this._url);
 
     switch (this._displayMode) {
       case 'mono':

@@ -59,11 +59,11 @@ function getComponentCount(type) {
 }
 
 /**
- * GLTF2SceneLoader
+ * Gltf2SceneLoader
  * Loads glTF 2.0 scenes into a renderable node tree.
  */
 
-export class GLTF2Loader {
+export class Gltf2Loader {
   constructor(renderer) {
     this.renderer = renderer;
     this._gl = renderer._gl;
@@ -134,22 +134,22 @@ export class GLTF2Loader {
 
     let buffers = [];
     if (binaryChunk) {
-      buffers[0] = new GLTF2Resource({}, baseUrl, binaryChunk);
+      buffers[0] = new Gltf2Resource({}, baseUrl, binaryChunk);
     } else {
       for (let buffer of json.buffers) {
-        buffers.push(new GLTF2Resource(buffer, baseUrl));
+        buffers.push(new Gltf2Resource(buffer, baseUrl));
       }
     }
 
     let bufferViews = [];
     for (let bufferView of json.bufferViews) {
-      bufferViews.push(new GLTF2BufferView(bufferView, buffers));
+      bufferViews.push(new Gltf2BufferView(bufferView, buffers));
     }
 
     let images = [];
     if (json.images) {
       for (let image of json.images) {
-        images.push(new GLTF2Resource(image, baseUrl));
+        images.push(new Gltf2Resource(image, baseUrl));
       }
     }
 
@@ -223,7 +223,7 @@ export class GLTF2Loader {
 
     let meshes = [];
     for (let mesh of json.meshes) {
-      let glMesh = new GLTF2Mesh();
+      let glMesh = new Gltf2Mesh();
       meshes.push(glMesh);
 
       for (let primitive of mesh.primitives) {
@@ -237,7 +237,7 @@ export class GLTF2Loader {
 
         let attributes = [];
         let elementCount = 0;
-        /* let glPrimitive = new GLTF2Primitive(primitive, material);
+        /* let glPrimitive = new Gltf2Primitive(primitive, material);
         glMesh.primitives.push(glPrimitive); */
 
         let min = null;
@@ -342,13 +342,13 @@ export class GLTF2Loader {
   }
 }
 
-class GLTF2Mesh {
+class Gltf2Mesh {
   constructor() {
     this.primitives = [];
   }
 }
 
-class GLTF2BufferView {
+class Gltf2BufferView {
   constructor(json, buffers) {
     this.buffer = buffers[json.buffer];
     this.byteOffset = json.byteOffset || 0;
@@ -376,7 +376,7 @@ class GLTF2BufferView {
   }
 }
 
-class GLTF2Resource {
+class Gltf2Resource {
   constructor(json, baseUrl, arrayBuffer) {
     this.json = json;
     this.baseUrl = baseUrl;

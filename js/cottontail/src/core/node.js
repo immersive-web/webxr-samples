@@ -116,15 +116,17 @@ export class Node {
       mat4.copy(cloneNode._worldMatrix, this._worldMatrix);
     }
 
-    if (this._renderPrimitives) {
-      for (let primitive of this._renderPrimitives) {
-        cloneNode.addRenderPrimitive(primitive);
+    this.waitForComplete().then(() => {
+      if (this._renderPrimitives) {
+        for (let primitive of this._renderPrimitives) {
+          cloneNode.addRenderPrimitive(primitive);
+        }
       }
-    }
 
-    for (let child of this.children) {
-      cloneNode.addNode(child.clone());
-    }
+      for (let child of this.children) {
+        cloneNode.addNode(child.clone());
+      }
+    });
 
     return cloneNode;
   }

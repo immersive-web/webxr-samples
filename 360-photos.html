@@ -60,11 +60,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-
-      scene.setSkybox({
-        imageUrl: 'media/textures/chess-pano-4k.jpg',
+      scene.addNode(new SkyboxNode({
+        url: 'media/textures/chess-pano-4k.jpg',
         displayMode: 'stereoTopBottom'
-      });
+      }));
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -115,9 +114,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           renderer = new Renderer(gl);
           scene.setRenderer(renderer);
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
-            scene.inputRenderer.setControllerMesh(controllerMesh);
-          });
+          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);

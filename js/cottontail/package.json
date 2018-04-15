@@ -10,9 +10,9 @@
     ]
   },
   "scripts": {
-    "build": "webpack",
-    "build-debug": "webpack --config webpack.config.debug.js",
-    "build-all": "webpack && webpack --config webpack.config.debug.js",
+    "build": "eslint -c .eslintrc.json src && webpack",
+    "build-debug": "eslint -c .eslintrc.json src && webpack --config webpack.config.debug.js",
+    "build-all": "eslint -c .eslintrc.json src && webpack && webpack --config webpack.config.debug.js",
     "watch": "webpack --watch",
     "watch-debug": "webpack --config webpack.config.debug.js --watch",
     "lint": "eslint -c .eslintrc.json src"

@@ -21,10 +21,8 @@
 import {RenderView} from '../core/renderer.js';
 import {BoundsRenderer} from '../nodes/bounds-renderer.js';
 import {InputRenderer} from '../nodes/input-renderer.js';
-import {Skybox} from '../nodes/skybox.js';
 import {StatsViewer} from '../nodes/stats-viewer.js';
 import {Node} from '../core/node.js';
-import {GLTF2Loader} from '../loaders/gltf2.js';
 
 export class WebXRView extends RenderView {
   constructor(view, pose, layer) {
@@ -53,9 +51,6 @@ export class Scene extends Node {
     this._inputRenderer = null;
     this._resetInputEndFrame = true;
 
-    this._skybox = null;
-    this._gltf2Loader = null;
-
     this._lastTimestamp = 0;
 
     this._hoverFrame = 0;
@@ -66,25 +61,7 @@ export class Scene extends Node {
     // Set up a non-black clear color so that we can see if something renders
     // wrong.
     renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
-
-    this._gltf2Loader = new GLTF2Loader(renderer);
-
     this._setRenderer(renderer);
-  }
-
-  setSkybox(imageUrl) {
-    if (this._skybox) {
-      this.removeNode(this._skybox);
-      this._skybox = null;
-    }
-    if (imageUrl) {
-      this._skybox = new Skybox(imageUrl);
-      this.addNode(this._skybox);
-
-      if (this._renderer) {
-        this._skybox.setRenderer(this._renderer);
-      }
-    }
   }
 
   loseRenderer() {
@@ -93,10 +70,6 @@ export class Scene extends Node {
       this._renderer = null;
       this._inputRenderer = null;
     }
-  }
-
-  get gltf2Loader() {
-    return this._gltf2Loader;
   }
 
   get inputRenderer() {

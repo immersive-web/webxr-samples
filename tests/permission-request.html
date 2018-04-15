@@ -64,7 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('../media/gltf/cave/cave.gltf');
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
       scene.enableStats(false);
 
       function initXR() {
@@ -121,10 +122,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
-
-          scene.gltf2Loader.loadFromUrl('../media/gltf/controller/controller.gltf').then((controllerMesh) => {
-            scene.inputRenderer.setControllerMesh(controllerMesh);
-          });
+          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
 
           let checkTexture = new UrlTexture('../media/textures/check-button.png');
           let xTexture = new UrlTexture('../media/textures/x-button.png');

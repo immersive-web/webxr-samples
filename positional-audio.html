@@ -64,13 +64,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/garage/garage.gltf');
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: 'media/gltf/garage/garage.gltf'}));
       scene.standingStats(true);
 
-      let playTexture = null;
-      let pauseTexture = null;
       let playButton = null;
-      let stereo = null;
+      let playTexture = new UrlTexture('media/textures/play-button.png');
+      let pauseTexture = new UrlTexture('media/textures/pause-button.png');
+      let stereo = new Gltf2Node({url: 'media/gltf/stereo/stereo.gltf'});
 
       // Audio scene globals
       let audioContext = new AudioContext();
@@ -308,16 +309,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           scene.setRenderer(renderer);
 
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
-            scene.inputRenderer.setControllerMesh(controllerMesh);
-          });
-
-          scene.gltf2Loader.loadFromUrl('media/gltf/stereo/stereo.gltf').then((stereoMesh) => {
-            stereo = stereoMesh;
-          });
-
-          playTexture = new UrlTexture('media/textures/play-button.png');
-          pauseTexture = new UrlTexture('media/textures/pause-button.png');
+          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
 
           // Create a button that toggles the audio state when clicked.
           playButton = new ButtonNode(playTexture, () => {

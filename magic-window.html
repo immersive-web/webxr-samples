@@ -59,8 +59,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
-      let scene = new GLTF2Scene('media/gltf/space/space.gltf');
-      scene.setSkybox({ imageUrl: 'media/textures/milky-way-4k.png' });
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
 
       function initXR() {
         xrButton = new XRDeviceButton({
