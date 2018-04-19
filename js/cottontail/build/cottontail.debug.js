@@ -2975,17 +2975,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var _this = _possibleConstructorReturn(this, (ImageTexture.__proto__ || Object.getPrototypeOf(ImageTexture)).call(this));
 	
 	    _this._img = img;
+	    _this._imgBitmap = null;
 	
 	    if (img.src && img.complete) {
 	      if (img.naturalWidth) {
-	        _this._promise = Promise.resolve(_this);
+	        _this._promise = _this._finishImage();
 	      } else {
 	        _this._promise = Promise.reject('Image provided had failed to load.');
 	      }
 	    } else {
 	      _this._promise = new Promise(function (resolve, reject) {
 	        img.addEventListener('load', function () {
-	          return resolve(_this);
+	          return resolve(_this._finishImage());
 	        });
 	        img.addEventListener('error', reject);
 	      });
@@ -2994,6 +2995,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  _createClass(ImageTexture, [{
+	    key: '_finishImage',
+	    value: function _finishImage() {
+	      var _this2 = this;
+	
+	      if (createImageBitmap) {
+	        return createImageBitmap(this._img).then(function (imgBitmap) {
+	          _this2._imgBitmap = imgBitmap;
+	          return Promise.resolve(_this2);
+	        });
+	      }
+	      return Promise.resolve(this);
+	    }
+	  }, {
 	    key: 'waitForComplete',
 	    value: function waitForComplete() {
 	      return this._promise;
@@ -3022,7 +3036,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'source',
 	    get: function get() {
-	      return this._img;
+	      return this._imgBitmap || this._img;
 	    }
 	  }]);
 	
@@ -3037,10 +3051,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var img = new Image();
 	
-	    var _this2 = _possibleConstructorReturn(this, (UrlTexture.__proto__ || Object.getPrototypeOf(UrlTexture)).call(this, img));
+	    var _this3 = _possibleConstructorReturn(this, (UrlTexture.__proto__ || Object.getPrototypeOf(UrlTexture)).call(this, img));
 	
 	    img.src = url;
-	    return _this2;
+	    return _this3;
 	  }
 	
 	  return UrlTexture;
@@ -3054,10 +3068,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var img = new Image();
 	
-	    var _this3 = _possibleConstructorReturn(this, (BlobTexture.__proto__ || Object.getPrototypeOf(BlobTexture)).call(this, img));
+	    var _this4 = _possibleConstructorReturn(this, (BlobTexture.__proto__ || Object.getPrototypeOf(BlobTexture)).call(this, img));
 	
 	    img.src = window.URL.createObjectURL(blob);
-	    return _this3;
+	    return _this4;
 	  }
 	
 	  return BlobTexture;
@@ -3069,23 +3083,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function VideoTexture(video) {
 	    _classCallCheck(this, VideoTexture);
 	
-	    var _this4 = _possibleConstructorReturn(this, (VideoTexture.__proto__ || Object.getPrototypeOf(VideoTexture)).call(this));
+	    var _this5 = _possibleConstructorReturn(this, (VideoTexture.__proto__ || Object.getPrototypeOf(VideoTexture)).call(this));
 	
-	    _this4._video = video;
+	    _this5._video = video;
 	
 	    if (video.readyState >= 2) {
-	      _this4._promise = Promise.resolve(_this4);
+	      _this5._promise = Promise.resolve(_this5);
 	    } else if (video.error) {
-	      _this4._promise = Promise.reject(video.error);
+	      _this5._promise = Promise.reject(video.error);
 	    } else {
-	      _this4._promise = new Promise(function (resolve, reject) {
+	      _this5._promise = new Promise(function (resolve, reject) {
 	        video.addEventListener('loadeddata', function () {
-	          return resolve(_this4);
+	          return resolve(_this5);
 	        });
 	        video.addEventListener('error', reject);
 	      });
 	    }
-	    return _this4;
+	    return _this5;
 	  }
 	
 	  _createClass(VideoTexture, [{
@@ -3135,16 +3149,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _classCallCheck(this, DataTexture);
 	
-	    var _this5 = _possibleConstructorReturn(this, (DataTexture.__proto__ || Object.getPrototypeOf(DataTexture)).call(this));
+	    var _this6 = _possibleConstructorReturn(this, (DataTexture.__proto__ || Object.getPrototypeOf(DataTexture)).call(this));
 	
-	    _this5._data = data;
-	    _this5._width = width;
-	    _this5._height = height;
-	    _this5._format = format;
-	    _this5._type = type;
-	    _this5._key = 'DATA_' + nextDataTextureIndex;
+	    _this6._data = data;
+	    _this6._width = width;
+	    _this6._height = height;
+	    _this6._format = format;
+	    _this6._type = type;
+	    _this6._key = 'DATA_' + nextDataTextureIndex;
 	    nextDataTextureIndex++;
-	    return _this5;
+	    return _this6;
 	  }
 	
 	  _createClass(DataTexture, [{
@@ -3180,11 +3194,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    var colorData = new Uint8Array([r * 255.0, g * 255.0, b * 255.0, a * 255.0]);
 	
-	    var _this6 = _possibleConstructorReturn(this, (ColorTexture.__proto__ || Object.getPrototypeOf(ColorTexture)).call(this, colorData, 1, 1));
+	    var _this7 = _possibleConstructorReturn(this, (ColorTexture.__proto__ || Object.getPrototypeOf(ColorTexture)).call(this, colorData, 1, 1));
 	
-	    _this6.mipmap = false;
-	    _this6._key = 'COLOR_' + colorData[0] + '_' + colorData[1] + '_' + colorData[2] + '_' + colorData[3];
-	    return _this6;
+	    _this7.mipmap = false;
+	    _this7._key = 'COLOR_' + colorData[0] + '_' + colorData[1] + '_' + colorData[2] + '_' + colorData[3];
+	    return _this7;
 	  }
 	
 	  return ColorTexture;

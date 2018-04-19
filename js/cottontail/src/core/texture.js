@@ -58,19 +58,30 @@ export class ImageTexture extends Texture {
     super();
 
     this._img = img;
+    this._imgBitmap = null;
 
     if (img.src && img.complete) {
       if (img.naturalWidth) {
-        this._promise = Promise.resolve(this);
+        this._promise = this._finishImage();
       } else {
         this._promise = Promise.reject('Image provided had failed to load.');
       }
     } else {
       this._promise = new Promise((resolve, reject) => {
-        img.addEventListener('load', () => resolve(this));
+        img.addEventListener('load', () => resolve(this._finishImage()));
         img.addEventListener('error', reject);
       });
     }
+  }
+
+  _finishImage() {
+    if (createImageBitmap) {
+      return createImageBitmap(this._img).then((imgBitmap) => {
+        this._imgBitmap = imgBitmap;
+        return Promise.resolve(this);
+      });
+    }
+    return Promise.resolve(this);
   }
 
   get format() {
@@ -95,7 +106,7 @@ export class ImageTexture extends Texture {
   }
 
   get source() {
-    return this._img;
+    return this._imgBitmap || this._img;
   }
 }
 
