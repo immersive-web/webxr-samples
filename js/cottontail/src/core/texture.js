@@ -75,8 +75,8 @@ export class ImageTexture extends Texture {
   }
 
   _finishImage() {
-    if (createImageBitmap) {
-      return createImageBitmap(this._img).then((imgBitmap) => {
+    if (window.createImageBitmap) {
+      return window.createImageBitmap(this._img).then((imgBitmap) => {
         this._imgBitmap = imgBitmap;
         return Promise.resolve(this);
       });

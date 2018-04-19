@@ -2999,8 +2999,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function _finishImage() {
 	      var _this2 = this;
 	
-	      if (createImageBitmap) {
-	        return createImageBitmap(this._img).then(function (imgBitmap) {
+	      if (window.createImageBitmap) {
+	        return window.createImageBitmap(this._img).then(function (imgBitmap) {
 	          _this2._imgBitmap = imgBitmap;
 	          return Promise.resolve(_this2);
 	        });
