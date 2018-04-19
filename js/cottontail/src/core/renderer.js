@@ -163,6 +163,7 @@ class RenderPrimitiveAttributeBuffer {
 
 class RenderPrimitive {
   constructor(primitive) {
+    this._activeFrameId = 0;
     this._instances = [];
     this._material = null;
 
@@ -230,16 +231,13 @@ class RenderPrimitive {
   }
 
   markActive(frameId) {
-    if (this._complete) {
+    if (this._complete && this._activeFrameId != frameId) {
+      if (this._material) {
+        if (!this._material.markActive(frameId)) {
+          return;
+        }
+      }
       this._activeFrameId = frameId;
-
-      if (this.material) {
-        this.material.markActive(frameId);
-      }
-
-      if (this.program) {
-        this.program.markActive(frameId);
-      }
     }
   }
 
@@ -258,7 +256,6 @@ class RenderPrimitive {
       }
 
       let completionPromises = [];
-      completionPromises.push(this._material.waitForComplete());
 
       for (let attributeBuffer of this._attributeBuffers) {
         if (!attributeBuffer._buffer._buffer) {
@@ -276,6 +273,22 @@ class RenderPrimitive {
       });
     }
     return this._promise;
+  }
+}
+
+export class RenderTexture {
+  constructor(texture) {
+    this._texture = texture;
+    this._complete = false;
+    this._activeFrameId = 0;
+    this._activeCallback = null;
+  }
+
+  markActive(frameId) {
+    if (this._activeCallback && this._activeFrameId != frameId) {
+      this._activeFrameId = frameId;
+      this._activeCallback(this);
+    }
   }
 }
 
@@ -298,12 +311,12 @@ class RenderMaterialSampler {
   constructor(renderer, materialSampler, index) {
     this._renderer = renderer;
     this._uniformName = materialSampler._uniformName;
-    this._texture = renderer._getRenderTexture(materialSampler._texture);
+    this._renderTexture = renderer._getRenderTexture(materialSampler._texture);
     this._index = index;
   }
 
   set texture(value) {
-    this._texture = this._renderer._getRenderTexture(value);
+    this._renderTexture = this._renderer._getRenderTexture(value);
   }
 }
 
@@ -334,6 +347,8 @@ class RenderMaterial {
   constructor(renderer, material, program) {
     this._program = program;
     this._state = material.state._state;
+    this._activeFrameId = 0;
+    this._completeForActiveFrame = false;
 
     this._samplerDictionary = {};
     this._samplers = [];
@@ -351,7 +366,6 @@ class RenderMaterial {
       this._uniform_dictionary[renderUniform._uniformName] = renderUniform;
     }
 
-    this._completePromise = null;
     this._firstBind = true;
 
     this._renderOrder = material.renderOrder;
@@ -391,8 +405,8 @@ class RenderMaterial {
 
     for (let sampler of this._samplers) {
       gl.activeTexture(gl.TEXTURE0 + sampler._index);
-      if (sampler._texture) {
-        gl.bindTexture(gl.TEXTURE_2D, sampler._texture);
+      if (sampler._renderTexture && sampler._renderTexture._complete) {
+        gl.bindTexture(gl.TEXTURE_2D, sampler._renderTexture._texture);
       } else {
         gl.bindTexture(gl.TEXTURE_2D, null);
       }
@@ -408,21 +422,22 @@ class RenderMaterial {
     }
   }
 
-  waitForComplete() {
-    if (!this._completePromise) {
-      if (this._samplers.length == 0) {
-        this._completePromise = Promise.resolve(this);
-      } else {
-        let promises = [];
-        for (let sampler of this._samplers) {
-          if (sampler._texture && !sampler._texture._complete) {
-            promises.push(sampler._texture._promise);
+  markActive(frameId) {
+    if (this._activeFrameId != frameId) {
+      this._activeFrameId = frameId;
+      this._completeForActiveFrame = true;
+      for (let i = 0; i < this._samplers.length; ++i) {
+        let sampler = this._samplers[i];
+        if (sampler._renderTexture) {
+          if (!sampler._renderTexture._complete) {
+            this._completeForActiveFrame = false;
+            break;
           }
+          sampler._renderTexture.markActive(frameId);
         }
-        this._completePromise = Promise.all(promises).then(() => this);
       }
     }
-    return this._completePromise;
+    return this._completeForActiveFrame;
   }
 
   // Material State fetchers
@@ -700,48 +715,44 @@ export class Renderer {
       throw new Error('Texure does not have a valid key');
     }
 
-    let gl = this._gl;
-    let textureHandle = null;
-
-    function updateVideoFrame() {
-      if (!texture._video.paused && !texture._video.waiting) {
-        gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-        gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-        window.setTimeout(updateVideoFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
-      }
-    }
-
     if (key in this._textureCache) {
       return this._textureCache[key];
     } else {
-      textureHandle = gl.createTexture();
-      this._textureCache[key] = textureHandle;
+      let gl = this._gl;
+      let textureHandle = gl.createTexture();
+
+      let renderTexture = new RenderTexture(textureHandle);
+      this._textureCache[key] = renderTexture;
 
       if (texture instanceof DataTexture) {
         gl.bindTexture(gl.TEXTURE_2D, textureHandle);
         gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height,
                                      0, texture.format, texture._type, texture._data);
         this._setSamplerParameters(texture);
+        renderTexture._complete = true;
       } else {
-        // Initialize the texture to black
-        gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-        gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height,
-                                     0, texture.format, gl.UNSIGNED_BYTE, null);
-        this._setSamplerParameters(texture);
-
         texture.waitForComplete().then(() => {
           gl.bindTexture(gl.TEXTURE_2D, textureHandle);
           gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
           this._setSamplerParameters(texture);
+          renderTexture._complete = true;
 
           if (texture instanceof VideoTexture) {
-            // "Listen for updates" to the video frames and copy to the texture.
-            texture._video.addEventListener('playing', updateVideoFrame);
+            // Once the video starts playing, set a callback to update it's
+            // contents each frame.
+            texture._video.addEventListener('playing', () => {
+              renderTexture._activeCallback = () => {
+                if (!texture._video.paused && !texture._video.waiting) {
+                  gl.bindTexture(gl.TEXTURE_2D, textureHandle);
+                  gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+                }
+              };
+            });
           }
         });
       }
 
-      return textureHandle;
+      return renderTexture;
     }
   }
 

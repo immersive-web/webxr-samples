@@ -1095,7 +1095,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.Renderer = exports.RenderView = exports.ATTRIB_MASK = exports.ATTRIB = undefined;
+	exports.Renderer = exports.RenderTexture = exports.RenderView = exports.ATTRIB_MASK = exports.ATTRIB = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
 	//
@@ -1298,6 +1298,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  function RenderPrimitive(primitive) {
 	    _classCallCheck(this, RenderPrimitive);
 	
+	    this._activeFrameId = 0;
 	    this._instances = [];
 	    this._material = null;
 	
@@ -1412,16 +1413,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'markActive',
 	    value: function markActive(frameId) {
-	      if (this._complete) {
+	      if (this._complete && this._activeFrameId != frameId) {
+	        if (this._material) {
+	          if (!this._material.markActive(frameId)) {
+	            return;
+	          }
+	        }
 	        this._activeFrameId = frameId;
-	
-	        if (this.material) {
-	          this.material.markActive(frameId);
-	        }
-	
-	        if (this.program) {
-	          this.program.markActive(frameId);
-	        }
 	      }
 	    }
 	  }, {
@@ -1435,7 +1433,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	
 	        var completionPromises = [];
-	        completionPromises.push(this._material.waitForComplete());
+	        // completionPromises.push(this._material.waitForComplete());
 	
 	        var _iteratorNormalCompletion4 = true;
 	        var _didIteratorError4 = false;
@@ -1490,6 +1488,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return RenderPrimitive;
 	}();
 	
+	var RenderTexture = exports.RenderTexture = function () {
+	  function RenderTexture(texture) {
+	    _classCallCheck(this, RenderTexture);
+	
+	    this._texture = texture;
+	    this._complete = false;
+	    this._activeFrameId = 0;
+	    this._activeCallback = null;
+	  }
+	
+	  _createClass(RenderTexture, [{
+	    key: 'markActive',
+	    value: function markActive(frameId) {
+	      if (this._activeCallback && this._activeFrameId != frameId) {
+	        this._activeFrameId = frameId;
+	        this._activeCallback(this);
+	      }
+	    }
+	  }]);
+	
+	  return RenderTexture;
+	}();
+	
 	var inverseMatrix = mat4.create();
 	
 	function setCap(gl, glEnum, cap, prevState, state) {
@@ -1511,14 +1532,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    this._renderer = renderer;
 	    this._uniformName = materialSampler._uniformName;
-	    this._texture = renderer._getRenderTexture(materialSampler._texture);
+	    this._renderTexture = renderer._getRenderTexture(materialSampler._texture);
 	    this._index = index;
 	  }
 	
 	  _createClass(RenderMaterialSampler, [{
 	    key: 'texture',
 	    set: function set(value) {
-	      this._texture = this._renderer._getRenderTexture(value);
+	      this._renderTexture = this._renderer._getRenderTexture(value);
 	    }
 	  }]);
 	
@@ -1561,6 +1582,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    this._program = program;
 	    this._state = material.state._state;
+	    this._activeFrameId = 0;
+	    this._completeForActiveFrame = false;
 	
 	    this._samplerDictionary = {};
 	    this._samplers = [];
@@ -1599,7 +1622,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	
-	    this._completePromise = null;
 	    this._firstBind = true;
 	
 	    this._renderOrder = material.renderOrder;
@@ -1648,8 +1670,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	          var _sampler = _step6.value;
 	
 	          gl.activeTexture(gl.TEXTURE0 + _sampler._index);
-	          if (_sampler._texture) {
-	            gl.bindTexture(gl.TEXTURE_2D, _sampler._texture);
+	          if (_sampler._renderTexture && _sampler._renderTexture._complete) {
+	            gl.bindTexture(gl.TEXTURE_2D, _sampler._renderTexture._texture);
 	          } else {
 	            gl.bindTexture(gl.TEXTURE_2D, null);
 	          }
@@ -1704,48 +1726,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: 'waitForComplete',
-	    value: function waitForComplete() {
-	      var _this3 = this;
-	
-	      if (!this._completePromise) {
-	        if (this._samplers.length == 0) {
-	          this._completePromise = Promise.resolve(this);
-	        } else {
-	          var promises = [];
-	          var _iteratorNormalCompletion8 = true;
-	          var _didIteratorError8 = false;
-	          var _iteratorError8 = undefined;
-	
-	          try {
-	            for (var _iterator8 = this._samplers[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-	              var sampler = _step8.value;
-	
-	              if (sampler._texture && !sampler._texture._complete) {
-	                promises.push(sampler._texture._promise);
-	              }
+	    key: 'markActive',
+	    value: function markActive(frameId) {
+	      if (this._activeFrameId != frameId) {
+	        this._activeFrameId = frameId;
+	        this._completeForActiveFrame = true;
+	        for (var i = 0; i < this._samplers.length; ++i) {
+	          var sampler = this._samplers[i];
+	          if (sampler._renderTexture) {
+	            if (!sampler._renderTexture._complete) {
+	              this._completeForActiveFrame = false;
+	              break;
 	            }
-	          } catch (err) {
-	            _didIteratorError8 = true;
-	            _iteratorError8 = err;
-	          } finally {
-	            try {
-	              if (!_iteratorNormalCompletion8 && _iterator8.return) {
-	                _iterator8.return();
-	              }
-	            } finally {
-	              if (_didIteratorError8) {
-	                throw _iteratorError8;
-	              }
-	            }
+	            sampler._renderTexture.markActive(frameId);
 	          }
-	
-	          this._completePromise = Promise.all(promises).then(function () {
-	            return _this3;
-	          });
 	        }
 	      }
-	      return this._completePromise;
+	      return this._completeForActiveFrame;
 	    }
 	
 	    // Material State fetchers
@@ -1874,7 +1871,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'updateRenderBuffer',
 	    value: function updateRenderBuffer(buffer, data) {
-	      var _this4 = this;
+	      var _this3 = this;
 	
 	      var offset = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
 	
@@ -1888,7 +1885,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      } else {
 	        buffer.waitForComplete().then(function (buffer) {
-	          _this4.updateRenderBuffer(buffer, data, offset);
+	          _this3.updateRenderBuffer(buffer, data, offset);
 	        });
 	      }
 	    }
@@ -1948,29 +1945,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      // Draw each set of render primitives in order
-	      var _iteratorNormalCompletion9 = true;
-	      var _didIteratorError9 = false;
-	      var _iteratorError9 = undefined;
+	      var _iteratorNormalCompletion8 = true;
+	      var _didIteratorError8 = false;
+	      var _iteratorError8 = undefined;
 	
 	      try {
-	        for (var _iterator9 = this._renderPrimitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-	          var renderPrimitives = _step9.value;
+	        for (var _iterator8 = this._renderPrimitives[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+	          var renderPrimitives = _step8.value;
 	
 	          if (renderPrimitives && renderPrimitives.length) {
 	            this._drawRenderPrimitiveSet(views, renderPrimitives);
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError9 = true;
-	        _iteratorError9 = err;
+	        _didIteratorError8 = true;
+	        _iteratorError8 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion9 && _iterator9.return) {
-	            _iterator9.return();
+	          if (!_iteratorNormalCompletion8 && _iterator8.return) {
+	            _iterator8.return();
 	          }
 	        } finally {
-	          if (_didIteratorError9) {
-	            throw _iteratorError9;
+	          if (_didIteratorError8) {
+	            throw _iteratorError8;
 	          }
 	        }
 	      }
@@ -1995,13 +1992,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var attribMask = 0;
 	
 	      // Loop through every primitive known to the renderer.
-	      var _iteratorNormalCompletion10 = true;
-	      var _didIteratorError10 = false;
-	      var _iteratorError10 = undefined;
+	      var _iteratorNormalCompletion9 = true;
+	      var _didIteratorError9 = false;
+	      var _iteratorError9 = undefined;
 	
 	      try {
-	        for (var _iterator10 = renderPrimitives[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-	          var primitive = _step10.value;
+	        for (var _iterator9 = renderPrimitives[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+	          var primitive = _step9.value;
 	
 	          // Skip over those that haven't been marked as active for this frame.
 	          if (primitive._activeFrameId != this._frameId) {
@@ -2063,13 +2060,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	              gl.uniform1i(program.uniform.EYE_INDEX, view.eyeIndex);
 	            }
 	
-	            var _iteratorNormalCompletion11 = true;
-	            var _didIteratorError11 = false;
-	            var _iteratorError11 = undefined;
+	            var _iteratorNormalCompletion10 = true;
+	            var _didIteratorError10 = false;
+	            var _iteratorError10 = undefined;
 	
 	            try {
-	              for (var _iterator11 = primitive._instances[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-	                var instance = _step11.value;
+	              for (var _iterator10 = primitive._instances[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+	                var instance = _step10.value;
 	
 	                if (instance._activeFrameId != this._frameId) {
 	                  continue;
@@ -2084,32 +2081,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	                }
 	              }
 	            } catch (err) {
-	              _didIteratorError11 = true;
-	              _iteratorError11 = err;
+	              _didIteratorError10 = true;
+	              _iteratorError10 = err;
 	            } finally {
 	              try {
-	                if (!_iteratorNormalCompletion11 && _iterator11.return) {
-	                  _iterator11.return();
+	                if (!_iteratorNormalCompletion10 && _iterator10.return) {
+	                  _iterator10.return();
 	                }
 	              } finally {
-	                if (_didIteratorError11) {
-	                  throw _iteratorError11;
+	                if (_didIteratorError10) {
+	                  throw _iteratorError10;
 	                }
 	              }
 	            }
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError10 = true;
-	        _iteratorError10 = err;
+	        _didIteratorError9 = true;
+	        _iteratorError9 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion10 && _iterator10.return) {
-	            _iterator10.return();
+	          if (!_iteratorNormalCompletion9 && _iterator9.return) {
+	            _iterator9.return();
 	          }
 	        } finally {
-	          if (_didIteratorError10) {
-	            throw _iteratorError10;
+	          if (_didIteratorError9) {
+	            throw _iteratorError9;
 	          }
 	        }
 	      }
@@ -2117,7 +2114,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: '_getRenderTexture',
 	    value: function _getRenderTexture(texture) {
-	      var _this5 = this;
+	      var _this4 = this;
 	
 	      if (!texture) {
 	        return null;
@@ -2128,46 +2125,43 @@ return /******/ (function(modules) { // webpackBootstrap
 	        throw new Error('Texure does not have a valid key');
 	      }
 	
-	      var gl = this._gl;
-	      var textureHandle = null;
-	
-	      function updateVideoFrame() {
-	        if (!texture._video.paused && !texture._video.waiting) {
-	          gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-	          window.setTimeout(updateVideoFrame, 16); // TODO: UUUUUUUGGGGGGGHHHH!
-	        }
-	      }
-	
 	      if (key in this._textureCache) {
 	        return this._textureCache[key];
 	      } else {
-	        textureHandle = gl.createTexture();
-	        this._textureCache[key] = textureHandle;
+	        var gl = this._gl;
+	        var textureHandle = gl.createTexture();
+	
+	        var renderTexture = new RenderTexture(textureHandle);
+	        this._textureCache[key] = renderTexture;
 	
 	        if (texture instanceof _texture.DataTexture) {
 	          gl.bindTexture(gl.TEXTURE_2D, textureHandle);
 	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, texture._type, texture._data);
 	          this._setSamplerParameters(texture);
+	          renderTexture._complete = true;
 	        } else {
-	          // Initialize the texture to black
-	          gl.bindTexture(gl.TEXTURE_2D, textureHandle);
-	          gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height, 0, texture.format, gl.UNSIGNED_BYTE, null);
-	          this._setSamplerParameters(texture);
-	
 	          texture.waitForComplete().then(function () {
 	            gl.bindTexture(gl.TEXTURE_2D, textureHandle);
 	            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-	            _this5._setSamplerParameters(texture);
+	            _this4._setSamplerParameters(texture);
+	            renderTexture._complete = true;
 	
 	            if (texture instanceof _texture.VideoTexture) {
-	              // "Listen for updates" to the video frames and copy to the texture.
-	              texture._video.addEventListener('playing', updateVideoFrame);
+	              // Once the video starts playing, set a callback to update it's
+	              // contents each frame.
+	              texture._video.addEventListener('playing', function () {
+	                renderTexture._activeCallback = function () {
+	                  if (!texture._video.paused && !texture._video.waiting) {
+	                    gl.bindTexture(gl.TEXTURE_2D, textureHandle);
+	                    gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
+	                  }
+	                };
+	              });
 	            }
 	          });
 	        }
 	
-	        return textureHandle;
+	        return renderTexture;
 	      }
 	    }
 	  }, {
@@ -2205,7 +2199,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: '_getMaterialProgram',
 	    value: function _getMaterialProgram(material, renderPrimitive) {
-	      var _this6 = this;
+	      var _this5 = this;
 	
 	      var materialName = material.materialName;
 	      var vertexSource = material.vertexSource;
@@ -2248,7 +2242,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            var sampler = material._samplers[i];
 	            var uniform = program.uniform[sampler._uniformName];
 	            if (uniform) {
-	              _this6._gl.uniform1i(uniform, i);
+	              _this5._gl.uniform1i(uniform, i);
 	            }
 	          }
 	        });
@@ -2273,51 +2267,51 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      // Bind the primitive attributes and indices.
-	      var _iteratorNormalCompletion12 = true;
-	      var _didIteratorError12 = false;
-	      var _iteratorError12 = undefined;
+	      var _iteratorNormalCompletion11 = true;
+	      var _didIteratorError11 = false;
+	      var _iteratorError11 = undefined;
 	
 	      try {
-	        for (var _iterator12 = primitive._attributeBuffers[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
-	          var attributeBuffer = _step12.value;
+	        for (var _iterator11 = primitive._attributeBuffers[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+	          var attributeBuffer = _step11.value;
 	
 	          gl.bindBuffer(gl.ARRAY_BUFFER, attributeBuffer._buffer._buffer);
-	          var _iteratorNormalCompletion13 = true;
-	          var _didIteratorError13 = false;
-	          var _iteratorError13 = undefined;
+	          var _iteratorNormalCompletion12 = true;
+	          var _didIteratorError12 = false;
+	          var _iteratorError12 = undefined;
 	
 	          try {
-	            for (var _iterator13 = attributeBuffer._attributes[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
-	              var _attrib = _step13.value;
+	            for (var _iterator12 = attributeBuffer._attributes[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+	              var _attrib = _step12.value;
 	
 	              gl.vertexAttribPointer(_attrib._attrib_index, _attrib._componentCount, _attrib._componentType, _attrib._normalized, _attrib._stride, _attrib._byteOffset);
 	            }
 	          } catch (err) {
-	            _didIteratorError13 = true;
-	            _iteratorError13 = err;
+	            _didIteratorError12 = true;
+	            _iteratorError12 = err;
 	          } finally {
 	            try {
-	              if (!_iteratorNormalCompletion13 && _iterator13.return) {
-	                _iterator13.return();
+	              if (!_iteratorNormalCompletion12 && _iterator12.return) {
+	                _iterator12.return();
 	              }
 	            } finally {
-	              if (_didIteratorError13) {
-	                throw _iteratorError13;
+	              if (_didIteratorError12) {
+	                throw _iteratorError12;
 	              }
 	            }
 	          }
 	        }
 	      } catch (err) {
-	        _didIteratorError12 = true;
-	        _iteratorError12 = err;
+	        _didIteratorError11 = true;
+	        _iteratorError11 = err;
 	      } finally {
 	        try {
-	          if (!_iteratorNormalCompletion12 && _iterator12.return) {
-	            _iterator12.return();
+	          if (!_iteratorNormalCompletion11 && _iterator11.return) {
+	            _iterator11.return();
 	          }
 	        } finally {
-	          if (_didIteratorError12) {
-	            throw _iteratorError12;
+	          if (_didIteratorError11) {
+	            throw _iteratorError11;
 	          }
 	        }
 	      }
