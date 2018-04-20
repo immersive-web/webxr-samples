@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link href='css/common.css' rel='stylesheet'></link>
 
     <script src='js/third-party/gl-matrix-min.js'></script>
+    <script src='js/third-party/wglu-url.js'></script>
     <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
@@ -51,6 +52,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // Shh! Nothing to see here, move along.
+      let arMode = WGLUUrl.getBool('arMode', false);
+
       // XR globals.
       let xrButton = null;
       let xrExclusiveFrameOfRef = null;
@@ -61,7 +65,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let renderer = null;
       let scene = new Scene();
       scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
-      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+
+      if (!arMode) {
+        scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+      }
+      scene.clear = !arMode;
 
       function initXR() {
         xrButton = new XRDeviceButton({

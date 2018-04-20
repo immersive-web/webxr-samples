@@ -5503,9 +5503,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(Scene, [{
 	    key: 'setRenderer',
 	    value: function setRenderer(renderer) {
-	      // Set up a non-black clear color so that we can see if something renders
-	      // wrong.
-	      renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
 	      this._setRenderer(renderer);
 	    }
 	  }, {
