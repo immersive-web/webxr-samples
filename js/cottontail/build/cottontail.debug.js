@@ -78,7 +78,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.Scene = exports.WebXRView = exports.VideoNode = exports.SkyboxNode = exports.Gltf2Node = exports.CubeSeaNode = exports.ButtonNode = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
+	exports.Scene = exports.WebXRView = exports.VideoNode = exports.SkyboxNode = exports.Gltf2Node = exports.CubeSeaNode = exports.ButtonNode = exports.BoundsRenderer = exports.PbrMaterial = exports.BoxBuilder = exports.PrimitiveStream = exports.UrlTexture = exports.createWebGLContext = exports.Renderer = exports.Node = undefined;
 	
 	var _node = __webpack_require__(1);
 	
@@ -92,21 +92,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _pbr = __webpack_require__(10);
 	
-	var _button = __webpack_require__(11);
+	var _boundsRenderer = __webpack_require__(11);
 	
-	var _cubeSea = __webpack_require__(12);
+	var _button = __webpack_require__(12);
 	
-	var _gltf = __webpack_require__(13);
+	var _cubeSea = __webpack_require__(13);
 	
-	var _skybox = __webpack_require__(15);
+	var _gltf = __webpack_require__(14);
 	
-	var _video = __webpack_require__(16);
+	var _skybox = __webpack_require__(16);
 	
-	var _scene = __webpack_require__(17);
+	var _video = __webpack_require__(17);
+	
+	var _scene = __webpack_require__(18);
 	
 	// A very short-term polyfill to address a change in the location of the
 	// getViewport call. This should dissapear within a month or so.
-	// Copyright 2018 The Immersive Web Community Group
+	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
+	  XRWebGLLayer.prototype.getViewport = function (view) {
+	    return view.getViewport(this);
+	  };
+	} // Copyright 2018 The Immersive Web Community Group
 	//
 	// Permission is hereby granted, free of charge, to any person obtaining a copy
 	// of this software and associated documentation files (the "Software"), to deal
@@ -126,12 +132,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
-	if ('XRWebGLLayer' in window && !('getViewport' in XRWebGLLayer.prototype)) {
-	  XRWebGLLayer.prototype.getViewport = function (view) {
-	    return view.getViewport(this);
-	  };
-	}
-	
 	exports.Node = _node.Node;
 	exports.Renderer = _renderer.Renderer;
 	exports.createWebGLContext = _renderer.createWebGLContext;
@@ -139,6 +139,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.PrimitiveStream = _primitiveStream.PrimitiveStream;
 	exports.BoxBuilder = _boxBuilder.BoxBuilder;
 	exports.PbrMaterial = _pbr.PbrMaterial;
+	exports.BoundsRenderer = _boundsRenderer.BoundsRenderer;
 	exports.ButtonNode = _button.ButtonNode;
 	exports.CubeSeaNode = _cubeSea.CubeSeaNode;
 	exports.Gltf2Node = _gltf.Gltf2Node;
@@ -3824,6 +3825,154 @@ return /******/ (function(modules) { // webpackBootstrap
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.BoundsRenderer = undefined;
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _material = __webpack_require__(4);
+	
+	var _node = __webpack_require__(1);
+	
+	var _primitive = __webpack_require__(8);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a copy
+	// of this software and associated documentation files (the "Software"), to deal
+	// in the Software without restriction, including without limitation the rights
+	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	// copies of the Software, and to permit persons to whom the Software is
+	// furnished to do so, subject to the following conditions:
+	
+	// The above copyright notice and this permission notice shall be included in
+	// all copies or substantial portions of the Software.
+	
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	// SOFTWARE.
+	
+	/*
+	This file renders a passed in XRStageBounds object and attempts
+	to render geometry on the floor to indicate where the bounds is.
+	XRStageBounds' `geometry` is a series of XRStageBoundsPoints (in
+	clockwise-order) with `x` and `z` properties for each.
+	*/
+	
+	var GL = WebGLRenderingContext; // For enums
+	
+	var BoundsMaterial = function (_Material) {
+	  _inherits(BoundsMaterial, _Material);
+	
+	  function BoundsMaterial() {
+	    _classCallCheck(this, BoundsMaterial);
+	
+	    var _this = _possibleConstructorReturn(this, (BoundsMaterial.__proto__ || Object.getPrototypeOf(BoundsMaterial)).call(this));
+	
+	    _this.state.blend = true;
+	    _this.state.blendFuncSrc = GL.SRC_ALPHA;
+	    _this.state.blendFuncDst = GL.ONE;
+	    _this.state.depthTest = false;
+	    return _this;
+	  }
+	
+	  _createClass(BoundsMaterial, [{
+	    key: 'materialName',
+	    get: function get() {
+	      return 'BOUNDS_RENDERER';
+	    }
+	  }, {
+	    key: 'vertexSource',
+	    get: function get() {
+	      return '\n    attribute vec2 POSITION;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
+	    }
+	  }, {
+	    key: 'fragmentSource',
+	    get: function get() {
+	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(0.0, 1.0, 0.0, 0.3);\n    }';
+	    }
+	  }]);
+	
+	  return BoundsMaterial;
+	}(_material.Material);
+	
+	var BoundsRenderer = exports.BoundsRenderer = function (_Node) {
+	  _inherits(BoundsRenderer, _Node);
+	
+	  function BoundsRenderer() {
+	    _classCallCheck(this, BoundsRenderer);
+	
+	    var _this2 = _possibleConstructorReturn(this, (BoundsRenderer.__proto__ || Object.getPrototypeOf(BoundsRenderer)).call(this));
+	
+	    _this2._stageBounds = null;
+	    return _this2;
+	  }
+	
+	  _createClass(BoundsRenderer, [{
+	    key: 'onRendererChanged',
+	    value: function onRendererChanged(renderer) {
+	      this.stageBounds = this._stageBounds;
+	    }
+	  }, {
+	    key: 'stageBounds',
+	    get: function get() {
+	      return this._stageBounds;
+	    },
+	    set: function set(stageBounds) {
+	      if (this._stageBounds) {
+	        this.clearRenderPrimitives();
+	      }
+	      this._stageBounds = stageBounds;
+	      if (!stageBounds || stageBounds.length === 0 || !this._renderer) {
+	        return;
+	      }
+	
+	      var verts = [];
+	      var indices = [];
+	
+	      // Tessellate the bounding points from XRStageBounds and connect
+	      // each point to a neighbor and 0,0,0.
+	      var pointCount = stageBounds.geometry.length;
+	      for (var i = 0; i < pointCount; i++) {
+	        var point = stageBounds.geometry[i];
+	        verts.push(point.x, 0, point.z);
+	        indices.push(i, i === 0 ? pointCount - 1 : i - 1, pointCount);
+	      }
+	      // Center point
+	      verts.push(0, 0, 0);
+	
+	      var vertexBuffer = this._renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(verts));
+	      var indexBuffer = this._renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+	
+	      var attribs = [new _primitive.PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 12, 0)];
+	
+	      var primitive = new _primitive.Primitive(attribs, indices.length);
+	      primitive.setIndexBuffer(indexBuffer);
+	
+	      var renderPrimitive = this._renderer.createRenderPrimitive(primitive, new BoundsMaterial());
+	      this.addRenderPrimitive(renderPrimitive);
+	    }
+	  }]);
+
+	  return BoundsRenderer;
+	}(_node.Node);
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
 	exports.ButtonNode = undefined;
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -4079,7 +4228,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4293,7 +4442,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -4307,7 +4456,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var _node = __webpack_require__(1);
 	
-	var _gltf = __webpack_require__(14);
+	var _gltf = __webpack_require__(15);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -4406,7 +4555,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5083,7 +5232,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}();
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5256,7 +5405,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5413,7 +5562,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	}(_node.Node);
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -5426,8 +5575,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
 	var _renderer = __webpack_require__(3);
-	
-	var _boundsRenderer = __webpack_require__(18);
 	
 	var _inputRenderer = __webpack_require__(19);
 	
@@ -5485,8 +5632,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    _this2._stats = null;
 	    _this2._statsEnabled = false;
 	    _this2.enableStats(true); // Ensure the stats are added correctly by default.
-	    _this2._stageBounds = null;
-	    _this2._boundsRenderer = null;
 	
 	    _this2._inputRenderer = null;
 	    _this2._resetInputEndFrame = true;
@@ -5696,18 +5841,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    }
 	  }, {
-	    key: 'setBounds',
-	    value: function setBounds(stageBounds) {
-	      this._stageBounds = stageBounds;
-	      if (stageBounds && !this._boundsRenderer) {
-	        this._boundsRenderer = new _boundsRenderer.BoundsRenderer();
-	        this.addNode(this._boundsRenderer);
-	      }
-	      if (this._boundsRenderer) {
-	        this._boundsRenderer.stageBounds = stageBounds;
-	      }
-	    }
-	  }, {
 	    key: 'draw',
 	    value: function draw(projectionMatrix, viewMatrix, eye) {
 	      var view = new _renderer.RenderView();
@@ -5832,154 +5965,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }]);
 
 	  return Scene;
-	}(_node.Node);
-
-/***/ }),
-/* 18 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	exports.BoundsRenderer = undefined;
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _material = __webpack_require__(4);
-	
-	var _node = __webpack_require__(1);
-	
-	var _primitive = __webpack_require__(8);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-	
-	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } // Copyright 2018 The Immersive Web Community Group
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a copy
-	// of this software and associated documentation files (the "Software"), to deal
-	// in the Software without restriction, including without limitation the rights
-	// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	// copies of the Software, and to permit persons to whom the Software is
-	// furnished to do so, subject to the following conditions:
-	
-	// The above copyright notice and this permission notice shall be included in
-	// all copies or substantial portions of the Software.
-	
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	// SOFTWARE.
-	
-	/*
-	This file renders a passed in XRStageBounds object and attempts
-	to render geometry on the floor to indicate where the bounds is.
-	XRStageBounds' `geometry` is a series of XRStageBoundsPoints (in
-	clockwise-order) with `x` and `z` properties for each.
-	*/
-	
-	var GL = WebGLRenderingContext; // For enums
-	
-	var BoundsMaterial = function (_Material) {
-	  _inherits(BoundsMaterial, _Material);
-	
-	  function BoundsMaterial() {
-	    _classCallCheck(this, BoundsMaterial);
-	
-	    var _this = _possibleConstructorReturn(this, (BoundsMaterial.__proto__ || Object.getPrototypeOf(BoundsMaterial)).call(this));
-	
-	    _this.state.blend = true;
-	    _this.state.blendFuncSrc = GL.SRC_ALPHA;
-	    _this.state.blendFuncDst = GL.ONE;
-	    _this.state.depthTest = false;
-	    return _this;
-	  }
-	
-	  _createClass(BoundsMaterial, [{
-	    key: 'materialName',
-	    get: function get() {
-	      return 'BOUNDS_RENDERER';
-	    }
-	  }, {
-	    key: 'vertexSource',
-	    get: function get() {
-	      return '\n    attribute vec2 POSITION;\n\n    vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {\n      return proj * view * model * vec4(POSITION, 1.0);\n    }';
-	    }
-	  }, {
-	    key: 'fragmentSource',
-	    get: function get() {
-	      return '\n    precision mediump float;\n\n    vec4 fragment_main() {\n      return vec4(0.0, 1.0, 0.0, 0.3);\n    }';
-	    }
-	  }]);
-	
-	  return BoundsMaterial;
-	}(_material.Material);
-	
-	var BoundsRenderer = exports.BoundsRenderer = function (_Node) {
-	  _inherits(BoundsRenderer, _Node);
-	
-	  function BoundsRenderer() {
-	    _classCallCheck(this, BoundsRenderer);
-	
-	    var _this2 = _possibleConstructorReturn(this, (BoundsRenderer.__proto__ || Object.getPrototypeOf(BoundsRenderer)).call(this));
-	
-	    _this2._stageBounds = null;
-	    return _this2;
-	  }
-	
-	  _createClass(BoundsRenderer, [{
-	    key: 'onRendererChanged',
-	    value: function onRendererChanged(renderer) {
-	      this.stageBounds = this._stageBounds;
-	    }
-	  }, {
-	    key: 'stageBounds',
-	    get: function get() {
-	      return this._stageBounds;
-	    },
-	    set: function set(stageBounds) {
-	      if (this._stageBounds) {
-	        this.clearRenderPrimitives();
-	      }
-	      this._stageBounds = stageBounds;
-	      if (!stageBounds || stageBounds.length === 0 || !this._renderer) {
-	        return;
-	      }
-	
-	      var verts = [];
-	      var indices = [];
-	
-	      // Tessellate the bounding points from XRStageBounds and connect
-	      // each point to a neighbor and 0,0,0.
-	      var pointCount = stageBounds.geometry.length;
-	      for (var i = 0; i < pointCount; i++) {
-	        var point = stageBounds.geometry[i];
-	        verts.push(point.x, 0, point.z);
-	        indices.push(i, i === 0 ? pointCount - 1 : i - 1, pointCount);
-	      }
-	      // Center point
-	      verts.push(0, 0, 0);
-	
-	      var vertexBuffer = this._renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(verts));
-	      var indexBuffer = this._renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
-	
-	      var attribs = [new _primitive.PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 12, 0)];
-	
-	      var primitive = new _primitive.Primitive(attribs, indices.length);
-	      primitive.setIndexBuffer(indexBuffer);
-	
-	      var renderPrimitive = this._renderer.createRenderPrimitive(primitive, new BoundsMaterial());
-	      this.addRenderPrimitive(renderPrimitive);
-	    }
-	  }]);
-
-	  return BoundsRenderer;
 	}(_node.Node);
 
 /***/ }),

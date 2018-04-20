@@ -127,7 +127,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.requestFrameOfReference('stage').then((frameOfRef) => {
           if (session.exclusive) {
             xrExclusiveFrameOfRef = frameOfRef;
-            scene.setBounds(frameOfRef.bounds);
+            let boundsRenderer = new BoundsRenderer();
+            boundsRenderer.stageBounds = frameOfRef.bounds;
+            scene.addNode(boundsRenderer);
           } else {
             xrNonExclusiveFrameOfRef = frameOfRef;
           }

@@ -27,6 +27,7 @@ import {BoxBuilder} from './geometry/box-builder.js';
 
 import {PbrMaterial} from './materials/pbr.js';
 
+import {BoundsRenderer} from './nodes/bounds-renderer.js';
 import {ButtonNode} from './nodes/button.js';
 import {CubeSeaNode} from './nodes/cube-sea.js';
 import {Gltf2Node} from './nodes/gltf2.js';
@@ -54,6 +55,7 @@ export {
 
   PbrMaterial,
 
+  BoundsRenderer,
   ButtonNode,
   CubeSeaNode,
   Gltf2Node,

@@ -19,7 +19,6 @@
 // SOFTWARE.
 
 import {RenderView} from '../core/renderer.js';
-import {BoundsRenderer} from '../nodes/bounds-renderer.js';
 import {InputRenderer} from '../nodes/input-renderer.js';
 import {StatsViewer} from '../nodes/stats-viewer.js';
 import {Node} from '../core/node.js';
@@ -45,8 +44,6 @@ export class Scene extends Node {
     this._stats = null;
     this._statsEnabled = false;
     this.enableStats(true); // Ensure the stats are added correctly by default.
-    this._stageBounds = null;
-    this._boundsRenderer = null;
 
     this._inputRenderer = null;
     this._resetInputEndFrame = true;
@@ -208,17 +205,6 @@ export class Scene extends Node {
       }
       this._stats.scale = [0.3, 0.3, 0.3];
       quat.fromEuler(this._stats.rotation, -45.0, 0.0, 0.0);
-    }
-  }
-
-  setBounds(stageBounds) {
-    this._stageBounds = stageBounds;
-    if (stageBounds && !this._boundsRenderer) {
-      this._boundsRenderer = new BoundsRenderer();
-      this.addNode(this._boundsRenderer);
-    }
-    if (this._boundsRenderer) {
-      this._boundsRenderer.stageBounds = stageBounds;
     }
   }
 
