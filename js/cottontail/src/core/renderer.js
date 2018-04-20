@@ -495,7 +495,7 @@ class RenderMaterial {
 export class Renderer {
   constructor(gl) {
     this._gl = gl || createWebGLContext();
-    this._frameId = -1;
+    this._frameId = 0;
     this._programCache = {};
     this._textureCache = {};
     this._renderPrimitives = Array(RENDER_ORDER.DEFAULT);
