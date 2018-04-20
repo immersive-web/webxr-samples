@@ -1433,7 +1433,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	
 	        var completionPromises = [];
-	        // completionPromises.push(this._material.waitForComplete());
 	
 	        var _iteratorNormalCompletion4 = true;
 	        var _didIteratorError4 = false;
@@ -5496,6 +5495,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	    _this2._hoverFrame = 0;
 	    _this2._hoveredNodes = [];
+	
+	    _this2.clear = true;
 	    return _this2;
 	  }
 	
@@ -5741,7 +5742,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	
 	      gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
-	      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	
+	      if (this.clear) {
+	        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	      }
 	
 	      var views = [];
 	      var _iteratorNormalCompletion3 = true;

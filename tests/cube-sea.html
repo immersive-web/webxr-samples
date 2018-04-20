@@ -146,6 +146,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Viewport scale
         viewportScale: getFloatParam('viewportScale', 1),
 
+        // Prevents the app from clearing the background, which is useful for
+        // AR testing.
+        noClear: getBoolParam('noClear', false),
+
         // Don't produce frames at all. Simulates a broken app.
         noFrames: getBoolParam('noFrames', false),
 
@@ -188,6 +192,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           getParamSaver('viewportScale'));
       folderRender.add(appSettings, 'antialias').onFinishChange(
           getParamSaver('antialias'));
+      folderRender.add(appSettings, 'noClear').onFinishChange(
+          getParamSaver('noClear'));
       folderRender.open();
 
       var folderTest = gui.addFolder('Regression testing');
@@ -346,6 +352,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (appSettings.submitInterval && frameNum % appSettings.submitInterval > 0) {
           return;
         }
+
+        scene.clear = !!appSettings.noClear;
 
         scene.updateInputSources(frame, frameOfRef);
 

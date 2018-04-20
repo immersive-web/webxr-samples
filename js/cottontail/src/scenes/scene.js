@@ -55,6 +55,8 @@ export class Scene extends Node {
 
     this._hoverFrame = 0;
     this._hoveredNodes = [];
+
+    this.clear = true;
   }
 
   setRenderer(renderer) {
@@ -250,7 +252,10 @@ export class Scene extends Node {
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    if (this.clear) {
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
 
     let views = [];
     for (let view of xrFrame.views) {
