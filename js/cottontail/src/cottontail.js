@@ -36,14 +36,6 @@ import {VideoNode} from './nodes/video.js';
 
 import {WebXRView, Scene} from './scenes/scene.js';
 
-// A very short-term polyfill to address a change in the location of the
-// getViewport call. This should dissapear within a month or so.
-if (('XRWebGLLayer' in window) && !('getViewport' in XRWebGLLayer.prototype)) {
-  XRWebGLLayer.prototype.getViewport = function(view) {
-    return view.getViewport(this);
-  };
-}
-
 export {
   Node,
   Renderer,
