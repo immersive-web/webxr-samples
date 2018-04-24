@@ -240,6 +240,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
+            device.supportsSession({exclusive: true}).then(() => {
+              xrButton.setDevice(device);
+            });
+
             // Load multiple audio sources.
             Promise.all([
               createAudioSource({
@@ -259,13 +263,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               }),
             ]).then((sources) => {
               audioSources = sources;
-              // Wait till the audio is loaded before enabling the XR button.
-              xrButton.setDevice(device);
-            });
-            xrButton.setTitle('Loading Audio');
 
-            if (!device)
-              return;
+              // Once the audio is loaded, create a button that toggles the
+              // audio state when clicked.
+              playButton = new ButtonNode(playTexture, () => {
+                if (audioContext.state == 'running') {
+                  pauseAudio();
+                } else {
+                  playAudio();
+                }
+              });
+              playButton.translation = [0, 1.2, -0.65];
+              scene.addNode(playButton);
+            });
 
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('xrpresent');
@@ -314,17 +324,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.setRenderer(renderer);
 
           scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
-
-          // Create a button that toggles the audio state when clicked.
-          playButton = new ButtonNode(playTexture, () => {
-            if (audioContext.state == 'running') {
-              pauseAudio();
-            } else {
-              playAudio();
-            }
-          });
-          playButton.translation = [0, 1.2, -0.65];
-          scene.addNode(playButton);
         }
 
         session.baseLayer = new XRWebGLLayer(session, gl);

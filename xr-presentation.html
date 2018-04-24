@@ -75,7 +75,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Is WebXR available on this UA?
         if (navigator.xr) {
-          // Request a list of all the XR Devices connected to the system.
+          // Request an XRDevice connected to the system.
           navigator.xr.requestDevice().then((device) => {
             // If the device allows creation of exclusive sessions set it as the
             // target of the 'Enter XR' button.

@@ -73,7 +73,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            xrButton.setDevice(device);
+            device.supportsSession({exclusive: true}).then(() => {
+              xrButton.setDevice(device);
+            });
 
             // Note: If you don't want dragging on the canvas to do things like
             // scroll or pull-to-refresh, you'll want to set touch-action: none;

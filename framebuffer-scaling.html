@@ -97,7 +97,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            xrButton.setDevice(device);
+            device.supportsSession({exclusive: true}).then(() => {
+              xrButton.setDevice(device);
+            });
           });
         }
       }
@@ -123,14 +125,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           });
 
           // Set up a non-black clear color so that we can see if something renders wrong.
-          renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
+          gl.clearColor(0.1, 0.2, 0.3, 1.0);
 
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
-          scene.gltf2Loader.loadFromUrl('media/gltf/controller/controller.gltf').then((controllerMesh) => {
-            scene.inputRenderer.setControllerMesh(controllerMesh);
-          });
+          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
         }
 
         // This is the only meaningful change in this sample from xr-presentation.js.

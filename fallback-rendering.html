@@ -75,7 +75,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            xrButton.setDevice(device);
+            device.supportsSession({exclusive: true}).then(() => {
+              xrButton.setDevice(device);
+            });
 
             let outputCanvas = document.createElement('canvas');
             let ctx = outputCanvas.getContext('xrpresent');
