@@ -85,8 +85,58 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
+          }).catch(() => {
+            initFallback();
           });
+        } else {
+          initFallback();
         }
+      }
+
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+        fallbackHelper.emulateStage = true;
+      }
+
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
+
+        // Create several boxes to use for hit testing.
+        let boxBuilder = new BoxBuilder();
+        boxBuilder.pushCube([0, 0, 0], 0.4);
+        let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+
+        function addBox(x, y, z, r, g, b) {
+          let boxMaterial = new PbrMaterial();
+          boxMaterial.baseColorFactor.value = [r, g, b, 1.0];
+          let boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+          let boxNode = new Node();
+          boxNode.addRenderPrimitive(boxRenderPrimitive);
+          // Marks the node as one that needs to be checked when hit testing.
+          boxNode.selectable = true;
+          boxes.push({
+            node: boxNode,
+            renderPrimitive: boxRenderPrimitive,
+            position: [x, y, z]
+          });
+          scene.addNode(boxNode);
+        }
+
+        addBox(-1.0, 1.6, -1.3, 1.0, 0.0, 0.0);
+        addBox(0.0, 1.7, -1.5, 0.0, 1.0, 0.0);
+        addBox(1.0, 1.6, -1.3, 0.0, 0.0, 1.0);
       }
 
       function onRequestSession(device) {
@@ -105,45 +155,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        /*session.addEventListener('selectstart', onSelectStart);
-        session.addEventListener('selectend', onSelectEnd);*/
+        // By listening for the 'select' event we can find out when the user has
+        // performed some sort of primary input action and respond to it.
         session.addEventListener('select', onSelect);
 
-        if (!gl) {
-          gl = createWebGLContext({
-            compatibleXRDevice: session.device
-          });
-
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
-
-          // Create several boxes to use for hit testing.
-          let boxBuilder = new BoxBuilder();
-          boxBuilder.pushCube([0, 0, 0], 0.4);
-          let boxPrimitive = boxBuilder.finishPrimitive(renderer);
-
-          function addBox(x, y, z, r, g, b) {
-            let boxMaterial = new PbrMaterial();
-            boxMaterial.baseColorFactor.value = [r, g, b, 1.0];
-            let boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
-            let boxNode = new Node();
-            boxNode.addRenderPrimitive(boxRenderPrimitive);
-            // Marks the node as one that needs to be checked when hit testing.
-            boxNode.selectable = true;
-            boxes.push({
-              node: boxNode,
-              renderPrimitive: boxRenderPrimitive,
-              position: [x, y, z]
-            });
-            scene.addNode(boxNode);
-          }
-
-          addBox(-1.0, 1.6, -1.3, 1.0, 0.0, 0.0);
-          addBox(0.0, 1.7, -1.5, 0.0, 1.0, 0.0);
-          addBox(1.0, 1.6, -1.3, 0.0, 0.0, 1.0);
-        }
+        initGL(session.device);
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 

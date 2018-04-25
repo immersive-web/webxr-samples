@@ -97,8 +97,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
+          }).catch(() => {
+            initFallback();
           });
+        } else {
+          initFallback();
         }
+      }
+
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+        fallbackHelper.emulateStage = true;
+      }
+
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        renderer = new Renderer(gl);
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
+
+        // Because we may be rendering to the gl context's backbuffer now we
+        // need to start monitoring resize events to manage it's size.
+        window.addEventListener('resize', onResize);
       }
 
       function onRequestSession(device) {
@@ -126,21 +154,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        if (!gl) {
-          gl = createWebGLContext({
-            compatibleXRDevice: session.device
-          });
-
-          // Because we may be rendering to the gl context's backbuffer now we
-          // need to start monitoring resize events to manage it's size.
-          window.addEventListener('resize', onResize);
-
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-
-          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
-        }
+        initGL(session.device);
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 

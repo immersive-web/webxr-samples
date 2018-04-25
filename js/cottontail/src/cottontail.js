@@ -36,6 +36,8 @@ import {VideoNode} from './nodes/video.js';
 
 import {WebXRView, Scene} from './scenes/scene.js';
 
+import {FallbackHelper} from './util/fallback-helper.js';
+
 export {
   Node,
   Renderer,
@@ -56,4 +58,6 @@ export {
 
   WebXRView,
   Scene,
+
+  FallbackHelper,
 };

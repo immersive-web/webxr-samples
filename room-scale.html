@@ -31,7 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link href='css/common.css' rel='stylesheet'></link>
 
     <script src='js/third-party/gl-matrix-min.js'></script>
-    <script src='js/cottontail/build/cottontail.js'></script>
+    <script src='js/cottontail/build/cottontail.debug.js'></script>
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -85,8 +85,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
+          }).catch(() => {
+            initFallback();
           });
+        } else {
+          initFallback();
         }
+      }
+
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+        fallbackHelper.emulateStage = true;
       }
 
       function onRequestSession(device) {
@@ -102,18 +113,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
       }
 
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+      }
+
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        if (!gl) {
-          gl = createWebGLContext({
-            compatibleXRDevice: session.device
-          });
-
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-        }
+        initGL(session.device);
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 

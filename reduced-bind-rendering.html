@@ -83,8 +83,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
+          }).catch(() => {
+            initFallback();
           });
+        } else {
+          initFallback();
         }
+      }
+
+      // This kicks off a really simple fallback rendering loop so that we don't
+      // have to clutter up the sample code with fallback rendering logic.
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+      }
+
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+        // Set up a non-black clear color so that we can see if something renders wrong.
+        gl.clearColor(0.1, 0.2, 0.3, 1.0);
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
       }
 
       function onRequestSession(device) {
@@ -103,18 +130,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        if (!gl) {
-          gl = createWebGLContext({
-            compatibleXRDevice: session.device
-          });
-
-          // Set up a non-black clear color so that we can see if something renders wrong.
-          gl.clearColor(0.1, 0.2, 0.3, 1.0);
-
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-        }
+        initGL(session.device);
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 

@@ -255,8 +255,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   document.body.appendChild(outputCanvas);
                   onSessionStarted(session);
                 });
+          }).catch(() => {
+            initFallback();
           });
+        } else {
+          initFallback();
         }
+      }
+
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+      }
+
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        // Set up a non-black clear color so that we can see if something renders wrong.
+        gl.clearColor(0.1, 0.2, 0.3, 1.0);
+
+        renderer = new Renderer(gl);
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
       }
 
       function onRequestSession(device) {
@@ -275,19 +301,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        if (!gl) {
-          gl = createWebGLContext({
-            compatibleXRDevice: session.device
-          });
-
-          // Set up a non-black clear color so that we can see if something renders wrong.
-          renderer.gl.clearColor(0.1, 0.2, 0.3, 1.0);
-
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
-        }
+        initGL(session.device);
 
         session.baseLayer = new XRWebGLLayer(session, gl, {
           framebufferScaleFactor: appSettings.framebufferScale,

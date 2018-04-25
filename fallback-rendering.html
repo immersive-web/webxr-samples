@@ -210,7 +210,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // This is the bulk of the fallback rendering loop. Notice that it looks
-      // a lot like a simplified version of the XR frame loop.
+      // a lot like a simplified version of the XR frame loop. Samples after
+      // this one will do some work to hide this for code readability purposes.
       function onWindowFrame(t) {
         window.requestAnimationFrame(onWindowFrame);
 
