@@ -231,6 +231,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
+      window.addEventListener('blur', () => {
+        // As a general rule you should mute any sounds your page is playing
+        // whenever the page loses focus.
+        pauseAudio();
+      });
+
       function initXR() {
         xrButton = new XRDeviceButton({
           onRequestSession: onRequestSession,
