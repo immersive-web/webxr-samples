@@ -92,7 +92,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // This kicks off a really simple fallback rendering loop so that we don't
-      // have to clutter up the sample code with fallback rendering logic.
+      // have to clutter up the sample code with fallback rendering logic. This
+      // variant also has the benefit of including simple support for looking
+      // around via clicking and dragging with the right mouse button or a two-
+      // finger drag.
       function initFallback() {
         initGL();
         document.body.appendChild(gl.canvas);

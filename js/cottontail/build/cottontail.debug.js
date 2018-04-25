@@ -7017,15 +7017,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 	// SOFTWARE.
 	
+	var LOOK_SPEED = 0.0025;
+	
 	var FallbackHelper = exports.FallbackHelper = function () {
 	  function FallbackHelper(scene, gl) {
+	    var _this = this;
+	
 	    _classCallCheck(this, FallbackHelper);
 	
 	    this.scene = scene;
+	    this.gl = gl;
 	    this._emulateStage = false;
 	
-	    var viewMatrix = mat4.create();
-	    this.viewMatrix = viewMatrix;
+	    this.lookYaw = 0;
+	    this.lookPitch = 0;
+	
+	    this.viewMatrix = mat4.create();
 	
 	    var projectionMatrix = mat4.create();
 	    this.projectionMatrix = projectionMatrix;
@@ -7045,10 +7052,62 @@ return /******/ (function(modules) { // webpackBootstrap
 	    window.addEventListener('resize', onResize);
 	    onResize();
 	
-	    function onFrame() {
-	      window.requestAnimationFrame(onFrame);
+	    // Upding the view matrix with touch or mouse events.
+	    var canvas = gl.canvas;
+	    var lastTouchX = 0;
+	    var lastTouchY = 0;
+	    canvas.addEventListener('touchstart', function (ev) {
+	      if (ev.touches.length == 2) {
+	        lastTouchX = ev.touches[1].pageX;
+	        lastTouchY = ev.touches[1].pageY;
+	      }
+	    });
+	    canvas.addEventListener('touchmove', function (ev) {
+	      // Rotate the view when two fingers are being used.
+	      if (ev.touches.length == 2) {
+	        _this.onLook(ev.touches[1].pageX - lastTouchX, ev.touches[1].pageY - lastTouchY);
+	        lastTouchX = ev.touches[1].pageX;
+	        lastTouchY = ev.touches[1].pageY;
+	      }
+	    });
+	    canvas.addEventListener('mousemove', function (ev) {
+	      // Only rotate when the right button is pressed.
+	      if (ev.buttons & 2) {
+	        _this.onLook(ev.movementX, ev.movementY);
+	      }
+	    });
+	    canvas.addEventListener('contextmenus', function (ev) {
+	      // Prevent context menus on the canvas so that we can use right click to rotate.
+	      ev.preventDefault();
+	    });
 	
-	      scene.startFrame();
+	    this.boundOnFrame = this.onFrame.bind(this);
+	    window.requestAnimationFrame(this.boundOnFrame);
+	  }
+	
+	  _createClass(FallbackHelper, [{
+	    key: 'onLook',
+	    value: function onLook(yaw, pitch) {
+	      this.lookYaw += yaw * LOOK_SPEED;
+	      this.lookPitch += pitch * LOOK_SPEED;
+	
+	      // Clamp pitch rotation beyond looking straight up or down.
+	      if (this.lookPitch < -Math.PI * 0.5) {
+	        this.lookPitch = -Math.PI * 0.5;
+	      }
+	      if (this.lookPitch > Math.PI * 0.5) {
+	        this.lookPitch = Math.PI * 0.5;
+	      }
+	
+	      this.updateView();
+	    }
+	  }, {
+	    key: 'onFrame',
+	    value: function onFrame(t) {
+	      var gl = this.gl;
+	      window.requestAnimationFrame(this.boundOnFrame);
+	
+	      this.scene.startFrame();
 	
 	      // We can skip setting the framebuffer and viewport every frame, because
 	      // it won't change from frame to frame and we're updating the viewport
@@ -7058,28 +7117,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	      // We're drawing with our own projection and view matrix now, and we
 	      // don't have a list of view to loop through, but otherwise all of the
 	      // WebGL drawing logic is exactly the same.
-	      scene.draw(projectionMatrix, viewMatrix);
+	      this.scene.draw(this.projectionMatrix, this.viewMatrix);
 	
-	      scene.endFrame();
+	      this.scene.endFrame();
 	    }
+	  }, {
+	    key: 'updateView',
+	    value: function updateView() {
+	      mat4.identity(this.viewMatrix);
 	
-	    window.requestAnimationFrame(onFrame);
-	  }
+	      mat4.rotateX(this.viewMatrix, this.viewMatrix, -this.lookPitch);
+	      mat4.rotateY(this.viewMatrix, this.viewMatrix, -this.lookYaw);
 	
-	  _createClass(FallbackHelper, [{
+	      // If we're emulating a stage frame of reference we'll need to move the view
+	      // matrix roughly a meter and a half up in the air.
+	      if (this._emulateStage) {
+	        mat4.translate(this.viewMatrix, this.viewMatrix, [0, -1.6, 0]);
+	      }
+	    }
+	  }, {
 	    key: 'emulateStage',
 	    get: function get() {
 	      return this._emulateStage;
 	    },
 	    set: function set(value) {
 	      this._emulateStage = value;
-	
-	      // If we're emulating a stage frame of reference we'll need to move the view
-	      // matrix roughly a meter and a half up in the air.
-	      mat4.identity(this.viewMatrix);
-	      if (this._emulateStage) {
-	        mat4.translate(this.viewMatrix, this.viewMatrix, [0, -1.6, 0]);
-	      }
+	      this.updateView();
 	    }
 	  }]);
 
