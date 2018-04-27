@@ -22,6 +22,7 @@ import {RenderView} from '../core/renderer.js';
 import {InputRenderer} from '../nodes/input-renderer.js';
 import {StatsViewer} from '../nodes/stats-viewer.js';
 import {Node} from '../core/node.js';
+import {vec3, quat} from '../math/gl-matrix.js';
 
 export class WebXRView extends RenderView {
   constructor(view, pose, layer) {

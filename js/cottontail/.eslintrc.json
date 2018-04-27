@@ -8,10 +8,6 @@
     "es6": true
   },
   "globals": {
-    "mat3": false,
-    "mat4": false,
-    "quat": false,
-    "vec3": false,
     "XRWebGLLayer": true
   },
   "rules": {

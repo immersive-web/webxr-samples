@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import {mat4} from '../math/gl-matrix.js';
+
 const LOOK_SPEED = 0.0025;
 
 export class FallbackHelper {
@@ -75,7 +77,7 @@ export class FallbackHelper {
         this.onLook(ev.movementX, ev.movementY);
       }
     });
-    canvas.addEventListener('contextmenus', (ev) => {
+    canvas.addEventListener('contextmenu', (ev) => {
       // Prevent context menus on the canvas so that we can use right click to rotate.
       ev.preventDefault();
     });

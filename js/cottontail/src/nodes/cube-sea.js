@@ -22,6 +22,7 @@ import {Material} from '../core/material.js';
 import {Node} from '../core/node.js';
 import {UrlTexture} from '../core/texture.js';
 import {BoxBuilder} from '../geometry/box-builder.js';
+import {mat4} from '../math/gl-matrix.js';
 
 class CubeSeaMaterial extends Material {
   constructor(heavy = false) {

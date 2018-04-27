@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
+import {mat3, vec3} from '../math/gl-matrix.js';
 
 const GL = WebGLRenderingContext; // For enums
 

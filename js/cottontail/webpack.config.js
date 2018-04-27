@@ -24,10 +24,8 @@ let fs = require('fs');
 let path = require('path');
 let webpack = require('webpack');
 
-// Read the comments from the top of the LICENSE file and append them to
-// the minified version.
+// Read the LICENSE file to append to the generated file.
 let header = fs.readFileSync('LICENSE.md', { encoding: 'utf8' });
-header = `/*${header}*/`;
 
 module.exports = {
   entry: './src/cottontail.js',
@@ -37,14 +35,19 @@ module.exports = {
     libraryTarget: 'umd'
   },
   module: {
-    loaders: [{
-      test: path.join(__dirname, 'src'),
-      loader: 'babel-loader'
-    }]
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader'
+        }
+      }
+    ]
   },
   plugins: [
-    new webpack.optimize.UglifyJsPlugin(),
-    new webpack.BannerPlugin(header, { raw: true }),
-  ]
+    new webpack.BannerPlugin({ banner: header, entryOnly: true }),
+  ],
+  mode: "production"
 };
 

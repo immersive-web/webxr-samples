@@ -22,6 +22,7 @@ import {CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc} from './material.js';
 import {Node} from './node.js';
 import {Program} from './program.js';
 import {DataTexture, VideoTexture} from './texture.js';
+import {mat4, vec3} from '../math/gl-matrix.js';
 
 export const ATTRIB = {
   POSITION: 1,

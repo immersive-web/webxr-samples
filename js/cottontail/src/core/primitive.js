@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import {vec3} from '../math/gl-matrix.js';
+
 export class PrimitiveAttribute {
   constructor(name, buffer, componentCount, componentType, stride, byteOffset) {
     this.name = name;

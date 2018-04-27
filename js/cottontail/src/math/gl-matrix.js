@@ -18,24 +18,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-export {Node} from './core/node.js';
-export {Renderer, createWebGLContext} from './core/renderer.js';
-export {UrlTexture} from './core/texture.js';
+import * as glMatrix from '../../node_modules/gl-matrix/src/gl-matrix/common.js';
+import * as mat2 from '../../node_modules/gl-matrix/src/gl-matrix/mat2.js';
+import * as mat2d from '../../node_modules/gl-matrix/src/gl-matrix/mat2d.js';
+import * as mat3 from '../../node_modules/gl-matrix/src/gl-matrix/mat3.js';
+import * as mat4 from '../../node_modules/gl-matrix/src/gl-matrix/mat4.js';
+import * as quat from '../../node_modules/gl-matrix/src/gl-matrix/quat.js';
+import * as quat2 from '../../node_modules/gl-matrix/src/gl-matrix/quat2.js';
+import * as vec2 from '../../node_modules/gl-matrix/src/gl-matrix/vec2.js';
+import * as vec3 from '../../node_modules/gl-matrix/src/gl-matrix/vec3.js';
+import * as vec4 from '../../node_modules/gl-matrix/src/gl-matrix/vec4.js';
 
-export {PrimitiveStream} from './geometry/primitive-stream.js';
-export {BoxBuilder} from './geometry/box-builder.js';
-
-export {PbrMaterial} from './materials/pbr.js';
-
-export {mat4, mat3, vec3, quat} from './math/gl-matrix.js';
-
-export {BoundsRenderer} from './nodes/bounds-renderer.js';
-export {ButtonNode} from './nodes/button.js';
-export {CubeSeaNode} from './nodes/cube-sea.js';
-export {Gltf2Node} from './nodes/gltf2.js';
-export {SkyboxNode} from './nodes/skybox.js';
-export {VideoNode} from './nodes/video.js';
-
-export {WebXRView, Scene} from './scenes/scene.js';
-
-export {FallbackHelper} from './util/fallback-helper.js';
+export {
+  glMatrix,
+  mat2,
+  mat2d,
+  mat3,
+  mat4,
+  quat,
+  quat2,
+  vec2,
+  vec3,
+  vec4,
+};
