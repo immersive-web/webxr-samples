@@ -45,7 +45,7 @@ export const ATTRIB_MASK = {
 const GL = WebGLRenderingContext; // For enums
 
 const DEF_LIGHT_DIR = new Float32Array([-0.1, -1.0, -0.2]);
-const DEF_LIGHT_COLOR = new Float32Array([1.0, 1.0, 0.9]);
+const DEF_LIGHT_COLOR = new Float32Array([3.0, 3.0, 3.0]);
 
 const PRECISION_REGEX = new RegExp('precision (lowp|mediump|highp) float;');
 
@@ -509,10 +509,29 @@ export class Renderer {
 
     this._depthMaskNeedsReset = false;
     this._colorMaskNeedsReset = false;
+
+    this._globalLightColor = vec3.clone(DEF_LIGHT_COLOR);
+    this._globalLightDir = vec3.clone(DEF_LIGHT_DIR);
   }
 
   get gl() {
     return this._gl;
+  }
+
+  set globalLightColor(value) {
+    vec3.copy(this._globalLightColor, value);
+  }
+
+  get globalLightColor() {
+    return vec3.clone(this._globalLightColor);
+  }
+
+  set globalLightDir(value) {
+    vec3.copy(this._globalLightDir, value);
+  }
+
+  get globalLightDir() {
+    return vec3.clone(this._globalLightDir);
   }
 
   createRenderBuffer(target, data, usage = GL.STATIC_DRAW) {
@@ -641,11 +660,11 @@ export class Renderer {
         program.use();
 
         if (program.uniform.LIGHT_DIRECTION) {
-          gl.uniform3fv(program.uniform.LIGHT_DIRECTION, DEF_LIGHT_DIR);
+          gl.uniform3fv(program.uniform.LIGHT_DIRECTION, this._globalLightDir);
         }
 
         if (program.uniform.LIGHT_COLOR) {
-          gl.uniform3fv(program.uniform.LIGHT_COLOR, DEF_LIGHT_COLOR);
+          gl.uniform3fv(program.uniform.LIGHT_COLOR, this._globalLightColor);
         }
 
         if (views.length == 1) {

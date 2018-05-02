@@ -1,0 +1,164 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <title>WebXR Scenes</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <script src='js/cottontail/build/cottontail.js'></script>
+  </head>
+  <body>
+    <script>
+      (function () {
+      'use strict';
+
+      // XR globals.
+      let xrDevice = null;
+      let xrExclusiveFrameOfRef = null;
+      let xrNonExclusiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+
+      let activeScene = null;
+
+      let scene1 = new Scene();
+      scene1.enableStats(false);
+      scene1.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
+      scene1.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+
+      let scene2 = new Scene();
+      scene2.enableStats(false);
+      scene2.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
+
+      let scene3 = new Scene();
+      scene3.enableStats(false);
+      scene3.addNode(new Gltf2Node({url: 'media/gltf/cave/cave.gltf'}));
+      scene3.addNode(new SkyboxNode({url: 'media/textures/eilenriede-park-2k.png'}));
+
+      function addScene(thumbnail, scene) {
+        let div = document.createElement('div');
+        div.classList.add('xr-scene');
+
+        let button = document.createElement('button');
+        button.addEventListener('click', () => {
+          activeScene = scene;
+          xrDevice.requestSession({ exclusive: true }).then((session) => {
+            onSessionStarted(session);
+          });
+        });
+        button.innerHTML = 'Enter VR';
+        div.appendChild(button);
+
+        document.body.appendChild(div);
+      }
+
+      function initXR() {
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            xrDevice = device;
+            xrDevice.supportsSession({exclusive: true}).then(() => {
+              initGL(xrDevice);
+
+              addScene('', scene1);
+              addScene('', scene2);
+              addScene('', scene3);
+            });
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+
+            device.requestSession({ outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          });
+        }
+      }
+
+      // Since both the XR and fallback paths need to do the same WebGL
+      // initialization code, we've moved that code out to it's own function.
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        renderer = new Renderer(gl);
+
+        scene1.setRenderer(renderer);
+        scene2.setRenderer(renderer);
+        scene3.setRenderer(renderer);
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('stage').then((frameOfRef) => {
+          if (session.exclusive) {
+            xrExclusiveFrameOfRef = frameOfRef;
+          } else {
+            xrNonExclusiveFrameOfRef = frameOfRef;
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onSessionEnded(event) {
+        if (event.session.exclusive) {
+          document.body.removeChild(document.querySelector('#mirror-canvas'));
+          xrButton.setSession(null);
+        }
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let frameOfRef = session.exclusive ?
+                         xrExclusiveFrameOfRef :
+                         xrNonExclusiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        session.requestAnimationFrame(onXRFrame);
+
+        activeScene.startFrame();
+        activeScene.drawXRFrame(frame, pose);
+        activeScene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+      })();
+    </script>
+  </body>
+</html>

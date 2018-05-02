@@ -27,7 +27,7 @@ export {BoxBuilder} from './geometry/box-builder.js';
 
 export {PbrMaterial} from './materials/pbr.js';
 
-export {mat4, mat3, vec3, quat} from './math/gl-matrix.js';
+export {mat4, mat3, vec3, vec4, quat} from './math/gl-matrix.js';
 
 export {BoundsRenderer} from './nodes/bounds-renderer.js';
 export {ButtonNode} from './nodes/button.js';

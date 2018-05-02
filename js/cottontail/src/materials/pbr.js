@@ -208,7 +208,7 @@ vec4 fragment_main() {
   color += emissive;
 
   // gamma correction
-  color = pow(color, vec3(1.0/2.2));
+  //color = pow(color, vec3(1.0/2.2));
 
   return vec4(color, baseColor.a);
 }`;
