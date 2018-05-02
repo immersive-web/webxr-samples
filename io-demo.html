@@ -33,12 +33,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <style>
       .xr-scene {
         position: relative;
-        width: 512px;
-        height: 512px;
+        width: 480px;
+        height: 320px;
         margin-left: auto;
         margin-right: auto;
         margin-top: 0.5em;
         margin-bottom: 0.5em;
+        background-position: center;
       }
 
       .xr-scene button {
@@ -126,8 +127,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               initGL(xrDevice);
 
               addScene('media/thumbnails/space.png', scene1);
-              addScene('media/thumbnails/cube-room.png', scene2);
               addScene('media/thumbnails/cave.png', scene3);
+              addScene('media/thumbnails/cube-room.png', scene2);
             });
           });
         }
