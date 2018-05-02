@@ -32,6 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <script src='js/cottontail/build/cottontail.js'></script>
 
+    <script src='js/third-party/wglu-url.js'></script>
     <script src='js/webxr-button.js'></script>
   </head>
   <body>
@@ -49,6 +50,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // Temporary
+      let hideStats = WGLUUrl.getBool('hideStats', false);
+
       // XR globals.
       let xrButton = null;
       let xrExclusiveFrameOfRef = null;
@@ -58,6 +62,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
+      if (hideStats) {
+        scene.enableStats(false);
+      }
       scene.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
       scene.standingStats(true);
 
