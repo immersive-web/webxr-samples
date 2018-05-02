@@ -34,6 +34,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <script src='js/cottontail/build/cottontail.debug.js'></script>
 
+    <script src='js/third-party/wglu-url.js'></script>
     <script src='js/webxr-button.js'></script>
   </head>
   <body>
@@ -52,6 +53,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // Temporary
+      let hideStats = WGLUUrl.getBool('hideStats', false);
+
       const DEFAULT_HEIGHT = 1.5;
       const ANALYSER_FFT_SIZE = 1024;
 
@@ -64,6 +68,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
+      if (hideStats) {
+        scene.enableStats(false);
+      }
       scene.addNode(new Gltf2Node({url: 'media/gltf/garage/garage.gltf'}));
       scene.standingStats(true);
 
