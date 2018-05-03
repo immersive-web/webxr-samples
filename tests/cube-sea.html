@@ -30,8 +30,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <link href='../css/common.css' rel='stylesheet'></link>
 
+    <!--The polyfill is not needed for browser that have native API support,
+        but is linked by these samples for wider compatibility.-->
+    <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
+
     <script src='../js/third-party/dat.gui.min.js'></script>
-    <script src='../js/third-party/wglu-url.js'></script>
     <script src='../js/cottontail/build/cottontail.js'></script>
 
     <script src='../js/webxr-button.js'></script>
@@ -51,6 +54,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // If requested, initialize the WebXR polyfill
+      if (QueryArgs.getBool('allowPolyfill', false)) {
+        var polyfill = new WebXRPolyfill();
+      }
+
       // Helper methods for saving dat.gui-edited parameters in the URL hash.
       // Only non-default values are saved.
       var paramTypes = {};
@@ -60,28 +68,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         paramTypes[name] = 'bool';
         if (!optDefault) optDefault = false;
         paramDefaults[name] = optDefault;
-        let val = WGLUUrl.getBool(name, optDefault);
+        let val = QueryArgs.getBool(name, optDefault);
         paramValues[name] = val;
         return val;
       }
       function getIntParam(name, optDefault) {
         paramTypes[name] = 'int';
         paramDefaults[name] = optDefault;
-        let val = WGLUUrl.getInt(name, optDefault);
+        let val = QueryArgs.getInt(name, optDefault);
         paramValues[name] = val;
         return val;
       }
       function getFloatParam(name, optDefault) {
         paramTypes[name] = 'float';
         paramDefaults[name] = optDefault;
-        let val = WGLUUrl.getFloat(name, optDefault);
+        let val = QueryArgs.getFloat(name, optDefault);
         paramValues[name] = val;
         return val;
       }
       function getStringParam(name, optDefault) {
         paramTypes[name] = 'string';
         paramDefaults[name] = optDefault;
-        let val = WGLUUrl.getString(name, optDefault);
+        let val = QueryArgs.getString(name, optDefault);
         paramValues[name] = val;
         return val;
       }

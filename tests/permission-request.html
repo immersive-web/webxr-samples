@@ -30,6 +30,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <link href='../css/common.css' rel='stylesheet'></link>
 
+    <!--The polyfill is not needed for browser that have native API support,
+        but is linked by these samples for wider compatibility.-->
+    <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
+
     <script src='../js/cottontail/build/cottontail.js'></script>
 
     <script src='../js/webxr-button.js'></script>
@@ -48,6 +52,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script>
       (function () {
       'use strict';
+
+      // If requested, initialize the WebXR polyfill
+      if (QueryArgs.getBool('allowPolyfill', false)) {
+        var polyfill = new WebXRPolyfill();
+      }
 
       const BUTTON_PER_ROW = 5;
       const BUTTON_ROW_ARC = Math.PI * 0.2;

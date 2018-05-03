@@ -39,3 +39,4 @@ export {VideoNode} from './nodes/video.js';
 export {WebXRView, Scene} from './scenes/scene.js';
 
 export {FallbackHelper} from './util/fallback-helper.js';
+export {QueryArgs} from './util/query-args.js';

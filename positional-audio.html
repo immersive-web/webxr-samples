@@ -30,6 +30,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <link href='css/common.css' rel='stylesheet'></link>
 
+    <!--The polyfill is not needed for browser that have native API support,
+        but is linked by these samples for wider compatibility.-->
+    <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
+
     <script src="https://cdn.jsdelivr.net/npm/resonance-audio/build/resonance-audio.min.js"></script>
 
     <script src='js/cottontail/build/cottontail.debug.js'></script>
@@ -53,8 +57,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      // If requested, initialize the WebXR polyfill
+      if (QueryArgs.getBool('allowPolyfill', false)) {
+        var polyfill = new WebXRPolyfill();
+      }
+
       // Temporary
-      let hideStats = WGLUUrl.getBool('hideStats', false);
+      let hideStats = QueryArgs.getBool('hideStats', false);
 
       const DEFAULT_HEIGHT = 1.5;
       const ANALYSER_FFT_SIZE = 1024;
