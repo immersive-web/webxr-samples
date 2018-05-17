@@ -71,8 +71,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
-      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+      scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
 
       function initXR() {
         xrButton = new XRDeviceButton({
@@ -103,7 +103,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (gl)
           return;
 
-        let offscreenCanvas = new OffscreenCanvas();
+        let offscreenCanvas = new OffscreenCanvas(16, 16);
         gl = offscreenCanvas.getContext('webgl', {
           compatibleXRDevice: compatibleDevice
         });
@@ -131,9 +131,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL(session.device);
 
-        session.baseLayer = new XRWebGLLayer(session, gl, {
-          framebufferScaleFactor: appSettings.framebufferScale,
-          antialias: appSettings.antialias});
+        session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
           if (session.exclusive) {
@@ -156,9 +154,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      let frameNum = 0;
-      let tmp = 0;
-
       function onXRFrame(t, frame) {
         let session = frame.session;
         let frameOfRef = session.exclusive ?
@@ -166,38 +161,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                          xrNonExclusiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
-        frameNum++;
-
         scene.startFrame();
 
-        if (appSettings.simulatedWorkTimeMs > 0) {
-          // Simulate a heavy Javascript workload
-          let start = Date.now();
-          while (Date.now() - start < appSettings.simulatedWorkTimeMs) {
-            // Spin our wheels doing useless BS :)
-            tmp = Math.sin(Math.cos(Math.tan(tmp)));
-          }
-        }
-
-        session.baseLayer.requestViewportScaling(appSettings.viewportScale);
-
         session.requestAnimationFrame(onXRFrame);
-
-        // Simulate a poorly designed app that doesn't provide frames.
-        if (appSettings.noFrames) {
-          scene.endFrame();
-          return;
-        }
-
-        // Simulate an app that's only submitting on a subset of animation
-        // frames. This seems to be legal according to the WebVR spec?
-        // frameNum=0 is submitted, so setting submitInterval to a large
-        // number can simulate a splash screen.
-        if (appSettings.submitInterval && frameNum % appSettings.submitInterval > 0) {
-          return;
-        }
-
-        scene.clear = !appSettings.noClear;
 
         scene.updateInputSources(frame, frameOfRef);
 
