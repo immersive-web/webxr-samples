@@ -1,0 +1,168 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-06-19 -->
+<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-06-19" content="AtbTReaDSqEpA89tMtctPAnq1hzM6rqkvioIDy9v40mdBN8GOH8zUcMqgp7FynncANcL7Izgh8iDy2cSzIONoQsAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUyOTQ0MTA4N30=">
+
+    <title>Phone AR</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+
+    <!--The polyfill is not needed for browser that have native API support,
+        but is linked by these samples for wider compatibility.-->
+    <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
+
+    <script src='js/cottontail/build/cottontail.js'></script>
+
+    <script src='js/webxr-button.js'></script>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Phone AR</summary>
+        <p>
+          This sample demonstrates use of a non-exclusive XRSession to present
+          Augmented Reality content.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // If requested, initialize the WebXR polyfill
+      if (QueryArgs.getBool('allowPolyfill', false)) {
+        var polyfill = new WebXRPolyfill();
+      }
+
+      // XR globals.
+      let xrButton = null;
+      let xrFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
+      // The solar system is big (citation needed). Scale it down so that users can
+      // move around the planets more easily.
+      solarSystem.scale = [0.1, 0.1, 0.1];
+      scene.addNode(solarSystem);
+
+      // No skybox is added to this scene, and we're not clearing the background to
+      // black because we want the real world to show through.
+      scene.clear = false;
+
+      function initXR() {
+        xrButton = new XRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            // TODO: supportsSession call for AR.
+            //device.supportsSession({ar: true}).then(() => {
+              xrButton.setDevice(device);
+            //});
+          });
+        }
+      }
+
+      function onRequestSession(device) {
+        // AR sessions must have an outputContext, just like magic window
+        // sessions.
+        let outputCanvas = document.createElement('canvas');
+        let ctx = outputCanvas.getContext('xrpresent');
+
+        // Even though this is a non-exclusive session, the fact that it's
+        // using AR features means it must be requested in a user activation
+        // event so that appropriate permissions can be granted.
+
+        // TODO: The 'requestAR' option here does nothing yet.
+        device.requestSession({ requestAR: true, outputContext: ctx })
+            .then((session) => {
+              // Add the canvas to the document once we know that it will be
+              // rendered to.
+              document.body.appendChild(outputCanvas);
+              xrButton.setSession(session);
+              onSessionStarted(session);
+            });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            compatibleXRDevice: session.device
+          });
+
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+          xrFrameOfRef = frameOfRef;
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+      }
+
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let pose = frame.getDevicePose(xrFrameOfRef);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+      })();
+    </script>
+  </body>
+</html>
