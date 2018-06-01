@@ -68,9 +68,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      let headset = new Gltf2Node({url: 'media/gltf/headset/headset.gltf'});
-      headset.visible = false;
-      scene.addNode(headset);
+      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      flower.visible = false;
+      scene.addNode(flower);
+
+      let maxFlowers = 30;
+      let flowers = [];
 
       // Ensure the background is transparent for AR.
       scene.clear = false;
@@ -169,8 +172,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           event.frame.session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
             if (results.length) {
               let hitResult = results[0];
-              headset.visible = true;
-              headset.matrix = hitResult.hitMatrix;
+
+              let newFlower = flower.clone();
+              newFlower.visible = true;
+              newFlower.matrix = hitResult.hitMatrix;
+              scene.addNode(newFlower);
+
+              flowers.push(newFlower);
+
+              if (flowers.length > maxFlowers) {
+                let oldFlower = flowers.shift();
+                scene.removeNode(oldFlower);
+              }
             }
           });
         }
@@ -181,24 +194,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let pose = frame.getDevicePose(xrFrameOfRef);
 
+        // TODO: Use the pose to cast a reticle into the scene using a
+        // continuous hit test.
         /*if (pose && pose.poseModelMatrix) {
           vec3.set(rayOrigin, 0, 0, 0);
           vec3.transformMat4(rayOrigin, rayOrigin, pose.poseModelMatrix);
 
           vec3.set(rayDirection, 0, 0, -1);
           vec3.transformMat4(rayDirection, rayDirection, pose.poseModelMatrix);
-
-          // For debugging: Show where I'm pointing.
-          //scene.inputRenderer.addCursor(rayDirection);
-
           vec3.sub(rayDirection, rayDirection, rayOrigin);
           vec3.normalize(rayDirection, rayDirection);
 
           session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
             if (results.length) {
               let hitResult = results[0];
-              headset.visible = true;
-              headset.matrix = hitResult.hitMatrix;
+              reticle.visible = true;
+              reticle.matrix = hitResult.hitMatrix;
+            } else {
+              reticle.visible = false;
             }
           });
         }*/

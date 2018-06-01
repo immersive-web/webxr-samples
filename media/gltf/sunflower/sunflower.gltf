@@ -1,0 +1,232 @@
+{
+    "accessors" : [
+        {
+            "bufferView" : 0, 
+            "componentType" : 5123, 
+            "count" : 1020, 
+            "max" : [
+                683
+            ], 
+            "min" : [
+                0
+            ], 
+            "type" : "SCALAR"
+        }, 
+        {
+            "bufferView" : 1, 
+            "componentType" : 5126, 
+            "count" : 684, 
+            "max" : [
+                0.6084539890289307, 
+                0.45397499203681946, 
+                1.3026560544967651
+            ], 
+            "min" : [
+                -0.6065940260887146, 
+                -0.4599300026893616, 
+                -0.6320639848709106
+            ], 
+            "type" : "VEC3"
+        }, 
+        {
+            "bufferView" : 2, 
+            "componentType" : 5126, 
+            "count" : 684, 
+            "max" : [
+                0.9962462186813354, 
+                0.9783013463020325, 
+                0.9760735034942627
+            ], 
+            "min" : [
+                -0.9901425242424011, 
+                -0.99969482421875, 
+                -0.9738761782646179
+            ], 
+            "type" : "VEC3"
+        }, 
+        {
+            "bufferView" : 3, 
+            "componentType" : 5126, 
+            "count" : 684, 
+            "max" : [
+                1.0, 
+                0.9984117150306702, 
+                1.0, 
+                1.0
+            ], 
+            "min" : [
+                -0.9980879426002502, 
+                -0.989476203918457, 
+                -0.9987438917160034, 
+                -1.0
+            ], 
+            "type" : "VEC4"
+        }, 
+        {
+            "bufferView" : 4, 
+            "componentType" : 5126, 
+            "count" : 684, 
+            "max" : [
+                0.9782000184059143, 
+                0.9781999997794628
+            ], 
+            "min" : [
+                0.021800000220537186, 
+                0.021799981594085693
+            ], 
+            "type" : "VEC2"
+        }
+    ], 
+    "asset" : {
+        "generator" : "Khronos Blender glTF 2.0 exporter", 
+        "version" : "2.0"
+    }, 
+    "bufferViews" : [
+        {
+            "buffer" : 0, 
+            "byteLength" : 2040, 
+            "byteOffset" : 0, 
+            "target" : 34963
+        }, 
+        {
+            "buffer" : 0, 
+            "byteLength" : 8208, 
+            "byteOffset" : 2040, 
+            "target" : 34962
+        }, 
+        {
+            "buffer" : 0, 
+            "byteLength" : 8208, 
+            "byteOffset" : 10248, 
+            "target" : 34962
+        }, 
+        {
+            "buffer" : 0, 
+            "byteLength" : 10944, 
+            "byteOffset" : 18456, 
+            "target" : 34962
+        }, 
+        {
+            "buffer" : 0, 
+            "byteLength" : 5472, 
+            "byteOffset" : 29400, 
+            "target" : 34962
+        }
+    ], 
+    "buffers" : [
+        {
+            "byteLength" : 34872, 
+            "uri" : "sunflower.bin"
+        }
+    ], 
+    "images" : [
+        {
+            "uri" : "PUSHILIN_sunflower.png"
+        }
+    ], 
+    "materials" : [
+        {
+            "alphaMode" : "BLEND", 
+            "name" : "None", 
+            "pbrMetallicRoughness" : {
+                "baseColorFactor" : [
+                    0.800000011920929, 
+                    0.800000011920929, 
+                    0.800000011920929, 
+                    1.0
+                ], 
+                "baseColorTexture" : {
+                    "index" : 0
+                }, 
+                "metallicFactor" : 0.0
+            }
+        }
+    ], 
+    "meshes" : [
+        {
+            "name" : "sunflower", 
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "NORMAL" : 2, 
+                        "POSITION" : 1, 
+                        "TANGENT" : 3, 
+                        "TEXCOORD_0" : 4
+                    }, 
+                    "indices" : 0, 
+                    "material" : 0
+                }
+            ]
+        }
+    ], 
+    "nodes" : [
+        {
+            "name" : "Camera", 
+            "rotation" : [
+                0.483536034822464, 
+                0.33687159419059753, 
+                -0.20870360732078552, 
+                0.7804827094078064
+            ], 
+            "translation" : [
+                7.481131553649902, 
+                5.34366512298584, 
+                6.5076398849487305
+            ]
+        }, 
+        {
+            "name" : "Lamp", 
+            "rotation" : [
+                0.16907551884651184, 
+                0.7558804750442505, 
+                -0.2721710503101349, 
+                0.5709475874900818
+            ], 
+            "translation" : [
+                0.0, 
+                1.600000023841858, 
+                -0.0
+            ]
+        }, 
+        {
+            "mesh" : 0, 
+            "name" : "sunflower", 
+            "rotation" : [
+                0.7071068286895752, 
+                0.0, 
+                -0.0, 
+                0.7071067094802856
+            ], 
+            "scale" : [
+                0.30000001192092896, 
+                0.30000001192092896, 
+                0.30000001192092896
+            ], 
+            "translation" : [
+                0.0, 
+                0.39152565598487854, 
+                -0.0
+            ]
+        }
+    ], 
+    "samplers" : [
+        {}
+    ], 
+    "scene" : 0, 
+    "scenes" : [
+        {
+            "name" : "Scene", 
+            "nodes" : [
+                2, 
+                1, 
+                0
+            ]
+        }
+    ], 
+    "textures" : [
+        {
+            "sampler" : 0, 
+            "source" : 0
+        }
+    ]
+}
