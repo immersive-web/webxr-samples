@@ -206,7 +206,14 @@ export class Node {
   }
 
   set matrix(value) {
-    this._matrix = value;
+    if (value) {
+      if (!this._matrix) {
+        this._matrix = mat4.create();
+      }
+      mat4.copy(this._matrix, value);
+    } else {
+      this._matrix = null;
+    }
     this.setMatrixDirty();
     this._dirtyTRS = false;
     this._translation = null;

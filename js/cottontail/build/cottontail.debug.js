@@ -8543,7 +8543,14 @@ var Node = exports.Node = function () {
   }, {
     key: 'matrix',
     set: function set(value) {
-      this._matrix = value;
+      if (value) {
+        if (!this._matrix) {
+          this._matrix = _glMatrix.mat4.create();
+        }
+        _glMatrix.mat4.copy(this._matrix, value);
+      } else {
+        this._matrix = null;
+      }
       this.setMatrixDirty();
       this._dirtyTRS = false;
       this._translation = null;
