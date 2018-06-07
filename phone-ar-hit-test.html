@@ -48,6 +48,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <p>
           This sample demonstrates use of hit testing to place AR objects on real-world surfaces.
           <a class="back" href="./">Back</a>
+          <br/>
+          <hr/>
+          <input id="useReticle" type="checkbox" checked>
+          <label for="useReticle">Use reticle for placement</label>
         </p>
       </details>
     </header>
@@ -60,6 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         var polyfill = new WebXRPolyfill();
       }
 
+      let useReticle = document.getElementById('useReticle');
+
       // XR globals.
       let xrButton = null;
       let xrFrameOfRef = null;
@@ -68,9 +74,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
+
+      let arObject = new Node();
+      arObject.visible = false;
+      scene.addNode(arObject);
+
       let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-      flower.visible = false;
-      scene.addNode(flower);
+      arObject.addNode(flower);
+
+      // Having a really simple drop shadow underneath an object helps ground
+      // it in the world without adding much complexity.
+      let shadow = new DropShadowNode();
+      vec3.set(shadow.scale, 0.15, 0.15, 0.15);
+      arObject.addNode(shadow);
 
       let maxFlowers = 30;
       let flowers = [];
@@ -152,40 +168,51 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
 
+      function addARObjectAt(matrix) {
+        let newFlower = arObject.clone();
+        newFlower.visible = true;
+        newFlower.matrix = matrix;
+        scene.addNode(newFlower);
+
+        flowers.push(newFlower);
+
+        if (flowers.length > maxFlowers) {
+          let oldFlower = flowers.shift();
+          scene.removeNode(oldFlower);
+        }
+      }
+
       let rayOrigin = vec3.create();
       let rayDirection = vec3.create();
       function onSelect(event) {
-        let inputPose = event.frame.getInputPose(event.inputSource, xrFrameOfRef);
-        if (!inputPose) {
-          return;
-        }
+        if (useReticle.checked && arObject.visible) {
+          // If we're using the reticle then we've already got a mesh positioned
+          // at the latest hit point and we should just use it's matrix to save
+          // an unnecessary requestHitTest call.
+          addARObjectAt(arObject.matrix);
+        } else {
+          // Otherwise we'll use the target ray from the input source that generated
+          // this event to fire off a new hit test.
+          let inputPose = event.frame.getInputPose(event.inputSource, xrFrameOfRef);
+          if (!inputPose) {
+            return;
+          }
 
-        if (inputPose.pointerMatrix) {
-          vec3.set(rayOrigin, 0, 0, 0);
-          vec3.transformMat4(rayOrigin, rayOrigin, inputPose.pointerMatrix);
+          if (inputPose.pointerMatrix) {
+            vec3.set(rayOrigin, 0, 0, 0);
+            vec3.transformMat4(rayOrigin, rayOrigin, inputPose.pointerMatrix);
 
-          vec3.set(rayDirection, 0, 0, -1);
-          vec3.transformMat4(rayDirection, rayDirection, inputPose.pointerMatrix);
-          vec3.sub(rayDirection, rayDirection, rayOrigin);
-          vec3.normalize(rayDirection, rayDirection);
+            vec3.set(rayDirection, 0, 0, -1);
+            vec3.transformMat4(rayDirection, rayDirection, inputPose.pointerMatrix);
+            vec3.sub(rayDirection, rayDirection, rayOrigin);
+            vec3.normalize(rayDirection, rayDirection);
 
-          event.frame.session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
-            if (results.length) {
-              let hitResult = results[0];
-
-              let newFlower = flower.clone();
-              newFlower.visible = true;
-              newFlower.matrix = hitResult.hitMatrix;
-              scene.addNode(newFlower);
-
-              flowers.push(newFlower);
-
-              if (flowers.length > maxFlowers) {
-                let oldFlower = flowers.shift();
-                scene.removeNode(oldFlower);
+            event.frame.session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
+              if (results.length) {
+                addARObjectAt(results[0].hitMatrix);
               }
-            }
-          });
+            });
+          }
         }
       }
 
@@ -194,9 +221,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let pose = frame.getDevicePose(xrFrameOfRef);
 
-        // TODO: Use the pose to cast a reticle into the scene using a
-        // continuous hit test.
-        /*if (pose && pose.poseModelMatrix) {
+        // If requested, use the pose to cast a reticle into the scene using a
+        // continuous hit test. For the moment we're just using the flower
+        // as the "reticle".
+        if (useReticle.checked && pose && pose.poseModelMatrix) {
           vec3.set(rayOrigin, 0, 0, 0);
           vec3.transformMat4(rayOrigin, rayOrigin, pose.poseModelMatrix);
 
@@ -208,13 +236,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
             if (results.length) {
               let hitResult = results[0];
-              reticle.visible = true;
-              reticle.matrix = hitResult.hitMatrix;
+              arObject.visible = true;
+              arObject.matrix = hitResult.hitMatrix;
             } else {
-              reticle.visible = false;
+              arObject.visible = false;
             }
           });
-        }*/
+        } else {
+          arObject.visible = false;
+        }
 
         scene.startFrame();
 
