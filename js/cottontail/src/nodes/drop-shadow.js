@@ -40,6 +40,7 @@ class DropShadowMaterial extends Material {
     this.state.blendFuncSrc = GL.ONE;
     this.state.blendFuncDst = GL.ONE_MINUS_SRC_ALPHA;
     this.state.depthFunc = GL.LEQUAL;
+    this.state.depthMask = false;
   }
 
   get materialName() {

@@ -12958,6 +12958,7 @@ var DropShadowMaterial = function (_Material) {
     _this.state.blendFuncSrc = GL.ONE;
     _this.state.blendFuncDst = GL.ONE_MINUS_SRC_ALPHA;
     _this.state.depthFunc = GL.LEQUAL;
+    _this.state.depthMask = false;
     return _this;
   }
 
