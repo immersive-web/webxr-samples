@@ -109,7 +109,7 @@ export class PrimitiveStream {
     // TODO: Anything else need to be done to finish processing here?
   }
 
-  pushVertex(x, y, z, u, v, nx, ny, nz) {
+  pushVertex(x, y, z, u = 0, v = 0, nx = 0, ny = 0, nz = 1) {
     if (!this._geometryStarted) {
       throw new Error(`Cannot push vertices before calling startGeometry().`);
     }

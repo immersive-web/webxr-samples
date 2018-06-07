@@ -31,6 +31,7 @@ export {mat4, mat3, vec3, vec4, quat} from './math/gl-matrix.js';
 
 export {BoundsRenderer} from './nodes/bounds-renderer.js';
 export {ButtonNode} from './nodes/button.js';
+export {DropShadowNode} from './nodes/drop-shadow.js';
 export {CubeSeaNode} from './nodes/cube-sea.js';
 export {Gltf2Node} from './nodes/gltf2.js';
 export {SkyboxNode} from './nodes/skybox.js';
