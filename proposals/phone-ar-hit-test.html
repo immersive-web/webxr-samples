@@ -31,15 +31,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <title>AR Hit Test</title>
 
-    <link href='css/common.css' rel='stylesheet'></link>
+    <link href='../css/common.css' rel='stylesheet'></link>
 
     <!--The polyfill is not needed for browser that have native API support,
         but is linked by these samples for wider compatibility.-->
     <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
 
-    <script src='js/cottontail/build/cottontail.js'></script>
+    <script src='../js/cottontail/build/cottontail.js'></script>
 
-    <script src='js/webxr-button.js'></script>
+    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -74,12 +74,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
+      scene.enableStats(false);
 
       let arObject = new Node();
       arObject.visible = false;
       scene.addNode(arObject);
 
-      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      let flower = new Gltf2Node({url: '../media/gltf/sunflower/sunflower.gltf'});
       arObject.addNode(flower);
 
       // Having a really simple drop shadow underneath an object helps ground
@@ -88,7 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       vec3.set(shadow.scale, 0.15, 0.15, 0.15);
       arObject.addNode(shadow);
 
-      let maxFlowers = 30;
+      const MAX_FLOWERS = 30;
       let flowers = [];
 
       // Ensure the background is transparent for AR.
@@ -115,17 +116,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession(device) {
-        // AR sessions must have an outputContext, just like magic window
-        // sessions.
         let outputCanvas = document.createElement('canvas');
         outputCanvas.setAttribute('id', 'output-canvas');
         let ctx = outputCanvas.getContext('xrpresent');
 
-        // Even though this is a non-exclusive session, the fact that it's
-        // using AR features means it must be requested in a user activation
-        // event so that appropriate permissions can be granted.
-
-        // TODO: The 'requestAR' option here does nothing yet.
         device.requestSession({ requestAR: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
@@ -168,6 +162,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
 
+      // Adds a new object to the scene at the
+      // specificed transform.
       function addARObjectAt(matrix) {
         let newFlower = arObject.clone();
         newFlower.visible = true;
@@ -176,7 +172,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         flowers.push(newFlower);
 
-        if (flowers.length > maxFlowers) {
+        // For performance reasons if we add too many objects start
+        // removing the oldest ones to keep the scene complexity
+        // from growing too much.
+        if (flowers.length > MAX_FLOWERS) {
           let oldFlower = flowers.shift();
           scene.removeNode(oldFlower);
         }
@@ -234,6 +233,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           vec3.normalize(rayDirection, rayDirection);
 
           session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
+            // When the hit test returns use it to place our proxy object.
             if (results.length) {
               let hitResult = results[0];
               arObject.visible = true;

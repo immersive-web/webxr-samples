@@ -78,7 +78,7 @@
     <!--[if lt IE 9]>
     <script src='https://html5shiv.googlecode.com/svn/trunk/html5.js'></script>
     <![endif]-->
-    <title>WebXR - Test Pages</title>
+    <title>WebXR - Proposals</title>
   </head>
   <body>
 
@@ -86,36 +86,29 @@
       <header class='header'>
         <div id='nav'>
             <a href='../'>Samples</a>
-            <a href='../proposals/'>Proposals</a>
-            <a href='./' class='selected'>Test Pages</a>
+            <a href='./' class='selected'>Proposals</a>
+            <a href='../tests/'>Test Pages</a>
         </div>
 
         <h1><a href='' class='wordmark'><span>WebXR</span></a></h1>
-        <h2 class='tagline'>Test Pages</h2>
+        <h2 class='tagline'>Proposals</h2>
       </header>
 
       <main class='main' id='main'>
-        <p>These pages are useful for testing various aspects of WebXR
-           implementations, but aren't as well commented or straightforward as
-           the sample pages.<br/>
+        <p>These pages test features which have been proposed and are in development but have
+          not yet been adopted into the core WebXR Device API. They may have varying support
+          across WebXR-compatible browsers, and the APIs presented here are assumed to be
+          in flux.<br/>
 
         <script>
           let pages = [
-            { title: 'Cube Sea', category: 'Cube Sea',
-              path: 'cube-sea.html',
-              description: 'All hail the cube sea! Not very interesting to look at, but it\'s fantastic for testing!' },
+            { title: 'Phone AR', category: 'Phone AR',
+              path: 'phone-ar.html',
+              description: 'Demonstrates basic support for passthrough AR on a mobile device.' },
 
-            { title: 'Pointer Painter', category: 'Input',
-              path: 'pointer-painter.html',
-              description: 'Leaves behind a trail of pointers and cursors on select events.' },
-
-            { title: 'Permission Requests', category: 'User Agent Behavior',
-              path: 'permission-request.html',
-              description: 'Tests requesting permissions from within XR.' },
-
-            { title: 'Offscreen Canvas', category: 'Alternate WebGL Modes',
-              path: 'offscreen-canvas.html',
-              description: 'Tests use of an OffscreenCanvas with XR.' },
+            { title: 'AR Hit Test', category: 'Phone AR',
+              path: 'phone-ar-hit-test.html',
+              description: 'Demonstrates using the Hit Test API to place virtual objects on real-world surfaces.' },
           ];
 
           let mainElement = document.getElementById("main");
@@ -157,7 +150,7 @@
             links.appendChild(polyfillLink);
 
             let sourceLink = document.createElement('a');
-            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/tests/' + page.path;
+            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/proposals/' + page.path;
             sourceLink.innerHTML = 'Source';
             links.appendChild(sourceLink);
 

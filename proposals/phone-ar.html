@@ -31,15 +31,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <title>Phone AR</title>
 
-    <link href='css/common.css' rel='stylesheet'></link>
+    <link href='../css/common.css' rel='stylesheet'></link>
 
     <!--The polyfill is not needed for browser that have native API support,
         but is linked by these samples for wider compatibility.-->
     <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
 
-    <script src='js/cottontail/build/cottontail.js'></script>
+    <script src='../js/cottontail/build/cottontail.js'></script>
 
-    <script src='js/webxr-button.js'></script>
+    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -69,7 +69,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
+      let solarSystem = new Gltf2Node({url: '../media/gltf/space/space.gltf'});
       // The solar system is big (citation needed). Scale it down so that users can
       // move around the planets more easily.
       solarSystem.scale = [0.1, 0.1, 0.1];
@@ -110,7 +110,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // using AR features means it must be requested in a user activation
         // event so that appropriate permissions can be granted.
 
-        // TODO: The 'requestAR' option here does nothing yet.
+        // TODO: The 'requestAR' option here does nothing yet. Eventually we
+        // will have an option like this, however, that is required to enable 
+        // AR functionality.
         device.requestSession({ requestAR: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
