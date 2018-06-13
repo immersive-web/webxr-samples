@@ -37,6 +37,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         but is linked by these samples for wider compatibility.-->
     <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
 
+    <!--This script patches up around implementation differences in past browser versions
+        so that the samples can always be written against the most recent spec changes.
+        It won't be necessary after the API has been officially shipped for a bit.-->
+    <script src='js/webxr-version-shim.js'></script>
+
     <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
@@ -64,8 +69,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrExclusiveFrameOfRef = null;
-      let xrNonExclusiveFrameOfRef = null;
+      let xrImmersiveFrameOfRef = null;
+      let xrNonImmersiveFrameOfRef = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -82,7 +87,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({exclusive: true}).then(() => {
+            device.supportsSession({immersive: true}).then(() => {
               xrButton.setDevice(device);
             });
 
@@ -135,7 +140,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mirrorCanvas.setAttribute('id', 'mirror-canvas');
         document.body.appendChild(mirrorCanvas);
 
-        device.requestSession({ exclusive: true, outputContext: ctx }).then((session) => {
+        device.requestSession({ immersive: true, outputContext: ctx }).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -149,10 +154,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.baseLayer = new XRWebGLLayer(session, gl);
 
         session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
-          if (session.exclusive) {
-            xrExclusiveFrameOfRef = frameOfRef;
+          if (session.immersive) {
+            xrImmersiveFrameOfRef = frameOfRef;
           } else {
-            xrNonExclusiveFrameOfRef = frameOfRef;
+            xrNonImmersiveFrameOfRef = frameOfRef;
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -163,7 +168,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.exclusive) {
+        if (event.session.immersive) {
           document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
         }
@@ -171,9 +176,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let frameOfRef = session.exclusive ?
-                         xrExclusiveFrameOfRef :
-                         xrNonExclusiveFrameOfRef;
+        let frameOfRef = session.immersive ?
+                         xrImmersiveFrameOfRef :
+                         xrNonImmersiveFrameOfRef;
         let pose = frame.getDevicePose(frameOfRef);
 
         scene.startFrame();

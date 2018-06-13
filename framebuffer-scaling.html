@@ -37,6 +37,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         but is linked by these samples for wider compatibility.-->
     <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
 
+    <!--This script patches up around implementation differences in past browser versions
+        so that the samples can always be written against the most recent spec changes.
+        It won't be necessary after the API has been officially shipped for a bit.-->
+    <script src='js/webxr-version-shim.js'></script>
+
     <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
@@ -48,14 +53,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <p>
           This sample demonstrates scaling the framebuffer used for a WebXR layer
           at creation time to control the memory and fillrate required and improve
-          performance or quality as needed.
+          performance or quality as needed. (The system may clamp the actual
+          buffer sizes)
 
           Framebuffer scaling should be used to make a performance/memory/quality
           tradeoff for the lifetime of the session. 
           <a class="back" href="./">Back</a>
           <br/>
           <hr/>
-          <input id='framebufferScaleSelect' value='0.0' min='0.0' max='1.0' step='0.125' type='range'/><br/>
+          <input id='framebufferScaleSelect' value='1.0' min='0.25' max='2.0' step='0.125' type='range'/><br/>
           <span id='framebufferScaleLabel'></span>
         </p>
       </details>
@@ -79,9 +85,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let value = parseFloat(scaleSelect.value);
         let label = `Framebuffer scale: ${scaleSelect.value}`;
         switch (value) {
-          case 0.0: label += ' - Default, system decides'; break;
-          case 0.5: label += ' - Half res'; break;
-          case 1.0: label += ' - 1:1 pixel utilization'; break;
+          case 0.5: label += ' - 50% recommended res'; break;
+          case 1.0: label += ' - Default, system recommendation'; break;
+          case 1.5: label += ' - 150% recommended res'; break;
+          case 2.0: label += ' - 200% recommended res'; break;
         }
         scaleLabel.innerHTML = label;
       }
@@ -108,7 +115,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({exclusive: true}).then(() => {
+            device.supportsSession({immersive: true}).then(() => {
               xrButton.setDevice(device);
             });
           });
@@ -122,7 +129,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mirrorCanvas.setAttribute('id', 'mirror-canvas');
         document.body.appendChild(mirrorCanvas);
 
-        device.requestSession({ exclusive: true, outputContext: ctx  }).then(onSessionStarted);
+        device.requestSession({ immersive: true, outputContext: ctx  }).then(onSessionStarted);
       }
 
       function onSessionStarted(session) {

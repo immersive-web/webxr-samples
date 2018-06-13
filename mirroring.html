@@ -37,6 +37,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         but is linked by these samples for wider compatibility.-->
     <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
 
+    <!--This script patches up around implementation differences in past browser versions
+        so that the samples can always be written against the most recent spec changes.
+        It won't be necessary after the API has been officially shipped for a bit.-->
+    <script src='js/webxr-version-shim.js'></script>
+
     <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
@@ -86,7 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({exclusive: true}).then(() => {
+            device.supportsSession({immersive: true}).then(() => {
               xrButton.setDevice(device);
             });
           });
@@ -107,7 +112,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Providing an outputContext when requesting an exclusive session
         // indicates that it should be used as the mirror destination.
         device.requestSession({
-          exclusive: true,
+          immersive: true,
           outputContext: ctx
         }).then(onSessionStarted);
       }

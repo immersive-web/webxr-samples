@@ -32,6 +32,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <title>Barebones WebXR</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
+
+    <!--This script patches up around implementation differences in past browser versions
+        so that the samples can always be written against the most recent spec changes.
+        It won't be necessary after the API has been officially shipped for a bit.-->
+    <script src='js/webxr-version-shim.js'></script>
   </head>
   <body>
     <header>
@@ -73,7 +78,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             xrDevice = device;
             // If the device allows creation of exclusive sessions set it as the
             // target of the 'Enter XR' button.
-            device.supportsSession({exclusive: true}).then(() => {
+            device.supportsSession({immersive: true}).then(() => {
               // Updates the button to start an XR session when clicked.
               xrButton.addEventListener('click', onButtonClicked);
               xrButton.innerHTML = 'Enter XR';
@@ -87,7 +92,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // session already we'll request one, and if we do we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
-          xrDevice.requestSession({exclusive: true}).then(onSessionStarted);
+          xrDevice.requestSession({immersive: true}).then(onSessionStarted);
         } else {
           xrSession.end();
         }
