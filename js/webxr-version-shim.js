@@ -22,7 +22,23 @@
 // implementations of the WebXR API and allow the samples to be coded exclusively
 // against the most recent version.
 
-if ('xr' in navigator) {
+let initWebXRVersionShim = 'xr' in navigator; 
+
+// Allow for universally disabling the version shim with a URL arg, which will
+// make it easier to test updates to native implementations.
+if (initWebXRVersionShim) {
+  let query = window.location.search.substring(1) || window.location.hash.substring(1);
+  let vars = query.split('&');
+  for (let i = 0; i < vars.length; i++) {
+    let pair = vars[i].split('=');
+    if (pair[0].toLowerCase() == 'nowebxrversionshim') {
+      initWebXRVersionShim = false;
+      break;
+    }
+  }
+}
+
+if (initWebXRVersionShim) {
 
   function isMobile () {
     return /Android/i.test(navigator.userAgent) ||
