@@ -73,13 +73,31 @@ if (initWebXRVersionShim) {
     // directly, so that'll serve as our proxy.
     const NATIVE_REQUEST_FRAME_OF_REFERENCE = XRSession.prototype.requestFrameOfReference;
     XRSession.prototype.requestFrameOfReference = function(type, options) {
-      if (type == 'eye-level') {
-        type = 'eyeLevel';
-      }
-      if (type == 'head-model') {
-        type = 'headModel';
-      }
-      return NATIVE_REQUEST_FRAME_OF_REFERENCE.call(this, type, options); 
+      let session = this;
+      // Try the current type.
+      return NATIVE_REQUEST_FRAME_OF_REFERENCE.call(session, type, options).catch((error)=>{
+        if(error instanceof TypeError) {
+          // If the current type fails, switch to the other version.
+          switch(type) {
+            case 'eye-level':
+              type = 'eyeLevel';
+              break;
+            case 'head-model':
+              type = 'headModel';
+              break;
+            // These are temporary until we fix all the samples.
+            case 'headModel':
+              type = 'head-model';
+              break;
+            case 'eyeLevel':
+              type = 'eye-level';
+              break;
+          }
+          return Promise.resolve(NATIVE_REQUEST_FRAME_OF_REFERENCE.call(session, type, options));
+        } else {
+          return Promise.reject(error);
+        }
+      });
     };
   }
 
