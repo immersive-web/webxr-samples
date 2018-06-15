@@ -121,9 +121,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.baseLayer = new XRWebGLLayer(session, gl);
 
         // Get a frame of reference, which is required for querying poses. In
-        // this case an 'eyeLevel' frame of reference means that all poses will
+        // this case an 'eye-level' frame of reference means that all poses will
         // be relative to the location where the XRDevice was first detected.
-        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
           xrFrameOfRef = frameOfRef;
 
           // Inform the session that we're ready to begin drawing.

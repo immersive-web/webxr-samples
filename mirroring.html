@@ -140,7 +140,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         outputCanvas.width = session.baseLayer.framebufferWidth / 2;
         outputCanvas.height = session.baseLayer.framebufferHeight;
 
-        session.requestFrameOfReference('eyeLevel').then((frameOfRef) => {
+        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
           xrFrameOfRef = frameOfRef;
 
           session.requestAnimationFrame(onXRFrame);
