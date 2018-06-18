@@ -1,0 +1,237 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-07-25 -->
+<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-07-25" content="AiOtRLgiXauzJY1CytLCb96aWE1XryUKk1o4uTBQNRpMoeFAbO9e+wsRbT41diaTMC3M6NC6C+HgubQtPUU57wEAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzMjU0MDY0Mn0=">
+
+    <title>Sponza</title>
+
+    <link href='../css/common.css' rel='stylesheet'></link>
+
+    <!--The polyfill is not needed for browser that have native API support,
+        but is linked by these samples for wider compatibility.-->
+    <script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script>
+
+    <!--This script patches up around implementation differences in past browser versions
+        so that the samples can always be written against the most recent spec changes.
+        It won't be necessary after the API has been officially shipped for a bit.-->
+    <script src='../js/webxr-version-shim.js'></script>
+
+    <script src='../js/cottontail/build/cottontail.js'></script>
+
+    <script src='../js/webxr-button.js'></script>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Sponza</summary>
+        <p>
+          Loads a larger scene than other samples.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script>
+      (function () {
+      'use strict';
+
+      // If requested, initialize the WebXR polyfill
+      if (QueryArgs.getBool('allowPolyfill', false)) {
+        var polyfill = new WebXRPolyfill();
+      }
+      // Apply the version shim after the polyfill is instantiated, to ensure
+      // that the polyfill also gets patched if necessary.
+      var versionShim = new WebXRVersionShim();
+
+      // Temporary
+      let hideStats = QueryArgs.getBool('hideStats', false);
+
+      // XR globals.
+      let xrButton = null;
+      let xrImmersiveFrameOfRef = null;
+      let xrNonImmersiveFrameOfRef = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      if (hideStats) {
+        scene.enableStats(false);
+      }
+      scene.addNode(new SkyboxNode({url: '../media/textures/eilenriede-park-2k.png'}));
+      let sponza = new Gltf2Node({url: '../media/gltf/sponza/sponza.glb'});
+      // Rotate the scene 90deg so that you start looking down the gallery.
+      quat.rotateY(sponza.rotation, sponza.rotation, Math.PI / 2.0);
+      scene.addNode(sponza);
+      scene.standingStats(true);
+
+      function initXR() {
+        xrButton = new XRDeviceButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.requestDevice().then((device) => {
+            device.supportsSession({immersive: true}).then(() => {
+              xrButton.setDevice(device);
+            });
+
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+
+            device.requestSession({ outputContext: ctx })
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          }).catch(() => {
+            initFallback();
+          });
+        } else {
+          initFallback();
+        }
+      }
+
+      function initFallback() {
+        initGL();
+        document.body.appendChild(gl.canvas);
+        let fallbackHelper = new FallbackHelper(scene, gl);
+        fallbackHelper.emulateStage = true;
+      }
+
+      function initGL(compatibleDevice) {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          compatibleXRDevice: compatibleDevice
+        });
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
+      }
+
+      function onRequestSession(device) {
+        // Set up a mirror canvas
+        let mirrorCanvas = document.createElement('canvas');
+        let ctx = mirrorCanvas.getContext('xrpresent');
+        mirrorCanvas.setAttribute('id', 'mirror-canvas');
+        document.body.appendChild(mirrorCanvas);
+
+        device.requestSession({ immersive: true, outputContext: ctx }).then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        // By listening for the 'select' event we can find out when the user has
+        // performed some sort of primary input action and respond to it.
+        session.addEventListener('select', onSelect);
+
+        initGL(session.device);
+
+        session.baseLayer = new XRWebGLLayer(session, gl);
+
+        session.requestFrameOfReference('stage').then((frameOfRef) => {
+          if (session.immersive) {
+            xrImmersiveFrameOfRef = frameOfRef;
+          } else {
+            xrNonImmersiveFrameOfRef = frameOfRef;
+          }
+
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onSelect(ev) {
+        /*let frameOfRef = ev.frame.session.immersive ?
+                         xrImmersiveFrameOfRef :
+                         xrNonImmersiveFrameOfRef;
+
+        let inputPose = ev.frame.getInputPose(ev.inputSource, frameOfRef);
+        if (!inputPose) {
+          return;
+        }
+
+        if (inputPose.pointerMatrix) {
+          let hitResult = scene.hitTest(inputPose.pointerMatrix)
+          if (hitResult) {
+            // Check to see if the hit result was one of our boxes.
+            for (let box of boxes) {
+              if (hitResult.node == box.node) {
+                // Change the box color to something random.
+                let uniforms = box.renderPrimitive.uniforms;
+                uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
+              }
+            }
+          }
+        }*/
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        if (event.session.immersive) {
+          document.body.removeChild(document.querySelector('#mirror-canvas'));
+          xrButton.setSession(null);
+        }
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let frameOfRef = session.immersive ?
+                         xrImmersiveFrameOfRef :
+                         xrNonImmersiveFrameOfRef;
+        let pose = frame.getDevicePose(frameOfRef);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.updateInputSources(frame, frameOfRef);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+      })();
+    </script>
+  </body>
+</html>
