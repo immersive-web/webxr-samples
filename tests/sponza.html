@@ -51,7 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <details open>
         <summary>Sponza</summary>
         <p>
-          Loads a larger scene than other samples.
+          Loads a larger scene than other samples for performance testing.
           <a class="back" href="./">Back</a>
         </p>
       </details>
@@ -135,6 +135,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
 
         renderer = new Renderer(gl);
+        renderer.globalLightDir = [-0.2, -1.0, -0.2];
+        renderer.globalLightColor = [7.0, 7.0, 8.0];
 
         scene.setRenderer(renderer);
         scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
