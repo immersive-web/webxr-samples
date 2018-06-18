@@ -58,6 +58,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
+      var versionShim = new WebXRVersionShim();
+
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrDevice = null;

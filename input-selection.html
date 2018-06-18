@@ -65,6 +65,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if (QueryArgs.getBool('allowPolyfill', false)) {
         var polyfill = new WebXRPolyfill();
       }
+      // Apply the version shim after the polyfill is instantiated, to ensure
+      // that the polyfill also gets patched if necessary.
+      var versionShim = new WebXRVersionShim();
 
       // Temporary
       let hideStats = QueryArgs.getBool('hideStats', false);
