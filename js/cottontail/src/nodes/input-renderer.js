@@ -260,7 +260,7 @@ export class InputRenderer extends Node {
     controller.visible = true;
   }
 
-  addLaserPointer(pointerMatrix) {
+  addLaserPointer(targetRayMatrix) {
     // Create the laser pointer mesh if needed.
     if (!this._lasers && this._renderer) {
       this._lasers = [this._createLaserMesh()];
@@ -277,7 +277,7 @@ export class InputRenderer extends Node {
     }
     this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-    laser.matrix = pointerMatrix;
+    laser.matrix = targetRayMatrix;
     laser.visible = true;
   }
 

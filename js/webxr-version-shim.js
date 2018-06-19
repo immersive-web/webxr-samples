@@ -136,5 +136,35 @@ class WebXRVersionShim {
         } 
       };*/
     }
+
+    // If the environmentBlendMode isn't available report it as 'opaque', since any
+    // implementations lacking this property only really worked on VR headsets.
+    if (!('environmentBlendMode' in XRSession.prototype)) {
+      Object.defineProperty(XRInputPose.prototype, 'environmentBlendMode', {
+        enumerable: true, configurable: false, writeable: false,
+        get: function() { return 'opaque'; }
+      });
+    }
+
+    if (!('targetRayMode' in XRInputSource.prototype)) {
+      Object.defineProperty(XRInputSource.prototype, 'targetRayMode', {
+        enumerable: true, configurable: false, writeable: false,
+        get: function() {
+          switch (this.pointerOrigin) {
+            case 'head': return 'gazing';
+            case 'hand': return 'pointing';
+            case 'screen': return 'tapping';
+            default: throw new ValueError('Unrecognized pointerOrigin: ' + this.pointerOrigin);
+          }
+        }
+      });
+    }
+
+    if (!('targetRayMatrix' in XRInputPose.prototype)) {
+      Object.defineProperty(XRInputPose.prototype, 'targetRayMatrix', {
+        enumerable: true, configurable: false, writeable: false,
+        get: function() { return this.pointerMatrix; }
+      });
+    }
   }
 }

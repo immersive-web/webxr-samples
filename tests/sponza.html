@@ -187,8 +187,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        if (inputPose.pointerMatrix) {
-          let hitResult = scene.hitTest(inputPose.pointerMatrix)
+        if (inputPose.targetRayMatrix) {
+          let hitResult = scene.hitTest(inputPose.targetRayMatrix)
           if (hitResult) {
             // Check to see if the hit result was one of our boxes.
             for (let box of boxes) {

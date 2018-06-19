@@ -104,20 +104,20 @@ export class Scene extends Node {
         this.inputRenderer.addController(inputPose.gripMatrix);
       }
 
-      if (inputPose.pointerMatrix) {
-        if (inputSource.pointerOrigin == 'hand') {
+      if (inputPose.targetRayMatrix) {
+        if (inputSource.targetRayMode == 'pointing') {
           // If we have a pointer matrix and the pointer origin is the users
           // hand (as opposed to their head or the screen) use it to render
           // a ray coming out of the input device to indicate the pointer
           // direction.
-          this.inputRenderer.addLaserPointer(inputPose.pointerMatrix);
+          this.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
         }
 
         // If we have a pointer matrix we can also use it to render a cursor
         // for both handheld and gaze-based input sources.
 
         // Check and see if the pointer is pointing at any selectable objects.
-        let hitResult = this.hitTest(inputPose.pointerMatrix);
+        let hitResult = this.hitTest(inputPose.targetRayMatrix);
 
         if (hitResult) {
           // Render a cursor at the intersection point.
@@ -132,7 +132,7 @@ export class Scene extends Node {
           // Statically render the cursor 1 meters down the ray since we didn't
           // hit anything selectable.
           let cursorPos = vec3.fromValues(0, 0, -1.0);
-          vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerMatrix);
+          vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
           this.inputRenderer.addCursor(cursorPos);
         }
       }
@@ -154,13 +154,13 @@ export class Scene extends Node {
       return;
     }
 
-    this.handleSelectPointer(inputPose.pointerMatrix);
+    this.handleSelectPointer(inputPose.targetRayMatrix);
   }
 
-  handleSelectPointer(pointerMatrix) {
-    if (pointerMatrix) {
+  handleSelectPointer(targetRayMatrix) {
+    if (targetRayMatrix) {
       // Check and see if the pointer is pointing at any selectable objects.
-      let hitResult = this.hitTest(pointerMatrix);
+      let hitResult = this.hitTest(targetRayMatrix);
 
       if (hitResult) {
         // Render a cursor at the intersection point.

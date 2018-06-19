@@ -224,11 +224,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let selectedNode = null;
 
-      function checkRay(pointerMatrix) {
+      function checkRay(targetRayMatrix) {
         if (selectedNode) {
           //selectedNode.visible = true;
         }
-        let hitResult = scene.hitTest(pointerMatrix);
+        let hitResult = scene.hitTest(targetRayMatrix);
         if (hitResult) {
           selectedNode = hitResult.node;
           //selectedNode.visible = false;
@@ -238,7 +238,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      let pointerMatrix = mat4.create();
+      let targetRayMatrix = mat4.create();
       function onGLFrame(t) {
         window.requestAnimationFrame(onGLFrame);
 
@@ -249,8 +249,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         updateView(frameDelta);
 
         let cursorPos = vec3.fromValues(0, 0, -2.0);
-        mat4.invert(pointerMatrix, viewMat);
-        vec3.transformMat4(cursorPos, cursorPos, pointerMatrix);
+        mat4.invert(targetRayMatrix, viewMat);
+        vec3.transformMat4(cursorPos, cursorPos, targetRayMatrix);
 
         scene.inputRenderer.addCursor(cursorPos);
 
@@ -263,11 +263,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           boxNode.matrix = mat;
         }
 
-        checkRay(pointerMatrix);
+        checkRay(targetRayMatrix);
 
         if (selectPending) {
           selectPending = false;
-          scene.handleSelectPointer(pointerMatrix);
+          scene.handleSelectPointer(targetRayMatrix);
         }
 
         gl.clear(gl.DEPTH_BUFFER_BIT);

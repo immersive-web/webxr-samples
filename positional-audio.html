@@ -409,14 +409,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        if (inputPose.pointerMatrix) {
-          let hitResult = scene.hitTest(inputPose.pointerMatrix)
+        if (inputPose.targetRayMatrix) {
+          let hitResult = scene.hitTest(inputPose.targetRayMatrix)
           if (hitResult) {
             for (let source of audioSources) {
               if (hitResult.node ==  source.node) {
                 draggingSource = source;
                 draggingInput = inputSource;
-                mat4.invert(draggingTransform, inputPose.pointerMatrix);
+                mat4.invert(draggingTransform, inputPose.targetRayMatrix);
                 mat4.multiply(draggingTransform, draggingTransform, source.node.matrix);
                 return true;
               }
@@ -457,7 +457,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let draggingPose = frame.getInputPose(draggingInput, frameOfRef);
           if (draggingPose) {
             let pos = draggingSource.position;
-            mat4.multiply(tmpMatrix, draggingPose.pointerMatrix, draggingTransform);
+            mat4.multiply(tmpMatrix, draggingPose.targetRayMatrix, draggingTransform);
             vec3.transformMat4(pos, [0, 0, 0], tmpMatrix);
             draggingSource.source.setPosition(pos[0], pos[1], pos[2]);
           }

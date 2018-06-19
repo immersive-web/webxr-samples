@@ -205,12 +205,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
           }
 
-          if (inputPose.pointerMatrix) {
+          if (inputPose.targetRayMatrix) {
             vec3.set(rayOrigin, 0, 0, 0);
-            vec3.transformMat4(rayOrigin, rayOrigin, inputPose.pointerMatrix);
+            vec3.transformMat4(rayOrigin, rayOrigin, inputPose.targetRayMatrix);
 
             vec3.set(rayDirection, 0, 0, -1);
-            vec3.transformMat4(rayDirection, rayDirection, inputPose.pointerMatrix);
+            vec3.transformMat4(rayDirection, rayDirection, inputPose.targetRayMatrix);
             vec3.sub(rayDirection, rayDirection, rayOrigin);
             vec3.normalize(rayDirection, rayDirection);
 

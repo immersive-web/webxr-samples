@@ -13435,7 +13435,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
     }
   }, {
     key: 'addLaserPointer',
-    value: function addLaserPointer(pointerMatrix) {
+    value: function addLaserPointer(targetRayMatrix) {
       // Create the laser pointer mesh if needed.
       if (!this._lasers && this._renderer) {
         this._lasers = [this._createLaserMesh()];
@@ -13452,7 +13452,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
       }
       this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-      laser.matrix = pointerMatrix;
+      laser.matrix = targetRayMatrix;
       laser.visible = true;
     }
   }, {
@@ -14681,20 +14681,20 @@ var Scene = exports.Scene = function (_Node) {
             this.inputRenderer.addController(inputPose.gripMatrix);
           }
 
-          if (inputPose.pointerMatrix) {
-            if (inputSource.pointerOrigin == 'hand') {
+          if (inputPose.targetRayMatrix) {
+            if (inputSource.targetRayMode == 'pointing') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer
               // direction.
-              this.inputRenderer.addLaserPointer(inputPose.pointerMatrix);
+              this.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
             }
 
             // If we have a pointer matrix we can also use it to render a cursor
             // for both handheld and gaze-based input sources.
 
             // Check and see if the pointer is pointing at any selectable objects.
-            var hitResult = this.hitTest(inputPose.pointerMatrix);
+            var hitResult = this.hitTest(inputPose.targetRayMatrix);
 
             if (hitResult) {
               // Render a cursor at the intersection point.
@@ -14709,7 +14709,7 @@ var Scene = exports.Scene = function (_Node) {
               // Statically render the cursor 1 meters down the ray since we didn't
               // hit anything selectable.
               var cursorPos = _glMatrix.vec3.fromValues(0, 0, -1.0);
-              _glMatrix.vec3.transformMat4(cursorPos, cursorPos, inputPose.pointerMatrix);
+              _glMatrix.vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
               this.inputRenderer.addCursor(cursorPos);
             }
           }
@@ -14767,14 +14767,14 @@ var Scene = exports.Scene = function (_Node) {
         return;
       }
 
-      this.handleSelectPointer(inputPose.pointerMatrix);
+      this.handleSelectPointer(inputPose.targetRayMatrix);
     }
   }, {
     key: 'handleSelectPointer',
-    value: function handleSelectPointer(pointerMatrix) {
-      if (pointerMatrix) {
+    value: function handleSelectPointer(targetRayMatrix) {
+      if (targetRayMatrix) {
         // Check and see if the pointer is pointing at any selectable objects.
-        var hitResult = this.hitTest(pointerMatrix);
+        var hitResult = this.hitTest(targetRayMatrix);
 
         if (hitResult) {
           // Render a cursor at the intersection point.
