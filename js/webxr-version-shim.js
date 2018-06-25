@@ -140,7 +140,7 @@ class WebXRVersionShim {
     // If the environmentBlendMode isn't available report it as 'opaque', since any
     // implementations lacking this property only really worked on VR headsets.
     if (!('environmentBlendMode' in XRSession.prototype)) {
-      Object.defineProperty(XRInputPose.prototype, 'environmentBlendMode', {
+      Object.defineProperty(XRSession.prototype, 'environmentBlendMode', {
         enumerable: true, configurable: false, writeable: false,
         get: function() { return 'opaque'; }
       });
