@@ -159,8 +159,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
 
       let appSettings = {
-        // Framebuffer scale override. 0 = default
-        framebufferScale: getFloatParam('framebufferScale', 0),
+        // Framebuffer scale override. 1 = default
+        framebufferScale: getFloatParam('framebufferScale', 1),
 
         // Viewport scale
         viewportScale: getFloatParam('viewportScale', 1),
@@ -205,7 +205,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       folderScene.open();
 
       var folderRender = gui.addFolder('Rendering options');
-      folderRender.add(appSettings, 'framebufferScale', 0, 1, 0.125).onFinishChange(
+      folderRender.add(appSettings, 'framebufferScale', 0, 2, 0.25).onFinishChange(
           getParamSaver('framebufferScale'));
       folderRender.add(appSettings, 'viewportScale', 0.25, 1, 0.125).onFinishChange(
           getParamSaver('viewportScale'));
