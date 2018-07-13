@@ -79,6 +79,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrFrameOfRef = null;
 
+      let outputCanvas = document.createElement('canvas');
+      outputCanvas.setAttribute('id', 'output-canvas');
+      let ctx = outputCanvas.getContext('xrpresent');
+
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -116,20 +120,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            // TODO: supportsSession call for AR.
-            //device.supportsSession({ar: true}).then(() => {
+            device.supportsSession({ environmentIntegration: true, outputContext: ctx }).then(() => {
               xrButton.setDevice(device);
-            //});
+            });
           });
         }
       }
 
       function onRequestSession(device) {
-        let outputCanvas = document.createElement('canvas');
-        outputCanvas.setAttribute('id', 'output-canvas');
-        let ctx = outputCanvas.getContext('xrpresent');
-
-        device.requestSession({ requestAR: true, outputContext: ctx })
+        device.requestSession({ environmentIntegration: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
               // rendered to.

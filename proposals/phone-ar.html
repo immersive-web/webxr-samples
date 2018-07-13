@@ -74,6 +74,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrFrameOfRef = null;
 
+      // AR sessions must have an outputContext, just like magic window
+      // sessions.
+      let outputCanvas = document.createElement('canvas');
+      outputCanvas.setAttribute('id', 'output-canvas');
+      let ctx = outputCanvas.getContext('xrpresent');
+
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -100,29 +106,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (navigator.xr) {
           navigator.xr.requestDevice().then((device) => {
-            // TODO: supportsSession call for AR.
-            //device.supportsSession({ar: true}).then(() => {
+            // Checks to ensure that environment integration (AR) is available,
+            // and only enables the button if so.
+            device.supportsSession({ environmentIntegration: true, outputContext: ctx }).then(() => {
               xrButton.setDevice(device);
-            //});
+            });
           });
         }
       }
 
       function onRequestSession(device) {
-        // AR sessions must have an outputContext, just like magic window
-        // sessions.
-        let outputCanvas = document.createElement('canvas');
-        outputCanvas.setAttribute('id', 'output-canvas');
-        let ctx = outputCanvas.getContext('xrpresent');
+        // Requests an inline (non-immersive) session with environment integration
+        // to get AR via video passthrough.
 
-        // Even though this is a non-exclusive session, the fact that it's
-        // using AR features means it must be requested in a user activation
-        // event so that appropriate permissions can be granted.
-
-        // TODO: The 'requestAR' option here does nothing yet. Eventually we
-        // will have an option like this, however, that is required to enable 
-        // AR functionality.
-        device.requestSession({ requestAR: true, outputContext: ctx })
+        // Even though this is a non-immersive session, the fact that it's
+        // using environment integration means it must be requested in a user
+        // activation event so that appropriate permissions can be granted.
+        // This will likely prompt the user to allow camera use, so the promise
+        // may remain outstanding for a while.
+        device.requestSession({ environmentIntegration: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
               // rendered to.
