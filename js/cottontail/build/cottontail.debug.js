@@ -14682,7 +14682,7 @@ var Scene = exports.Scene = function (_Node) {
           }
 
           if (inputPose.targetRayMatrix) {
-            if (inputSource.targetRayMode == 'pointing') {
+            if (inputSource.targetRayMode == 'tracked-pointer') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer
