@@ -205,15 +205,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
           }
 
-          if (inputPose.targetRayMatrix) {
-            vec3.set(rayOrigin, 0, 0, 0);
-            vec3.transformMat4(rayOrigin, rayOrigin, inputPose.targetRayMatrix);
-
-            vec3.set(rayDirection, 0, 0, -1);
-            vec3.transformMat4(rayDirection, rayDirection, inputPose.targetRayMatrix);
-            vec3.sub(rayDirection, rayDirection, rayOrigin);
-            vec3.normalize(rayDirection, rayDirection);
-
+          if (inputPose.targetRay) {
+            vec3.set(rayOrigin,
+                inputPose.targetRay.origin.x,
+                inputPose.targetRay.origin.y,
+                inputPose.targetRay.origin.z);
+            vec3.set(rayDirection,
+                inputPose.targetRay.direction.x,
+                inputPose.targetRay.direction.y,
+                inputPose.targetRay.direction.z);
             event.frame.session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
               if (results.length) {
                 addARObjectAt(results[0].hitMatrix);

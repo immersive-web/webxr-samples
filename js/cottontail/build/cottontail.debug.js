@@ -7885,7 +7885,6 @@ var DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 
 var tmpRayMatrix = _glMatrix.mat4.create();
-var tmpRayOrigin = _glMatrix.vec3.create();
 
 var Node = exports.Node = function () {
   function Node() {
@@ -8352,9 +8351,9 @@ var Node = exports.Node = function () {
     }
   }, {
     key: '_hitTestSelectableNode',
-    value: function _hitTestSelectableNode(rayMatrix) {
+    value: function _hitTestSelectableNode(ray) {
       if (this._renderPrimitives) {
-        var ray = null;
+        var localRay = null;
         var _iteratorNormalCompletion11 = true;
         var _didIteratorError11 = false;
         var _iteratorError11 = undefined;
@@ -8364,12 +8363,12 @@ var Node = exports.Node = function () {
             var primitive = _step11.value;
 
             if (primitive._min) {
-              if (!ray) {
+              if (!localRay) {
                 _glMatrix.mat4.invert(tmpRayMatrix, this.worldMatrix);
-                _glMatrix.mat4.multiply(tmpRayMatrix, tmpRayMatrix, rayMatrix);
-                ray = new _ray.Ray(tmpRayMatrix);
+                _glMatrix.mat4.multiply(tmpRayMatrix, tmpRayMatrix, ray.transformMatrix);
+                localRay = new _ray.Ray(tmpRayMatrix);
               }
-              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
+              var intersection = localRay.intersectsAABB(primitive._min, primitive._max);
               if (intersection) {
                 _glMatrix.vec3.transformMat4(intersection, intersection, this.worldMatrix);
                 return intersection;
@@ -8399,7 +8398,7 @@ var Node = exports.Node = function () {
         for (var _iterator12 = this.children[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
           var child = _step12.value;
 
-          var _intersection = child._hitTestSelectableNode(rayMatrix);
+          var _intersection = child._hitTestSelectableNode(ray);
           if (_intersection) {
             return _intersection;
           }
@@ -8423,22 +8422,16 @@ var Node = exports.Node = function () {
     }
   }, {
     key: 'hitTest',
-    value: function hitTest(rayMatrix) {
-      var rayOrigin = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
-
-      if (!rayOrigin) {
-        rayOrigin = tmpRayOrigin;
-        _glMatrix.vec3.set(rayOrigin, 0, 0, 0);
-        _glMatrix.vec3.transformMat4(rayOrigin, rayOrigin, rayMatrix);
-      }
-
+    value: function hitTest(ray) {
       if (this.selectable && this.visible) {
-        var intersection = this._hitTestSelectableNode(rayMatrix);
+        var intersection = this._hitTestSelectableNode(ray);
+
         if (intersection) {
+          var origin = _glMatrix.vec3.fromValues(ray.origin.x, ray.origin.y, ray.origin.z);
           return {
             node: this,
             intersection: intersection,
-            distance: _glMatrix.vec3.distance(rayOrigin, intersection)
+            distance: _glMatrix.vec3.distance(origin, intersection)
           };
         }
         return null;
@@ -8453,7 +8446,7 @@ var Node = exports.Node = function () {
         for (var _iterator13 = this.children[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
           var child = _step13.value;
 
-          var childResult = child.hitTest(rayMatrix, rayOrigin);
+          var childResult = child.hitTest(ray);
           if (childResult) {
             if (!result || result.distance > childResult.distance) {
               result = childResult;
@@ -13435,7 +13428,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
     }
   }, {
     key: 'addLaserPointer',
-    value: function addLaserPointer(targetRayMatrix) {
+    value: function addLaserPointer(targetRay) {
       // Create the laser pointer mesh if needed.
       if (!this._lasers && this._renderer) {
         this._lasers = [this._createLaserMesh()];
@@ -13452,7 +13445,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
       }
       this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-      laser.matrix = targetRayMatrix;
+      laser.matrix = targetRay.transformMatrix;
       laser.visible = true;
     }
   }, {
@@ -14681,20 +14674,20 @@ var Scene = exports.Scene = function (_Node) {
             this.inputRenderer.addController(inputPose.gripMatrix);
           }
 
-          if (inputPose.targetRayMatrix) {
+          if (inputPose.targetRay) {
             if (inputSource.targetRayMode == 'tracked-pointer') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer
               // direction.
-              this.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
+              this.inputRenderer.addLaserPointer(inputPose.targetRay);
             }
 
             // If we have a pointer matrix we can also use it to render a cursor
             // for both handheld and gaze-based input sources.
 
             // Check and see if the pointer is pointing at any selectable objects.
-            var hitResult = this.hitTest(inputPose.targetRayMatrix);
+            var hitResult = this.hitTest(inputPose.targetRay);
 
             if (hitResult) {
               // Render a cursor at the intersection point.
@@ -14708,8 +14701,11 @@ var Scene = exports.Scene = function (_Node) {
             } else {
               // Statically render the cursor 1 meters down the ray since we didn't
               // hit anything selectable.
-              var cursorPos = _glMatrix.vec3.fromValues(0, 0, -1.0);
-              _glMatrix.vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
+              var cursorDistance = 1.0;
+              var cursorPos = _glMatrix.vec3.fromValues(inputPose.targetRay.origin.x, inputPose.targetRay.origin.y, inputPose.targetRay.origin.z);
+              _glMatrix.vec3.add(cursorPos, cursorPos, [inputPose.targetRay.direction.x * cursorDistance, inputPose.targetRay.direction.y * cursorDistance, inputPose.targetRay.direction.z * cursorDistance]);
+              // let cursorPos = vec3.fromValues(0, 0, -1.0);
+              // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay);
               this.inputRenderer.addCursor(cursorPos);
             }
           }
@@ -14767,14 +14763,14 @@ var Scene = exports.Scene = function (_Node) {
         return;
       }
 
-      this.handleSelectPointer(inputPose.targetRayMatrix);
+      this.handleSelectPointer(inputPose.targetRay);
     }
   }, {
     key: 'handleSelectPointer',
-    value: function handleSelectPointer(targetRayMatrix) {
-      if (targetRayMatrix) {
+    value: function handleSelectPointer(targetRay) {
+      if (targetRay) {
         // Check and see if the pointer is pointing at any selectable objects.
-        var hitResult = this.hitTest(targetRayMatrix);
+        var hitResult = this.hitTest(targetRay);
 
         if (hitResult) {
           // Render a cursor at the intersection point.

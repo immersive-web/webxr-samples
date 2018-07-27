@@ -210,8 +210,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        if (inputPose.targetRayMatrix) {
-          let hitResult = scene.hitTest(inputPose.targetRayMatrix)
+        if (inputPose.targetRay) {
+          let hitResult = scene.hitTest(inputPose.targetRay)
           if (hitResult) {
             // Check to see if the hit result was one of our boxes.
             for (let box of boxes) {
