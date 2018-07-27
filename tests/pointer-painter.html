@@ -187,11 +187,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        if (inputPose.targetRayMatrix) {
-          scene.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
+        if (inputPose.targetRay) {
+          scene.inputRenderer.addLaserPointer(inputPose.targetRay);
 
-          let cursorPos = vec3.fromValues(0, 0, -2.0);
-          vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
+          let cursorDistance = 2.0;
+          let cursorPos = vec3.fromValues(
+              inputPose.targetRay.origin.x,
+              inputPose.targetRay.origin.y,
+              inputPose.targetRay.origin.z
+              );
+          vec3.add(cursorPos, cursorPos, [
+              inputPose.targetRay.direction.x * cursorDistance,
+              inputPose.targetRay.direction.y * cursorDistance,
+              inputPose.targetRay.direction.z * cursorDistance,
+              ]);
           scene.inputRenderer.addCursor(cursorPos);
         }
       }
@@ -210,8 +219,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.inputRenderer.addController(inputPose.gripMatrix);
           }
 
-          if (inputPose.targetRayMatrix && selecting) {
-            scene.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
+          if (inputPose.targetRay && selecting) {
+            scene.inputRenderer.addLaserPointer(inputPose.targetRay);
           }
         }
       }

@@ -179,28 +179,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSelect(ev) {
-        /*let frameOfRef = ev.frame.session.immersive ?
-                         xrImmersiveFrameOfRef :
-                         xrNonImmersiveFrameOfRef;
-
-        let inputPose = ev.frame.getInputPose(ev.inputSource, frameOfRef);
-        if (!inputPose) {
-          return;
-        }
-
-        if (inputPose.targetRayMatrix) {
-          let hitResult = scene.hitTest(inputPose.targetRayMatrix)
-          if (hitResult) {
-            // Check to see if the hit result was one of our boxes.
-            for (let box of boxes) {
-              if (hitResult.node == box.node) {
-                // Change the box color to something random.
-                let uniforms = box.renderPrimitive.uniforms;
-                uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
-              }
-            }
-          }
-        }*/
+        
       }
 
       function onEndSession(session) {

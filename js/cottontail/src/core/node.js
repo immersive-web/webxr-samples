@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import {Ray} from './ray.js';
+import {Ray} from '../math/ray.js';
 import {mat4, vec3, quat} from '../math/gl-matrix.js';
 
 const DEFAULT_TRANSLATION = new Float32Array([0, 0, 0]);
@@ -26,7 +26,6 @@ const DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 const DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 
 let tmpRayMatrix = mat4.create();
-let tmpRayOrigin = vec3.create();
 
 export class Node {
   constructor() {
@@ -357,17 +356,17 @@ export class Node {
     }
   }
 
-  _hitTestSelectableNode(rayMatrix) {
+  _hitTestSelectableNode(ray) {
     if (this._renderPrimitives) {
-      let ray = null;
+      let localRay = null;
       for (let primitive of this._renderPrimitives) {
         if (primitive._min) {
-          if (!ray) {
+          if (!localRay) {
             mat4.invert(tmpRayMatrix, this.worldMatrix);
-            mat4.multiply(tmpRayMatrix, tmpRayMatrix, rayMatrix);
-            ray = new Ray(tmpRayMatrix);
+            mat4.multiply(tmpRayMatrix, tmpRayMatrix, ray.transformMatrix);
+            localRay = new Ray(tmpRayMatrix);
           }
-          let intersection = ray.intersectsAABB(primitive._min, primitive._max);
+          let intersection = localRay.intersectsAABB(primitive._min, primitive._max);
           if (intersection) {
             vec3.transformMat4(intersection, intersection, this.worldMatrix);
             return intersection;
@@ -376,7 +375,7 @@ export class Node {
       }
     }
     for (let child of this.children) {
-      let intersection = child._hitTestSelectableNode(rayMatrix);
+      let intersection = child._hitTestSelectableNode(ray);
       if (intersection) {
         return intersection;
       }
@@ -384,20 +383,16 @@ export class Node {
     return null;
   }
 
-  hitTest(rayMatrix, rayOrigin = null) {
-    if (!rayOrigin) {
-      rayOrigin = tmpRayOrigin;
-      vec3.set(rayOrigin, 0, 0, 0);
-      vec3.transformMat4(rayOrigin, rayOrigin, rayMatrix);
-    }
-
+  hitTest(ray) {
     if (this.selectable && this.visible) {
-      let intersection = this._hitTestSelectableNode(rayMatrix);
+      let intersection = this._hitTestSelectableNode(ray);
+
       if (intersection) {
+        let origin = vec3.fromValues(ray.origin.x, ray.origin.y, ray.origin.z);
         return {
           node: this,
           intersection: intersection,
-          distance: vec3.distance(rayOrigin, intersection),
+          distance: vec3.distance(origin, intersection),
         };
       }
       return null;
@@ -405,7 +400,7 @@ export class Node {
 
     let result = null;
     for (let child of this.children) {
-      let childResult = child.hitTest(rayMatrix, rayOrigin);
+      let childResult = child.hitTest(ray);
       if (childResult) {
         if (!result || result.distance > childResult.distance) {
           result = childResult;

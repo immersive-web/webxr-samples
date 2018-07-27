@@ -7874,7 +7874,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-var _ray = __webpack_require__(/*! ./ray.js */ "./src/core/ray.js");
+var _ray = __webpack_require__(/*! ../math/ray.js */ "./src/math/ray.js");
 
 var _glMatrix = __webpack_require__(/*! ../math/gl-matrix.js */ "./src/math/gl-matrix.js");
 
@@ -7885,7 +7885,6 @@ var DEFAULT_ROTATION = new Float32Array([0, 0, 0, 1]);
 var DEFAULT_SCALE = new Float32Array([1, 1, 1]);
 
 var tmpRayMatrix = _glMatrix.mat4.create();
-var tmpRayOrigin = _glMatrix.vec3.create();
 
 var Node = exports.Node = function () {
   function Node() {
@@ -8352,9 +8351,9 @@ var Node = exports.Node = function () {
     }
   }, {
     key: '_hitTestSelectableNode',
-    value: function _hitTestSelectableNode(rayMatrix) {
+    value: function _hitTestSelectableNode(ray) {
       if (this._renderPrimitives) {
-        var ray = null;
+        var localRay = null;
         var _iteratorNormalCompletion11 = true;
         var _didIteratorError11 = false;
         var _iteratorError11 = undefined;
@@ -8364,12 +8363,12 @@ var Node = exports.Node = function () {
             var primitive = _step11.value;
 
             if (primitive._min) {
-              if (!ray) {
+              if (!localRay) {
                 _glMatrix.mat4.invert(tmpRayMatrix, this.worldMatrix);
-                _glMatrix.mat4.multiply(tmpRayMatrix, tmpRayMatrix, rayMatrix);
-                ray = new _ray.Ray(tmpRayMatrix);
+                _glMatrix.mat4.multiply(tmpRayMatrix, tmpRayMatrix, ray.transformMatrix);
+                localRay = new _ray.Ray(tmpRayMatrix);
               }
-              var intersection = ray.intersectsAABB(primitive._min, primitive._max);
+              var intersection = localRay.intersectsAABB(primitive._min, primitive._max);
               if (intersection) {
                 _glMatrix.vec3.transformMat4(intersection, intersection, this.worldMatrix);
                 return intersection;
@@ -8399,7 +8398,7 @@ var Node = exports.Node = function () {
         for (var _iterator12 = this.children[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
           var child = _step12.value;
 
-          var _intersection = child._hitTestSelectableNode(rayMatrix);
+          var _intersection = child._hitTestSelectableNode(ray);
           if (_intersection) {
             return _intersection;
           }
@@ -8423,22 +8422,16 @@ var Node = exports.Node = function () {
     }
   }, {
     key: 'hitTest',
-    value: function hitTest(rayMatrix) {
-      var rayOrigin = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
-
-      if (!rayOrigin) {
-        rayOrigin = tmpRayOrigin;
-        _glMatrix.vec3.set(rayOrigin, 0, 0, 0);
-        _glMatrix.vec3.transformMat4(rayOrigin, rayOrigin, rayMatrix);
-      }
-
+    value: function hitTest(ray) {
       if (this.selectable && this.visible) {
-        var intersection = this._hitTestSelectableNode(rayMatrix);
+        var intersection = this._hitTestSelectableNode(ray);
+
         if (intersection) {
+          var origin = _glMatrix.vec3.fromValues(ray.origin.x, ray.origin.y, ray.origin.z);
           return {
             node: this,
             intersection: intersection,
-            distance: _glMatrix.vec3.distance(rayOrigin, intersection)
+            distance: _glMatrix.vec3.distance(origin, intersection)
           };
         }
         return null;
@@ -8453,7 +8446,7 @@ var Node = exports.Node = function () {
         for (var _iterator13 = this.children[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
           var child = _step13.value;
 
-          var childResult = child.hitTest(rayMatrix, rayOrigin);
+          var childResult = child.hitTest(ray);
           if (childResult) {
             if (!result || result.distance > childResult.distance) {
               result = childResult;
@@ -8900,152 +8893,6 @@ var Program = exports.Program = function () {
   }]);
 
   return Program;
-}();
-
-/***/ }),
-
-/***/ "./src/core/ray.js":
-/*!*************************!*\
-  !*** ./src/core/ray.js ***!
-  \*************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.Ray = undefined;
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-var _glMatrix = __webpack_require__(/*! ../math/gl-matrix.js */ "./src/math/gl-matrix.js");
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var normalMat = _glMatrix.mat3.create();
-
-var RAY_INTERSECTION_OFFSET = 0.02;
-
-var Ray = exports.Ray = function () {
-  function Ray() {
-    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
-
-    _classCallCheck(this, Ray);
-
-    this.origin = _glMatrix.vec3.create();
-
-    this._dir = _glMatrix.vec3.create();
-    this._dir[2] = -1.0;
-
-    if (matrix) {
-      _glMatrix.vec3.transformMat4(this.origin, this.origin, matrix);
-      _glMatrix.mat3.fromMat4(normalMat, matrix);
-      _glMatrix.vec3.transformMat3(this._dir, this._dir, normalMat);
-    }
-
-    // To force the inverse and sign calculations.
-    this.dir = this._dir;
-  }
-
-  _createClass(Ray, [{
-    key: 'intersectsAABB',
-
-
-    // Borrowed from:
-    // eslint-disable-next-line max-len
-    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
-    value: function intersectsAABB(min, max) {
-      var r = this;
-
-      var bounds = [min, max];
-
-      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
-      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
-
-      if (tmin > tymax || tymin > tmax) {
-        return null;
-      }
-      if (tymin > tmin) {
-        tmin = tymin;
-      }
-      if (tymax < tmax) {
-        tmax = tymax;
-      }
-
-      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
-
-      if (tmin > tzmax || tzmin > tmax) {
-        return null;
-      }
-      if (tzmin > tmin) {
-        tmin = tzmin;
-      }
-      if (tzmax < tmax) {
-        tmax = tzmax;
-      }
-
-      var t = -1;
-      if (tmin > 0 && tmax > 0) {
-        t = Math.min(tmin, tmax);
-      } else if (tmin > 0) {
-        t = tmin;
-      } else if (tmax > 0) {
-        t = tmax;
-      } else {
-        // Intersection is behind the ray origin.
-        return null;
-      }
-
-      // Push ray intersection point back along the ray a bit so that cursors
-      // don't accidentally intersect with the hit surface.
-      t -= RAY_INTERSECTION_OFFSET;
-
-      // Return the point where the ray first intersected with the AABB.
-      var intersectionPoint = _glMatrix.vec3.clone(this._dir);
-      _glMatrix.vec3.scale(intersectionPoint, intersectionPoint, t);
-      _glMatrix.vec3.add(intersectionPoint, intersectionPoint, this.origin);
-      return intersectionPoint;
-    }
-  }, {
-    key: 'dir',
-    get: function get() {
-      return this._dir;
-    },
-    set: function set(value) {
-      this._dir = _glMatrix.vec3.copy(this._dir, value);
-      _glMatrix.vec3.normalize(this._dir, this._dir);
-
-      this.inv_dir = _glMatrix.vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
-
-      this.sign = [this.inv_dir[0] < 0 ? 1 : 0, this.inv_dir[1] < 0 ? 1 : 0, this.inv_dir[2] < 0 ? 1 : 0];
-    }
-  }]);
-
-  return Ray;
 }();
 
 /***/ }),
@@ -12244,6 +12091,152 @@ exports.vec4 = vec4;
 
 /***/ }),
 
+/***/ "./src/math/ray.js":
+/*!*************************!*\
+  !*** ./src/math/ray.js ***!
+  \*************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Ray = undefined;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); // Copyright 2018 The Immersive Web Community Group
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+var _glMatrix = __webpack_require__(/*! ./gl-matrix.js */ "./src/math/gl-matrix.js");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var normalMat = _glMatrix.mat3.create();
+
+var RAY_INTERSECTION_OFFSET = 0.02;
+
+var Ray = exports.Ray = function () {
+  function Ray() {
+    var matrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+
+    _classCallCheck(this, Ray);
+
+    this.origin = _glMatrix.vec3.create();
+
+    this._dir = _glMatrix.vec3.create();
+    this._dir[2] = -1.0;
+
+    if (matrix) {
+      _glMatrix.vec3.transformMat4(this.origin, this.origin, matrix);
+      _glMatrix.mat3.fromMat4(normalMat, matrix);
+      _glMatrix.vec3.transformMat3(this._dir, this._dir, normalMat);
+    }
+
+    // To force the inverse and sign calculations.
+    this.dir = this._dir;
+  }
+
+  _createClass(Ray, [{
+    key: 'intersectsAABB',
+
+
+    // Borrowed from:
+    // eslint-disable-next-line max-len
+    // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+    value: function intersectsAABB(min, max) {
+      var r = this;
+
+      var bounds = [min, max];
+
+      var tmin = (bounds[r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+      var tmax = (bounds[1 - r.sign[0]][0] - r.origin[0]) * r.inv_dir[0];
+      var tymin = (bounds[r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+      var tymax = (bounds[1 - r.sign[1]][1] - r.origin[1]) * r.inv_dir[1];
+
+      if (tmin > tymax || tymin > tmax) {
+        return null;
+      }
+      if (tymin > tmin) {
+        tmin = tymin;
+      }
+      if (tymax < tmax) {
+        tmax = tymax;
+      }
+
+      var tzmin = (bounds[r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+      var tzmax = (bounds[1 - r.sign[2]][2] - r.origin[2]) * r.inv_dir[2];
+
+      if (tmin > tzmax || tzmin > tmax) {
+        return null;
+      }
+      if (tzmin > tmin) {
+        tmin = tzmin;
+      }
+      if (tzmax < tmax) {
+        tmax = tzmax;
+      }
+
+      var t = -1;
+      if (tmin > 0 && tmax > 0) {
+        t = Math.min(tmin, tmax);
+      } else if (tmin > 0) {
+        t = tmin;
+      } else if (tmax > 0) {
+        t = tmax;
+      } else {
+        // Intersection is behind the ray origin.
+        return null;
+      }
+
+      // Push ray intersection point back along the ray a bit so that cursors
+      // don't accidentally intersect with the hit surface.
+      t -= RAY_INTERSECTION_OFFSET;
+
+      // Return the point where the ray first intersected with the AABB.
+      var intersectionPoint = _glMatrix.vec3.clone(this._dir);
+      _glMatrix.vec3.scale(intersectionPoint, intersectionPoint, t);
+      _glMatrix.vec3.add(intersectionPoint, intersectionPoint, this.origin);
+      return intersectionPoint;
+    }
+  }, {
+    key: 'dir',
+    get: function get() {
+      return this._dir;
+    },
+    set: function set(value) {
+      this._dir = _glMatrix.vec3.copy(this._dir, value);
+      _glMatrix.vec3.normalize(this._dir, this._dir);
+
+      this.inv_dir = _glMatrix.vec3.fromValues(1.0 / this._dir[0], 1.0 / this._dir[1], 1.0 / this._dir[2]);
+
+      this.sign = [this.inv_dir[0] < 0 ? 1 : 0, this.inv_dir[1] < 0 ? 1 : 0, this.inv_dir[2] < 0 ? 1 : 0];
+    }
+  }]);
+
+  return Ray;
+}();
+
+/***/ }),
+
 /***/ "./src/nodes/bounds-renderer.js":
 /*!**************************************!*\
   !*** ./src/nodes/bounds-renderer.js ***!
@@ -13435,7 +13428,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
     }
   }, {
     key: 'addLaserPointer',
-    value: function addLaserPointer(targetRayMatrix) {
+    value: function addLaserPointer(targetRay) {
       // Create the laser pointer mesh if needed.
       if (!this._lasers && this._renderer) {
         this._lasers = [this._createLaserMesh()];
@@ -13452,7 +13445,7 @@ var InputRenderer = exports.InputRenderer = function (_Node) {
       }
       this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-      laser.matrix = targetRayMatrix;
+      laser.matrix = targetRay.transformMatrix;
       laser.visible = true;
     }
   }, {
@@ -14681,20 +14674,20 @@ var Scene = exports.Scene = function (_Node) {
             this.inputRenderer.addController(inputPose.gripMatrix);
           }
 
-          if (inputPose.targetRayMatrix) {
+          if (inputPose.targetRay) {
             if (inputSource.targetRayMode == 'tracked-pointer') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer
               // direction.
-              this.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
+              this.inputRenderer.addLaserPointer(inputPose.targetRay);
             }
 
             // If we have a pointer matrix we can also use it to render a cursor
             // for both handheld and gaze-based input sources.
 
             // Check and see if the pointer is pointing at any selectable objects.
-            var hitResult = this.hitTest(inputPose.targetRayMatrix);
+            var hitResult = this.hitTest(inputPose.targetRay);
 
             if (hitResult) {
               // Render a cursor at the intersection point.
@@ -14708,8 +14701,11 @@ var Scene = exports.Scene = function (_Node) {
             } else {
               // Statically render the cursor 1 meters down the ray since we didn't
               // hit anything selectable.
-              var cursorPos = _glMatrix.vec3.fromValues(0, 0, -1.0);
-              _glMatrix.vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
+              var cursorDistance = 1.0;
+              var cursorPos = _glMatrix.vec3.fromValues(inputPose.targetRay.origin.x, inputPose.targetRay.origin.y, inputPose.targetRay.origin.z);
+              _glMatrix.vec3.add(cursorPos, cursorPos, [inputPose.targetRay.direction.x * cursorDistance, inputPose.targetRay.direction.y * cursorDistance, inputPose.targetRay.direction.z * cursorDistance]);
+              // let cursorPos = vec3.fromValues(0, 0, -1.0);
+              // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay);
               this.inputRenderer.addCursor(cursorPos);
             }
           }
@@ -14767,14 +14763,14 @@ var Scene = exports.Scene = function (_Node) {
         return;
       }
 
-      this.handleSelectPointer(inputPose.targetRayMatrix);
+      this.handleSelectPointer(inputPose.targetRay);
     }
   }, {
     key: 'handleSelectPointer',
-    value: function handleSelectPointer(targetRayMatrix) {
-      if (targetRayMatrix) {
+    value: function handleSelectPointer(targetRay) {
+      if (targetRay) {
         // Check and see if the pointer is pointing at any selectable objects.
-        var hitResult = this.hitTest(targetRayMatrix);
+        var hitResult = this.hitTest(targetRay);
 
         if (hitResult) {
           // Render a cursor at the intersection point.

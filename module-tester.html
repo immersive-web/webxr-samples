@@ -225,11 +225,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let selectedNode = null;
 
-      function checkRay(targetRayMatrix) {
+      function checkRay(targetRay) {
         if (selectedNode) {
           //selectedNode.visible = true;
         }
-        let hitResult = scene.hitTest(targetRayMatrix);
+        let hitResult = scene.hitTest(targetRay);
         if (hitResult) {
           selectedNode = hitResult.node;
           //selectedNode.visible = false;

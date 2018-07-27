@@ -22,6 +22,33 @@
 // implementations of the WebXR API and allow the samples to be coded exclusively
 // against the most recent version.
 
+class XRRayShim {
+  constructor(rayMatrix) {
+    this._transformMatrix = rayMatrix;
+
+    // TODO: Don't rely on these types for the shim.
+    // Some browsers don't support them yet.
+    let o = new DOMPointReadOnly(0, 0, 0, 1);
+    let d = new DOMPointReadOnly(0, 0, -1, 0);
+    let t = new DOMMatrix(rayMatrix);
+
+    this._origin = DOMPointReadOnly.fromPoint(t.transformPoint(o));
+    this._direction = DOMPointReadOnly.fromPoint(t.transformPoint(d));
+  }
+
+  get origin() {
+    return this._origin;
+  }
+
+  get direction() {
+    return this._direction;
+  }
+
+  get transformMatrix() {
+    return this._transformMatrix;
+  }
+}
+
 class WebXRVersionShim {
   constructor() {
     if (this._shouldApplyPatch()) {
@@ -171,10 +198,19 @@ class WebXRVersionShim {
       });
     }
 
-    if (!('targetRayMatrix' in XRInputPose.prototype)) {
-      Object.defineProperty(XRInputPose.prototype, 'targetRayMatrix', {
+    if (!('targetRay' in XRInputPose.prototype)) {
+      Object.defineProperty(XRInputPose.prototype, 'targetRay', {
         enumerable: true, configurable: false, writeable: false,
-        get: function() { return this.pointerMatrix; }
+        get: function() {
+          if (!this._targetRay) {
+            if (this.targetRayMatrix) {
+              this._targetRay = new XRRayShim(this.targetRayMatrix);
+            } else if (this.pointerMatrix) {
+              this._targetRay = new XRRayShim(this.pointerMatrix);
+            }
+          }
+          return this._targetRay || null;
+        }
       });
     }
   }

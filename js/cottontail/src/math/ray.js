@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import {mat3, vec3} from '../math/gl-matrix.js';
+import {mat3, vec3} from './gl-matrix.js';
 
 let normalMat = mat3.create();
 

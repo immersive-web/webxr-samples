@@ -200,13 +200,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.inputRenderer.addController(inputPose.gripMatrix);
           }
 
-          if (inputPose.targetRayMatrix) {
+          if (inputPose.targetRay) {
             if (inputSource.targetRayMode == 'tracked-pointer') {
               // If we have a pointer matrix and the pointer origin is the users
               // hand (as opposed to their head or the screen) use it to render
               // a ray coming out of the input device to indicate the pointer
               // direction.
-              scene.inputRenderer.addLaserPointer(inputPose.targetRayMatrix);
+              scene.inputRenderer.addLaserPointer(inputPose.targetRay);
             }
 
             // If we have a pointer matrix we can also use it to render a cursor
@@ -214,8 +214,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             // Statically render the cursor 2 meters down the ray since we're
             // not calculating any intersections in this sample.
-            let cursorPos = vec3.fromValues(0, 0, -2.0);
-            vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRayMatrix);
+            let cursorDistance = 2.0;
+            let cursorPos = vec3.fromValues(
+                inputPose.targetRay.origin.x,
+                inputPose.targetRay.origin.y,
+                inputPose.targetRay.origin.z
+                );
+            vec3.add(cursorPos, cursorPos, [
+                inputPose.targetRay.direction.x * cursorDistance,
+                inputPose.targetRay.direction.y * cursorDistance,
+                inputPose.targetRay.direction.z * cursorDistance,
+                ]);
+            // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay.transformMatrix);
 
             scene.inputRenderer.addCursor(cursorPos);
           }
