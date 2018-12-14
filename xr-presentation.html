@@ -76,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -98,21 +98,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Is WebXR available on this UA?
         if (navigator.xr) {
-          // Request an XRDevice connected to the system.
-          navigator.xr.requestDevice().then((device) => {
-            // If the device allows creation of exclusive sessions set it as the
-            // target of the 'Enter XR' button.
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
+          // If the device allows creation of exclusive sessions set it as the
+          // target of the 'Enter XR' button.
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
         }
       }
 
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
-      function onRequestSession(device) {
-        device.requestSession({immersive: true}).then(onSessionStarted);
+      function onRequestSession() {
+        navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a XRSession. In response we
@@ -129,7 +126,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Create a WebGL context to render with, initialized to be compatible
         // with the XRDisplay we're presenting to.
         gl = createWebGLContext({
-          compatibleXRDevice: session.device
+          xrCompatible: true
         });
 
         // Create a renderer with that GL context (this is just for the samples
@@ -147,8 +144,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Get a frame of reference, which is required for querying poses. In
         // this case an 'eye-level' frame of reference means that all poses will
         // be relative to the location where the XRDevice was first detected.
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
 
           // Inform the session that we're ready to begin drawing.
           session.requestAnimationFrame(onXRFrame);
@@ -185,13 +182,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Get the XRDevice pose relative to the Frame of Reference we created
         // earlier.
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         // Getting the pose may fail if, for example, tracking is lost. So we
         // have to check to make sure that we got a valid pose before attempting
         // to render with it. If not in this case we'll just leave the
         // framebuffer cleared, so tracking loss means the scene will simply
-        // dissapear.
+        // disappear.
         if (pose) {
 
           // If we do have a valid pose, bind the WebGL layer's framebuffer,
@@ -204,7 +201,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Loop through each of the views reported by the frame and draw them
           // into the corresponding viewport.
-          for (let view of frame.views) {
+          for (let view of pose.views) {
             let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
@@ -216,7 +213,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // projection and view matricies from the current view and pose.
             // We bound the framebuffer and viewport up above, and are passing
             // in the appropriate matrices here to be used when rendering.
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+            scene.draw(view.projectionMatrix, view.viewMatrix);
           }
         } else {
           // There's several options for handling cases where no pose is given.

@@ -75,8 +75,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrImmersiveFrameOfRef = null;
-      let xrNonImmersiveFrameOfRef = null;
+      let xrImmersiveRefSpace = null;
+      let xrNonImmersiveRefSpace = null;
 
       // WebGL scene globals.
       let outputCanvas = null;
@@ -104,22 +104,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
-
-            outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('xrpresent');
-
-            device.requestSession({ outputContext: ctx })
-                .then((session) => {
-                  document.body.appendChild(outputCanvas);
-                  onSessionStarted(session);
-                });
-          }).catch(() => {
-            initFallback();
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
+
+          outputCanvas = document.createElement('canvas');
+          let ctx = outputCanvas.getContext('xrpresent');
+
+          navigator.xr.requestSession({ outputContext: ctx })
+              .then((session) => {
+                document.body.appendChild(outputCanvas);
+                onSessionStarted(session);
+              });
         } else {
           initFallback();
         }
@@ -132,12 +128,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         fallbackHelper.emulateStage = true;
       }
 
-      function initGL(compatibleDevice) {
+      function initGL() {
         if (gl)
           return;
 
         gl = createWebGLContext({
-          compatibleXRDevice: compatibleDevice
+          xrCompatible: true
         });
 
         renderer = new Renderer(gl);
@@ -149,8 +145,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         window.addEventListener('resize', onResize);
       }
 
-      function onRequestSession(device) {
-        device.requestSession({ immersive: true }).then((session) => {
+      function onRequestSession() {
+        navigator.xr.requestSession({ mode: 'immersive-vr' }).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
 
@@ -174,15 +170,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        initGL(session.device);
+        initGL();
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference('stage').then((frameOfRef) => {
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
           if (session.immersive) {
-            xrImmersiveFrameOfRef = frameOfRef;
+            xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveFrameOfRef = frameOfRef;
+            xrNonImmersiveRefSpace = refSpace;
           }
 
           session.requestAnimationFrame(onXRFrame);
@@ -250,16 +246,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let frameOfRef = session.immersive ?
-                         xrImmersiveFrameOfRef :
-                         xrNonImmersiveFrameOfRef;
-        let pose = frame.getDevicePose(frameOfRef);
+        let refSpace = session.immersive ?
+                         xrImmersiveRefSpace :
+                         xrNonImmersiveRefSpace;
+        let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
 
         session.requestAnimationFrame(onXRFrame);
 
-        scene.updateInputSources(frame, frameOfRef);
+        scene.updateInputSources(frame, refSpace);
 
         scene.drawXRFrame(frame, pose);
 

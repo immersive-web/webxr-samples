@@ -101,7 +101,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -117,22 +117,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
         }
       }
 
-      function onRequestSession(device) {
+      function onRequestSession() {
         // Set up a mirror canvas
         let mirrorCanvas = document.createElement('canvas');
         let ctx = mirrorCanvas.getContext('xrpresent');
         mirrorCanvas.setAttribute('id', 'mirror-canvas');
         document.body.appendChild(mirrorCanvas);
 
-        device.requestSession({ immersive: true, outputContext: ctx  }).then(onSessionStarted);
+        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx  }).then(onSessionStarted);
       }
 
       function onSessionStarted(session) {
@@ -142,7 +140,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!gl) {
           gl = createWebGLContext({
-            compatibleXRDevice: session.device
+            xrCompatible: true
           });
 
           // Set up a non-black clear color so that we can see if something renders wrong.
@@ -165,8 +163,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           framebufferScaleFactor: scale
         });
 
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
 
           session.requestAnimationFrame(onXRFrame);
         });
@@ -185,13 +183,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         scene.startFrame();
 
         session.requestAnimationFrame(onXRFrame);
 
-        scene.updateInputSources(frame, xrFrameOfRef);
+        scene.updateInputSources(frame, xrRefSpace);
 
         scene.drawXRFrame(frame, pose);
 

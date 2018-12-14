@@ -72,7 +72,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       // AR sessions must have an outputContext, just like magic window
       // sessions.
@@ -105,17 +105,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            // Checks to ensure that environment integration (AR) is available,
-            // and only enables the button if so.
-            device.supportsSession({ environmentIntegration: true, outputContext: ctx }).then(() => {
-              xrButton.setDevice(device);
-            });
+          // Checks to ensure that environment integration (AR) is available,
+          // and only enables the button if so.
+          navigator.xr.supportsSession({ mode: 'immersive-ar', outputContext: ctx }).then(() => {
+            xrButton.enabled = true;
           });
         }
       }
 
-      function onRequestSession(device) {
+      function onRequestSession() {
         // Requests an inline (non-immersive) session with environment integration
         // to get AR via video passthrough.
 
@@ -124,7 +122,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // activation event so that appropriate permissions can be granted.
         // This will likely prompt the user to allow camera use, so the promise
         // may remain outstanding for a while.
-        device.requestSession({ environmentIntegration: true, outputContext: ctx })
+        navigator.xr.requestSession({ environmentIntegration: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
               // rendered to.
@@ -139,7 +137,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!gl) {
           gl = createWebGLContext({
-            compatibleXRDevice: session.device
+            xrCompatible: true
           });
 
           renderer = new Renderer(gl);
@@ -149,8 +147,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -168,7 +166,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         scene.startFrame();
 

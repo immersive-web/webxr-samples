@@ -77,7 +77,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -94,15 +94,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
         }
       }
 
-      function onRequestSession(device) {
+      function onRequestSession() {
         // In order to mirror an exclusive session, we must provide
         // an XRPresentationContext, which indicates the canvas that will
         // contain results of the session's rendering.
@@ -115,8 +113,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Providing an outputContext when requesting an exclusive session
         // indicates that it should be used as the mirror destination.
-        device.requestSession({
-          immersive: true,
+        navigator.xr.requestSession({
+          mode: 'immersive-vr',
           outputContext: ctx
         }).then(onSessionStarted);
       }
@@ -128,7 +126,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!gl) {
           gl = createWebGLContext({
-            compatibleXRDevice: session.device
+            xrCompatible: true
           });
 
           renderer = new Renderer(gl);
@@ -144,8 +142,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         outputCanvas.width = session.baseLayer.framebufferWidth / 2;
         outputCanvas.height = session.baseLayer.framebufferHeight;
 
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
 
           session.requestAnimationFrame(onXRFrame);
         });
@@ -171,18 +169,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
 
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         if (pose) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-          for (let view of frame.views) {
+          for (let view of pose.views) {
             let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+            scene.draw(view.projectionMatrix, view.viewMatrix);
           }
         }
 

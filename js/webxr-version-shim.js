@@ -22,6 +22,40 @@
 // implementations of the WebXR API and allow the samples to be coded exclusively
 // against the most recent version.
 
+function mat4_fromRotationTranslation(out, q, v) {
+  // Quaternion math
+  let x = q.x, y = q.y, z = q.z, w = q.w;
+  let x2 = x + x;
+  let y2 = y + y;
+  let z2 = z + z;
+  let xx = x * x2;
+  let xy = x * y2;
+  let xz = x * z2;
+  let yy = y * y2;
+  let yz = y * z2;
+  let zz = z * z2;
+  let wx = w * x2;
+  let wy = w * y2;
+  let wz = w * z2;
+  out[0] = 1 - (yy + zz);
+  out[1] = xy + wz;
+  out[2] = xz - wy;
+  out[3] = 0;
+  out[4] = xy - wz;
+  out[5] = 1 - (xx + zz);
+  out[6] = yz + wx;
+  out[7] = 0;
+  out[8] = xz + wy;
+  out[9] = yz - wx;
+  out[10] = 1 - (xx + yy);
+  out[11] = 0;
+  out[12] = v.x;
+  out[13] = v.y;
+  out[14] = v.z;
+  out[15] = 1;
+  return out;
+}
+
 class XRRayShim {
   constructor(rayMatrix) {
     this._transformMatrix = rayMatrix;
@@ -49,11 +83,65 @@ class XRRayShim {
   }
 }
 
+class XRRigidTransformShim {
+  constructor(position, orientation) {
+    // TODO: Don't rely on these types for the shim.
+    // Some browsers don't support them yet.
+    this._position = DOMPointReadOnly.fromPoint(position);
+    this._orientation = DOMPointReadOnly.fromPoint(orientation);
+    this._matrix = null;
+  }
+
+  get position() {
+    return this._position;
+  }
+
+  get orientation() {
+    return this._orientation;
+  }
+
+  get matrix() {
+    if (!this._matrix) {
+      this._matrix = new Float32Array(16);
+      mat4_fromRotationTranslation(this._matrix, this._orientation, this._position);
+    }
+    return this._matrix;
+  }
+}
+
+class XRViewShim {
+  constructor(legacyView, devicePose) {
+    this._view = legacyView;
+    this._pose = devicePose;
+    this._transform = null;
+  }
+
+  get eye() {
+    return this._view.projectionMatrix;
+  }
+
+  get projectionMatrix() {
+    return this._view.projectionMatrix;
+  }
+
+  get viewMatrix() {
+    return this._pose.getViewMatrix(this._view);
+  }
+
+  get transform() {
+    // FIXME: Return a transform based on the inverted view matrix
+    return null;
+  }
+}
+
 class WebXRVersionShim {
   constructor() {
     if (this._shouldApplyPatch()) {
       this._applyPatch();
     }
+
+    this._defaultDevicePromise = null;
+    this._defaultDevice = null;
   }
 
   _isMobile() {
@@ -81,7 +169,172 @@ class WebXRVersionShim {
     return true;
   }
 
+  _ensureDefaultDevice() {
+    if (!this._defaultDevicePromise) {
+      this._defaultDevicePromise = navigator.xr.requestDevice().then((device) => {
+        this._defaultDevice = device;
+        return device;
+      });
+    }
+    return this._defaultDevicePromise;
+  }
+
   _applyPatch() {
+    //===========================
+    // Chrome 72 and older
+    //===========================
+
+    let shim = this;
+
+    if ('requestDevice' in XR.prototype) {
+      console.log('[WebXR version shim] Installing navigator.xr.requestSession shim.');
+      console.log('[WebXR version shim] Installing navigator.xr.supportsSessionMode shim.');
+
+      XR.prototype.requestSession = function(options) {
+        return shim._ensureDefaultDevice().then((device) => {
+          let newOptions = {
+            outputContext: options.outputContext
+          };
+
+          if (options.mode == 'immersive-vr') {
+            newOptions.immersive = true;
+          } else if (options.mode == 'immersive-ar') {
+            newOptions.immersive = true;
+            newOptions.environmentIntegration = true;
+          } else if (!options.mode || options.mode == 'inline') {
+            newOptions.immersive = false;
+          } else {
+            throw new TypeError('Invalid mode');
+          }
+
+          return device.requestSession(newOptions).then((session) => {
+            session.mode = options.mode;
+            return session;
+          });
+        });
+      };
+
+      XR.prototype.supportsSessionMode = function(mode) {
+        return shim._ensureDefaultDevice().then((device) => {
+          let newOptions = {};
+
+          if (mode == 'immersive-vr') {
+            newOptions.immersive = true;
+          } else if (options.mode == 'immersive-ar') {
+            newOptions.immersive = true;
+            newOptions.environmentIntegration = true;
+          } else if (options.mode == 'inline') {
+            return Promise.resolve(); 
+          } else {
+            throw new TypeError('Invalid mode');
+          }
+
+          return device.supportsSession(newOptions);
+        });
+      };
+    }
+
+    if ('XRRigidTransform' in window) {
+      console.log('[WebXR version shim] Installing XRRigidTransform shim.');
+      window.XRRigidTransform = XRRigidTransformShim;
+    }
+
+    if ('transformMatrix' in XRRay.prototype) {
+      console.log('[WebXR version shim] Installing XRRay.matrix shim.');
+      Object.defineProperty(XRRay.prototype, 'matrix', {
+        enumerable: true, configurable: false, writeable: false,
+        get: function() { return this.transformMatrix; }
+      });
+    }
+
+    if ('requestFrameOfReference' in XRSession.prototype) {
+      console.log('[WebXR version shim] Installing XRSession.requestReferenceSpace shim.');
+      XRSession.prototype.requestReferenceSpace = function(options) {
+        if (options.type == 'stationary') {
+          if (options.subtype == 'eye-level') {
+            return this.requestFrameOfReference('eye-level');
+          } else if (options.subtype == 'floor-level') {
+            return this.requestFrameOfReference('stage');
+          } else if (options.subtype == 'position-disabled') {
+            return this.requestFrameOfReference('head-model');
+          }
+        } else if (options.type == 'bounded') {
+          return this.requestFrameOfReference('stage', { disableStageEmulation: true });
+        }
+        
+        // Covers 'unbounded', which didn't have an equivalent in the older spec
+        return Promise.reject(new Error('Unsupported reference space'));
+      };
+    }
+
+    if ('getDevicePose' in XRFrame.prototype) {
+      console.log('[WebXR version shim] Installing XRSession.getViewerPose shim.');
+      XRFrame.prototype.getViewerPose = function(referenceSpace) {
+        let pose = this.getDevicePose(referenceSpace);
+        if (pose && `views` in XRFrame.prototype) {
+          pose.views = [];
+          for (let view of this.views) {
+            pose.views.push(new XRViewShim(view, pose));
+          }
+        }
+        return pose;
+      }
+
+      const NATIVE_GET_VIEWPORT = XRWebGLLayer.prototype.getViewport;
+      XRWebGLLayer.prototype.getViewport = function(view) {
+        if (view instanceof XRViewShim) {
+          view = view._view;
+        }
+        return NATIVE_GET_VIEWPORT.call(this, view);
+      }
+    }
+
+    if ('XRDevicePose' in window) {
+      if ('poseModelMatrix' in XRDevicePose.prototype) {
+        console.log('[WebXR version shim] Installing XRViewerPose.transform shim.');
+        Object.defineProperty(XRDevicePose.prototype, 'transform', {
+          enumerable: true, configurable: false, writeable: false,
+          get: function() {
+            // FIXME: Convert pose matrix into transform
+            return null;
+          }
+        });
+      }
+    }
+
+    if ('setCompatibleXRDevice' in WebGLRenderingContext.prototype) {
+      console.log('[WebXR version shim] Installing WebGL XR compatibility shim.');
+
+      WebGL2RenderingContext.prototype.makeXRCompatible =
+      WebGLRenderingContext.prototype.makeXRCompatible = function() {
+        return shim._ensureDefaultDevice().then((device) => {
+          return this.setCompatibleXRDevice(device);
+        });
+      }
+
+      // TODO: In order for this to work currently it must be called after
+      // either a supportsSessionMode or requestSession resolves.
+      const NATIVE_GET_CONTEXT = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, options) {
+        if (type == 'webgl' || type == 'webgl2') {
+          if (options.xrCompatible) {
+            options.compatibleXRDevice = shim._defaultDevice;
+          }
+        }
+        return NATIVE_GET_CONTEXT.call(this, type, options);
+      };
+
+      const NATIVE_OFFSCREEN_GET_CONTEXT = OffscreenCanvas.prototype.getContext;
+      OffscreenCanvas.prototype.getContext = function(type, options) {
+        if (type == 'webgl' || type == 'webgl2') {
+          if (options.xrCompatible) {
+            options.compatibleXRDevice = shim._defaultDevice;
+          }
+        }
+        return NATIVE_OFFSCREEN_GET_CONTEXT.call(this, type, options);
+      };
+    }
+
     //===========================
     // Chrome 67/68
     //===========================

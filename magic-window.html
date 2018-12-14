@@ -76,8 +76,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrImmersiveFrameOfRef = null;
-      let xrNonImmersiveFrameOfRef = null;
+      let xrImmersiveRefSpace = null;
+      let xrNonImmersiveRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -100,38 +100,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
-
-            // In order for a non-immersive session to be used we must provide
-            // an outputContext, which indicates the canvas that will contain
-            // results of the session's rendering.
-            let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('xrpresent');
-
-            // Pick an arbitrary device for the magic window content and start
-            // up a non-immersive session if possible.
-            device.requestSession({outputContext: ctx})
-                .then((session) => {
-                  // Add the canvas to the document once we know that it will be
-                  // rendered to.
-                  document.body.appendChild(outputCanvas);
-                  onSessionStarted(session);
-                });
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
+
+          // In order for a non-immersive session to be used we must provide
+          // an outputContext, which indicates the canvas that will contain
+          // results of the session's rendering.
+          let outputCanvas = document.createElement('canvas');
+          let ctx = outputCanvas.getContext('xrpresent');
+
+          // Pick an arbitrary device for the magic window content and start
+          // up a non-immersive session if possible.
+          navigator.xr.requestSession({outputContext: ctx})
+              .then((session) => {
+                // Add the canvas to the document once we know that it will be
+                // rendered to.
+                document.body.appendChild(outputCanvas);
+                onSessionStarted(session);
+              });
         }
       }
 
-      function onRequestSession(device) {
+      function onRequestSession() {
         // Set up a mirror canvas
         let mirrorCanvas = document.createElement('canvas');
         let ctx = mirrorCanvas.getContext('xrpresent');
         mirrorCanvas.setAttribute('id', 'mirror-canvas');
         document.body.appendChild(mirrorCanvas);
 
-        device.requestSession({immersive: true, outputContext: ctx}).then((session) => {
+        navigator.xr.requestSession({mode: 'immersive-vr', outputContext: ctx}).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -142,7 +140,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!gl) {
           gl = createWebGLContext({
-            compatibleXRDevice: session.device
+            xrCompatible: true
           });
 
           renderer = new Renderer(gl);
@@ -152,13 +150,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           // Since we're dealing with multple sessions now we need to track
-          // which XRFrameOfReference is associated with which XRSession.
+          // which XRReferenceSpace is associated with which XRSession.
           if (session.immersive) {
-            xrImmersiveFrameOfRef = frameOfRef;
+            xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveFrameOfRef = frameOfRef;
+            xrNonImmersiveRefSpace = refSpace;
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -181,10 +179,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onXRFrame(t, frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
-        let frameOfRef = session.immersive ?
-                         xrImmersiveFrameOfRef :
-                         xrNonImmersiveFrameOfRef;
-        let pose = frame.getDevicePose(frameOfRef);
+        let refSpace = session.immersive ?
+                         xrImmersiveRefSpace :
+                         xrNonImmersiveRefSpace;
+        let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
 
@@ -196,12 +194,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
           }
 
-          for (let view of frame.views) {
+          for (let view of pose.views) {
             let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 
-            scene.draw(view.projectionMatrix, pose.getViewMatrix(view));
+            scene.draw(view.projectionMatrix, view.viewMatrix);
           }
         }
 
