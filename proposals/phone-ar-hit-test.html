@@ -77,7 +77,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       let outputCanvas = document.createElement('canvas');
       outputCanvas.setAttribute('id', 'output-canvas');
@@ -119,16 +119,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({ environmentIntegration: true, outputContext: ctx }).then(() => {
-              xrButton.setDevice(device);
-            });
+          navigator.xr.supportsSession({ mode: 'immersive-ar', outputContext: ctx }).then(() => {
+            xrButton.enabled = true;
           });
         }
       }
 
-      function onRequestSession(device) {
-        device.requestSession({ environmentIntegration: true, outputContext: ctx })
+      function onRequestSession() {
+        navigator.xr.requestSession({ environmentIntegration: true, outputContext: ctx })
             .then((session) => {
               // Add the canvas to the document once we know that it will be
               // rendered to.
@@ -144,7 +142,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (!gl) {
           gl = createWebGLContext({
-            compatibleXRDevice: session.device
+            xrCompatible: true
           });
 
           renderer = new Renderer(gl);
@@ -154,8 +152,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -200,7 +198,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         } else {
           // Otherwise we'll use the target ray from the input source that generated
           // this event to fire off a new hit test.
-          let inputPose = event.frame.getInputPose(event.inputSource, xrFrameOfRef);
+          let inputPose = event.frame.getInputPose(event.inputSource, xrRefSpace);
           if (!inputPose) {
             return;
           }
@@ -214,7 +212,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 inputPose.targetRay.direction.x,
                 inputPose.targetRay.direction.y,
                 inputPose.targetRay.direction.z);
-            event.frame.session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
+            event.frame.session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
               if (results.length) {
                 addARObjectAt(results[0].hitMatrix);
               }
@@ -226,7 +224,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         // If requested, use the pose to cast a reticle into the scene using a
         // continuous hit test. For the moment we're just using the flower
@@ -240,7 +238,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           vec3.sub(rayDirection, rayDirection, rayOrigin);
           vec3.normalize(rayDirection, rayDirection);
 
-          session.requestHitTest(rayOrigin, rayDirection, xrFrameOfRef).then((results) => {
+          session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
             // When the hit test returns use it to place our proxy object.
             if (results.length) {
               let hitResult = results[0];

@@ -14,7 +14,7 @@
 
 // This is a stripped down and specialized version of WebVR-UI
 // (https://github.com/googlevr/webvr-ui) that takes out most of the state
-// management in favor of providing a simple way of listing available devices
+// management in favor of providing a simple way of requesting entry into WebXR
 // for the needs of the sample pages. Functionality like beginning sessions
 // is intentionally left out so that the sample pages can demonstrate them more
 // clearly.
@@ -309,7 +309,7 @@ class EnterXRButton {
 
     this.options = options;
 
-    this.device = null;
+    this._enabled = false;
     this.session = null;
 
     // Pass in your own domElement if you really dont want to use ours
@@ -325,14 +325,21 @@ class EnterXRButton {
   }
 
   /**
-   * Sets the XRDevice this button is associated with.
-   * @param {XRDevice} device
-   * @return {EnterXRButton}
+   * Sets the enabled state of this button.
+   * @param {boolean} enabled
    */
-  setDevice(device) {
-    this.device = device;
+  set enabled(enabled) {
+    this._enabled = enabled;
     this.__updateButtonState();
     return this;
+  }
+
+  /**
+   * Gets the enabled state of this button.
+   * @return {boolean}
+   */
+  get enabled() {
+    return this._enabled;
   }
 
   /**
@@ -443,8 +450,8 @@ class EnterXRButton {
   __onXRButtonClick() {
     if (this.session) {
       this.options.onEndSession(this.session);
-    } else if (this.device) {
-      this.options.onRequestSession(this.device);
+    } else if (this._enabled) {
+      this.options.onRequestSession();
     }
   }
 
@@ -457,7 +464,7 @@ class EnterXRButton {
       this.setTitle(this.options.textExitXRTitle);
       this.setTooltip('Exit XR presentation');
       this.__setDisabledAttribute(false);
-    } else if (this.device) {
+    } else if (this._enabled) {
       this.setTitle(this.options.textEnterXRTitle);
       this.setTooltip('Enter XR');
       this.__setDisabledAttribute(false);

@@ -79,7 +79,7 @@ export class Scene extends Node {
 
   // Helper function that automatically adds the appropriate visual elements for
   // all input sources.
-  updateInputSources(frame, frameOfRef) {
+  updateInputSources(frame, refSpace) {
     // FIXME: Check for the existence of the API first. This check should be
     // removed once the input API is part of the official spec.
     if (!frame.session.getInputSources) {
@@ -93,7 +93,7 @@ export class Scene extends Node {
     this._hoverFrame++;
 
     for (let inputSource of inputSources) {
-      let inputPose = frame.getInputPose(inputSource, frameOfRef);
+      let inputPose = frame.getInputPose(inputSource, refSpace);
 
       if (!inputPose) {
         continue;
@@ -158,8 +158,8 @@ export class Scene extends Node {
     this._hoveredNodes = newHoveredNodes;
   }
 
-  handleSelect(inputSource, frame, frameOfRef) {
-    let inputPose = frame.getInputPose(inputSource, frameOfRef);
+  handleSelect(inputSource, frame, refSpace) {
+    let inputPose = frame.getInputPose(inputSource, refSpace);
 
     if (!inputPose) {
       return;

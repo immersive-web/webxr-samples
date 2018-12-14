@@ -73,8 +73,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrImmersiveFrameOfRef = null;
-      let xrNonImmersiveFrameOfRef = null;
+      let xrImmersiveRefSpace = null;
+      let xrNonImmersiveRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -92,22 +92,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.requestDevice().then((device) => {
-            device.supportsSession({immersive: true}).then(() => {
-              xrButton.setDevice(device);
-            });
-
-            let outputCanvas = document.createElement('canvas');
-            let ctx = outputCanvas.getContext('xrpresent');
-
-            device.requestSession({ outputContext: ctx })
-                .then((session) => {
-                  document.body.appendChild(outputCanvas);
-                  onSessionStarted(session);
-                });
-          }).catch(() => {
-            initFallback();
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            xrButton.enabled = true;
           });
+
+          let outputCanvas = document.createElement('canvas');
+          let ctx = outputCanvas.getContext('xrpresent');
+
+          navigator.xr.requestSession({ outputContext: ctx })
+              .then((session) => {
+                document.body.appendChild(outputCanvas);
+                onSessionStarted(session);
+              });
         } else {
           initFallback();
         }
@@ -120,25 +116,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         fallbackHelper.emulateStage = true;
       }
 
-      function onRequestSession(device) {
+      function onRequestSession() {
         // Set up a mirror canvas
         let mirrorCanvas = document.createElement('canvas');
         let ctx = mirrorCanvas.getContext('xrpresent');
         mirrorCanvas.setAttribute('id', 'mirror-canvas');
         document.body.appendChild(mirrorCanvas);
 
-        device.requestSession({ immersive: true, outputContext: ctx }).then((session) => {
+        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
       }
 
-      function initGL(compatibleDevice) {
+      function initGL() {
         if (gl)
           return;
 
         gl = createWebGLContext({
-          compatibleXRDevice: compatibleDevice
+          xrCompatible: true
         });
 
         renderer = new Renderer(gl);
@@ -149,7 +145,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        initGL(session.device);
+        initGL();
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
@@ -159,14 +155,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // coordinates (for example, with a 3DoF device) then it will return an
         // emulated stage, where the view is translated up by a static height so
         // that the scene still renders in approximately the right place.
-        session.requestFrameOfReference('stage').then((frameOfRef) => {
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
           if (session.immersive) {
-            xrImmersiveFrameOfRef = frameOfRef;
+            xrImmersiveRefSpace = refSpace;
             let boundsRenderer = new BoundsRenderer();
-            boundsRenderer.stageBounds = frameOfRef.bounds;
+            boundsRenderer.stageBounds = refSpace.bounds;
             scene.addNode(boundsRenderer);
           } else {
-            xrNonImmersiveFrameOfRef = frameOfRef;
+            xrNonImmersiveRefSpace = refSpace;
           }
 
           session.requestAnimationFrame(onXRFrame);
@@ -186,10 +182,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let frameOfRef = session.immersive ?
-                         xrImmersiveFrameOfRef :
-                         xrNonImmersiveFrameOfRef;
-        let pose = frame.getDevicePose(frameOfRef);
+        let refSpace = session.immersive ?
+                         xrImmersiveRefSpace :
+                         xrNonImmersiveRefSpace;
+        let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
 

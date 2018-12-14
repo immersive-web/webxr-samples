@@ -62,9 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = document.getElementById('xr-button');
-      let xrDevice = null;
       let xrSession = null;
-      let xrFrameOfRef = null;
+      let xrRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -75,17 +74,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function initXR() {
         // Is WebXR available on this UA?
         if (navigator.xr) {
-          // Request an XRDevice connected to the system.
-          navigator.xr.requestDevice().then((device) => {
-            xrDevice = device;
-            // If the device allows creation of exclusive sessions set it as the
-            // target of the 'Enter XR' button.
-            device.supportsSession({immersive: true}).then(() => {
-              // Updates the button to start an XR session when clicked.
-              xrButton.addEventListener('click', onButtonClicked);
-              xrButton.innerHTML = 'Enter XR';
-              xrButton.disabled = false;
-            });
+          // If the device allows creation of exclusive sessions set it as the
+          // target of the 'Enter XR' button.
+          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+            // Updates the button to start an XR session when clicked.
+            xrButton.addEventListener('click', onButtonClicked);
+            xrButton.innerHTML = 'Enter XR';
+            xrButton.disabled = false;
           });
         }
       }
@@ -94,7 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // session already we'll request one, and if we do we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
-          xrDevice.requestSession({immersive: true}).then(onSessionStarted);
+          navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
         } else {
           xrSession.end();
         }
@@ -114,7 +109,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // with the XRDisplay we're presenting to.
         let canvas = document.createElement('canvas');
         gl = canvas.getContext('webgl', {
-          compatibleXRDevice: session.device
+          xrCompatible: true
         });
 
         // Use the new WebGL context to create a XRWebGLLayer and set it as the
@@ -125,8 +120,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Get a frame of reference, which is required for querying poses. In
         // this case an 'eye-level' frame of reference means that all poses will
         // be relative to the location where the XRDevice was first detected.
-        session.requestFrameOfReference('eye-level').then((frameOfRef) => {
-          xrFrameOfRef = frameOfRef;
+        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+          xrRefSpace = refSpace;
 
           // Inform the session that we're ready to begin drawing.
           session.requestAnimationFrame(onXRFrame);
@@ -161,7 +156,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // Get the XRDevice pose relative to the Frame of Reference we created
         // earlier.
-        let pose = frame.getDevicePose(xrFrameOfRef);
+        let pose = frame.getViewerPose(xrRefSpace);
 
         // Getting the pose may fail if, for example, tracking is lost. So we
         // have to check to make sure that we got a valid pose before attempting
@@ -187,7 +182,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // and draw them into the corresponding viewport here, but we're
           // keeping this sample slim so we're not bothering to draw any
           // geometry.
-          /*for (let view of frame.views) {
+          /*for (let view of pose.views) {
             let viewport = session.baseLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
