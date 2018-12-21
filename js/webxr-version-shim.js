@@ -267,8 +267,11 @@ class WebXRVersionShim {
       };
     }
 
+    let usingViewsShim = false;
+
     if ('getDevicePose' in XRFrame.prototype) {
       console.log('[WebXR version shim] Installing XRSession.getViewerPose shim.');
+      usingViewsShim = true;
       XRFrame.prototype.getViewerPose = function(referenceSpace) {
         let pose = this.getDevicePose(referenceSpace);
         if (pose && `views` in XRFrame.prototype) {
@@ -279,7 +282,23 @@ class WebXRVersionShim {
         }
         return pose;
       }
+    } else if (!('views' in XRViewerPose.prototype)) {
+      console.log('[WebXR version shim] Installing XRViewerPose.views shim.');
+      usingViewsShim = true;
+      const NATIVE_GET_VIEWER_POSE = XRFrame.prototype.getViewerPose;
+      XRFrame.prototype.getViewerPose = function(referenceSpace) {
+        let pose = NATIVE_GET_VIEWER_POSE.call(this, referenceSpace);
+        if (pose && `views` in XRFrame.prototype) {
+          pose.views = [];
+          for (let view of this.views) {
+            pose.views.push(new XRViewShim(view, pose));
+          }
+        }
+        return pose;
+      }
+    }
 
+    if (usingViewsShim) {
       const NATIVE_GET_VIEWPORT = XRWebGLLayer.prototype.getViewport;
       XRWebGLLayer.prototype.getViewport = function(view) {
         if (view instanceof XRViewShim) {
