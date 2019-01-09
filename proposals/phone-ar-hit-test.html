@@ -79,10 +79,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrRefSpace = null;
 
-      let outputCanvas = document.createElement('canvas');
-      outputCanvas.setAttribute('id', 'output-canvas');
-      let ctx = outputCanvas.getContext('xrpresent');
-
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -126,11 +122,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        navigator.xr.requestSession({ environmentIntegration: true, outputContext: ctx })
+        navigator.xr.requestSession({ mode: 'immersive-ar' })
             .then((session) => {
-              // Add the canvas to the document once we know that it will be
-              // rendered to.
-              document.body.appendChild(outputCanvas);
               xrButton.setSession(session);
               onSessionStarted(session);
             });
