@@ -153,8 +153,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onEndSession(session) {
         session.end();
-        // Remove the injected output canvas from the DOM.
-        document.body.removeChild(document.querySelector('#output-canvas'));
       }
 
       function onSessionEnded(event) {
