@@ -220,10 +220,10 @@ class WebXRVersionShim {
 
           if (mode == 'immersive-vr') {
             newOptions.immersive = true;
-          } else if (options.mode == 'immersive-ar') {
+          } else if (mode == 'immersive-ar') {
             newOptions.immersive = true;
             newOptions.environmentIntegration = true;
-          } else if (options.mode == 'inline') {
+          } else if (mode == 'inline') {
             return Promise.resolve(); 
           } else {
             throw new TypeError('Invalid mode');
