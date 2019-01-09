@@ -119,7 +119,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSession({ mode: 'immersive-ar', outputContext: ctx }).then(() => {
+          navigator.xr.supportsSessionMode('immersive-ar').then(() => {
             xrButton.enabled = true;
           });
         }
