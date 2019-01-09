@@ -179,6 +179,19 @@ class WebXRVersionShim {
     return this._defaultDevicePromise;
   }
 
+  _makeCanvas() {
+    // Create a fullscreen canvas element for use with legacy AR mode.
+    let canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.left = 0;
+    canvas.style.top = 0;
+    canvas.style.right = 0;
+    canvas.style.bottom = 0;
+    canvas.style.margin = 0;
+    return canvas;
+  }
+
   _applyPatch() {
     //===========================
     // Chrome 72 and older
@@ -199,8 +212,13 @@ class WebXRVersionShim {
           if (options.mode == 'immersive-vr') {
             newOptions.immersive = true;
           } else if (options.mode == 'immersive-ar') {
-            newOptions.immersive = true;
+            // These Chrome versions don't support immersive AR mode, they need
+            // a canvas in the DOM for use as output context.
+            newOptions.immersive = false;
             newOptions.environmentIntegration = true;
+
+            shim._outputCanvasForAR = shim._makeCanvas();
+            newOptions.outputContext = shim._outputCanvasForAR.getContext('xrpresent');
           } else if (!options.mode || options.mode == 'inline') {
             newOptions.immersive = false;
           } else {
@@ -208,6 +226,15 @@ class WebXRVersionShim {
           }
 
           return device.requestSession(newOptions).then((session) => {
+            if (shim._outputCanvasForAR) {
+              // If we're using the backwards compatible output canvas, add it
+              // to the DOM now and clean it up on session end.
+              document.body.appendChild(shim._outputCanvasForAR);
+              session.addEventListener('end', () => {
+                document.body.removeChild(shim._outputCanvasForAR);
+                shim._outputCanvasForAR = null;
+              });
+            }
             session.mode = options.mode;
             return session;
           });
@@ -221,10 +248,18 @@ class WebXRVersionShim {
           if (mode == 'immersive-vr') {
             newOptions.immersive = true;
           } else if (mode == 'immersive-ar') {
-            newOptions.immersive = true;
+            // These Chrome versions don't support immersive AR mode, they need
+            // a canvas in the DOM for use as output context.
+            newOptions.immersive = false;
             newOptions.environmentIntegration = true;
+
+            // Make a temporary canvas for checking support, but don't attach it
+            // to the DOM. The actual output canvas will be created later if/when
+            // a session is created.
+            let tempCanvas = shim._makeCanvas();
+            newOptions.outputContext = tempCanvas.getContext('xrpresent');
           } else if (mode == 'inline') {
-            return Promise.resolve(); 
+            return Promise.resolve();
           } else {
             throw new TypeError('Invalid mode');
           }
