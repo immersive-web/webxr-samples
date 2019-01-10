@@ -165,9 +165,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Viewport scale
         viewportScale: getFloatParam('viewportScale', 1),
 
-        // Prevents the app from clearing the background, which is useful for
-        // AR testing.
-        noClear: getBoolParam('noClear', false),
+        // Immersive AR mode
+        arMode: getBoolParam('arMode', false),
+
+        // Use an inline canvas for "magic window" mode?
+        magicWindow: getBoolParam('magicWindow', true),
+
+        // Use a mirror canvas during immersive mode?
+        mirrorCanvas: getBoolParam('mirrorCanvas', true),
 
         // Don't produce frames at all. Simulates a broken app.
         noFrames: getBoolParam('noFrames', false),
@@ -211,8 +216,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           getParamSaver('viewportScale'));
       folderRender.add(appSettings, 'antialias').onFinishChange(
           getParamSaver('antialias'));
-      folderRender.add(appSettings, 'noClear').onFinishChange(
-          getParamSaver('noClear'));
+      folderRender.add(appSettings, 'arMode').onFinishChange(
+          getParamSaver('arMode', () => { window.location.reload(false); }));
+      folderRender.add(appSettings, 'magicWindow').onFinishChange(
+          getParamSaver('magicWindow', () => { window.location.reload(false); }));
+      folderRender.add(appSettings, 'mirrorCanvas').onFinishChange(
+          getParamSaver('mirrorCanvas'));
       folderRender.open();
 
       var folderTest = gui.addFolder('Regression testing');
@@ -254,25 +263,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.addNode(cubeSea);
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        let buttonOptions = {
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
-        });
+        };
+        if (appSettings.arMode) {
+          buttonOptions.textEnterXRTitle = "START AR";
+          buttonOptions.textXRNotFoundTitle = "AR NOT FOUND";
+          buttonOptions.textExitXRTitle = "EXIT  AR";
+        }
+        xrButton = new XRDeviceButton(buttonOptions);
         document.querySelector('header').appendChild(xrButton.domElement);
 
+        let xrMode = appSettings.arMode ? 'immersive-ar' : 'immersive-vr';
         if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSessionMode(xrMode).then(() => {
             xrButton.enabled = true;
           });
 
-          let outputCanvas = document.createElement('canvas');
-          let ctx = outputCanvas.getContext('xrpresent');
-
-          navigator.xr.requestSession({outputContext: ctx})
-              .then((session) => {
-                document.body.appendChild(outputCanvas);
-                onSessionStarted(session);
-              });
+          // Set up "magic window" mode.
+          if (appSettings.magicWindow) {
+            let outputCanvas = document.createElement('canvas');
+            let ctx = outputCanvas.getContext('xrpresent');
+            navigator.xr.requestSession({outputContext: ctx})
+                .then((session) => {
+                  document.body.appendChild(outputCanvas);
+                  onSessionStarted(session);
+                });
+          }
         } else {
           initFallback();
         }
@@ -301,13 +319,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
+        let xrOptions = { mode: appSettings.arMode ? 'immersive-ar' : 'immersive-vr' };
+        if (appSettings.mirrorCanvas) {
+          let mirrorCanvas = document.createElement('canvas');
+          xrOptions.outputContext = mirrorCanvas.getContext('xrpresent');
+          mirrorCanvas.setAttribute('id', 'mirror-canvas');
+          document.body.appendChild(mirrorCanvas);
+        }
+        navigator.xr.requestSession(xrOptions).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -337,10 +356,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.immersive) {
+        if (event.session.immersive && appSettings.mirrorCanvas) {
           document.body.removeChild(document.querySelector('#mirror-canvas'));
-          xrButton.setSession(null);
         }
+        xrButton.setSession(null);
       }
 
       let frameNum = 0;
@@ -384,7 +403,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        scene.clear = !appSettings.noClear;
+        scene.clear = !appSettings.arMode;
 
         scene.updateInputSources(frame, refSpace);
 
