@@ -205,9 +205,10 @@ class WebXRVersionShim {
 
       XR.prototype.requestSession = function(options) {
         return shim._ensureDefaultDevice().then((device) => {
-          let newOptions = {
-            outputContext: options.outputContext
-          };
+          let newOptions = {};
+          if (options.outputContext) {
+            newOptions.outputContext = options.outputContext;
+          }
 
           if (options.mode == 'immersive-vr') {
             newOptions.immersive = true;
