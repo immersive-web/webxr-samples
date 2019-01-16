@@ -73,6 +73,16 @@
       .github-link {
         font-size: 0.8em;
       }
+
+      .annoying-warning {
+        background: #fdd;
+        color: red;
+        font-weight: bold;
+        padding: .75em 1em;
+        border: thick red;
+        border-style: solid;
+        border-radius: 1em;
+      }
     </style>
 
     <!--[if lt IE 9]>
@@ -97,6 +107,11 @@
       <main class='main' id='main'>
         <p>Sample pages demonstrating how to use various aspects of the WebXR API.<br/>
         <a href="explainer.html">Learn More</a></p>
+
+        <p class='annoying-warning'>
+          <b>WARNING:</b> The <a href="https://immersive-web.github.io/webxr/">WebXR Device API spec</a> is undergoing rapid development at this time.
+          These samples are not guaranteed to reflect the current state of the API or run on any browser until the specification has stablized.
+        </p>
 
         <script>
           let pages = [
