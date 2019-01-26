@@ -158,7 +158,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // solely on the device orientation. (As an added bonus this mode may
         // be more power efficient on some hardware!)
         session.requestReferenceSpace({ type: 'stationary', subtype: 'position-disabled' }).then((refSpace) => {
-          if (session.immersive) {
+          if (session.mode.startsWith('immersive')) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -172,7 +172,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.immersive) {
+        if (event.session.mode.startsWith('immersive')) {
           document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
         }
@@ -180,7 +180,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.immersive ?
+        let refSpace = session.mode.startsWith('immersive') ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);

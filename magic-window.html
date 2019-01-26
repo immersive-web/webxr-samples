@@ -153,7 +153,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           // Since we're dealing with multple sessions now we need to track
           // which XRReferenceSpace is associated with which XRSession.
-          if (session.immersive) {
+          if (session.mode.startsWith('immersive')) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -168,7 +168,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onSessionEnded(event) {
         // Only reset the button when the immersive session ends.
-        if (event.session.immersive) {
+        if (event.session.mode.startsWith('immersive')) {
           // Remove the mirroring canvas.
           document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
@@ -179,7 +179,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onXRFrame(t, frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
-        let refSpace = session.immersive ?
+        let refSpace = session.mode.startsWith('immersive') ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);

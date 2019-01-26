@@ -156,7 +156,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // emulated stage, where the view is translated up by a static height so
         // that the scene still renders in approximately the right place.
         session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
-          if (session.immersive) {
+          if (session.mode.startsWith('immersive')) {
             xrImmersiveRefSpace = refSpace;
             let boundsRenderer = new BoundsRenderer();
             boundsRenderer.stageBounds = refSpace.bounds;
@@ -174,7 +174,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.immersive) {
+        if (event.session.mode.startsWith('immersive')) {
           document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
         }
@@ -182,7 +182,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.immersive ?
+        let refSpace = session.mode.startsWith('immersive') ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);
