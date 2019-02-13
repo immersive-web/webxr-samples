@@ -14589,7 +14589,7 @@ var WebXRView = exports.WebXRView = function (_RenderView) {
   function WebXRView(view, pose, layer) {
     _classCallCheck(this, WebXRView);
 
-    return _possibleConstructorReturn(this, (WebXRView.__proto__ || Object.getPrototypeOf(WebXRView)).call(this, view ? view.projectionMatrix : null, pose && view ? pose.getViewMatrix(view) : null, layer && view ? layer.getViewport(view) : null, view ? view.eye : 'left'));
+    return _possibleConstructorReturn(this, (WebXRView.__proto__ || Object.getPrototypeOf(WebXRView)).call(this, view ? view.projectionMatrix : null, pose && view ? view.viewMatrix : null, layer && view ? layer.getViewport(view) : null, view ? view.eye : 'left'));
   }
 
   return WebXRView;
@@ -14845,7 +14845,7 @@ var Scene = exports.Scene = function (_Node) {
       var gl = this._renderer.gl;
       var session = xrFrame.session;
       // Assumed to be a XRWebGLLayer for now.
-      var layer = session.baseLayer;
+      var layer = session.renderState.baseLayer;
 
       if (!gl) {
         return;
@@ -14863,7 +14863,7 @@ var Scene = exports.Scene = function (_Node) {
       var _iteratorError3 = undefined;
 
       try {
-        for (var _iterator3 = xrFrame.views[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        for (var _iterator3 = pose.views[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
           var view = _step3.value;
 
           views.push(new WebXRView(view, pose, layer));

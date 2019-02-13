@@ -28,7 +28,7 @@ export class WebXRView extends RenderView {
   constructor(view, pose, layer) {
     super(
       view ? view.projectionMatrix : null,
-      (pose && view) ? pose.getViewMatrix(view) : null,
+      (pose && view) ? view.viewMatrix : null,
       (layer && view) ? layer.getViewport(view) : null,
       view ? view.eye : 'left'
     );
@@ -240,7 +240,7 @@ export class Scene extends Node {
     let gl = this._renderer.gl;
     let session = xrFrame.session;
     // Assumed to be a XRWebGLLayer for now.
-    let layer = session.baseLayer;
+    let layer = session.renderState.baseLayer;
 
     if (!gl) {
       return;
@@ -253,7 +253,7 @@ export class Scene extends Node {
     }
 
     let views = [];
-    for (let view of xrFrame.views) {
+    for (let view of pose.views) {
       views.push(new WebXRView(view, pose, layer));
     }
 
