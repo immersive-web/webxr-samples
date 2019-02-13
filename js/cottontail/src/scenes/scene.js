@@ -100,8 +100,8 @@ export class Scene extends Node {
       }
 
       // Any time that we have a grip matrix, we'll render a controller.
-      if (inputPose.gripMatrix) {
-        this.inputRenderer.addController(inputPose.gripMatrix);
+      if (inputPose.gripTransform.matrix) {
+        this.inputRenderer.addController(inputPose.gripTransform.matrix);
       }
 
       if (inputPose.targetRay) {
