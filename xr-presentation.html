@@ -139,7 +139,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Use the new WebGL context to create a XRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
         // be displayed on the XRDevice.
-        session.baseLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
         // Get a frame of reference, which is required for querying poses. In
         // this case an 'eye-level' frame of reference means that all poses will
@@ -190,11 +190,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // framebuffer cleared, so tracking loss means the scene will simply
         // disappear.
         if (pose) {
+          let glLayer = session.renderState.baseLayer;
 
           // If we do have a valid pose, bind the WebGL layer's framebuffer,
           // which is where any content to be displayed on the XRDevice must be
           // rendered.
-          gl.bindFramebuffer(gl.FRAMEBUFFER, session.baseLayer.framebuffer);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
           // Clear the framebuffer
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -202,7 +203,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Loop through each of the views reported by the frame and draw them
           // into the corresponding viewport.
           for (let view of pose.views) {
-            let viewport = session.baseLayer.getViewport(view);
+            let viewport = glLayer.getViewport(view);
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 

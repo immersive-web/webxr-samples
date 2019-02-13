@@ -159,9 +159,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // layer is created, though the UA is allowed to resize the framebuffer
         // at any time.
         let scale = parseFloat(scaleSelect.value);
-        session.baseLayer = new XRWebGLLayer(session, gl, {
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {
           framebufferScaleFactor: scale
-        });
+        })});
 
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           xrRefSpace = refSpace;

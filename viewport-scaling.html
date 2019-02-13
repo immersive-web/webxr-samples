@@ -106,7 +106,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // XRView. The UA is allowed to ignore the request or adjust it as
         // needed. If the scaling request is honored it will take effect on the
         // *next* frame, not the current one.
-        session.baseLayer.requestViewportScaling(resolutionMultiplier);
+        session.renderState.baseLayer.requestViewportScaling(resolutionMultiplier);
       }
 
       function initXR() {
@@ -174,7 +174,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        session.baseLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           if (session.immersive) {
