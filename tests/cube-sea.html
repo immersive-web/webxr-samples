@@ -337,12 +337,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        session.baseLayer = new XRWebGLLayer(session, gl, {
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {
           framebufferScaleFactor: appSettings.framebufferScale,
-          antialias: appSettings.antialias});
+          antialias: appSettings.antialias}) });
 
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
-          if (session.immersive) {
+          if (session.mode == "immersive-vr") {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -356,7 +356,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.immersive && appSettings.mirrorCanvas) {
+        if (event.session.mode == "immersive-vr" && appSettings.mirrorCanvas) {
           document.body.removeChild(document.querySelector('#mirror-canvas'));
         }
         xrButton.setSession(null);
@@ -367,7 +367,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.immersive ?
+        let refSpace = session.mode == "immersive-vr" ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);
@@ -385,7 +385,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
         }
 
-        session.baseLayer.requestViewportScaling(appSettings.viewportScale);
+        session.renderState.baseLayer.requestViewportScaling(appSettings.viewportScale);
 
         session.requestAnimationFrame(onXRFrame);
 
