@@ -77,8 +77,8 @@
       .annoying-warning {
         background: #fdd;
         color: red;
-        font-weight: bold;
-        padding: .75em 1em;
+        padding: 0 1em;
+        margin: 1em 0;
         border: thick red;
         border-style: solid;
         border-radius: 1em;
@@ -108,10 +108,13 @@
         <p>Sample pages demonstrating how to use various aspects of the WebXR API.<br/>
         <a href="explainer.html">Learn More</a></p>
 
-        <p class='annoying-warning'>
-          <b>WARNING:</b> The <a href="https://immersive-web.github.io/webxr/">WebXR Device API spec</a> is undergoing rapid development at this time.
-          These samples are not guaranteed to reflect the current state of the API or run on any browser until the specification has stablized.
-        </p>
+        <div class='annoying-warning'>
+          <p><b>WARNING:</b> The <a href="https://immersive-web.github.io/webxr/">WebXR Device API spec</a> is undergoing rapid development at this time.
+          These samples are not guaranteed to reflect the current state of the API or run on any browser until the specification has stablized.</p>
+
+	  <p>If the samples are not working for you, please <b>DON'T FILE BUG REPORTS</b> for this repository or in other issue trackers. This is
+          expected to happen until this notice is removed.</p>
+        </div>
 
         <script>
           let pages = [
