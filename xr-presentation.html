@@ -26,24 +26,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
-
     <title>XR Presentation</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
 
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='js/webxr-polyfill.js'></script>
-
     <!--This script patches up around implementation differences in past browser versions
         so that the samples can always be written against the most recent spec changes.
         It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
-
-    <script src='js/cottontail/build/cottontail.js'></script>
+    <!--script src='js/webxr-version-shim.js'></script-->
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -62,17 +52,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <main style='text-align: center;'>
       <p>Click 'Enter XR' to see content</p> 
     </main>
-    <script>
-      (function () {
-      'use strict';
+    <script type="module">
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
 
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
-      }
       // Apply the version shim after the polyfill is instantiated, to ensure
       // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
+      //var versionShim = new WebXRVersionShim();
 
       // XR globals.
       let xrButton = null;
@@ -200,6 +188,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Clear the framebuffer
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+          let o = pose.transform.orientation;
+          console.log(o.x, o.y, o.z, o.w);
+
+          o = pose.views[0].transform.orientation;
+          console.log(o.x, o.y, o.z, o.w);
+
           // Loop through each of the views reported by the frame and draw them
           // into the corresponding viewport.
           for (let view of pose.views) {
@@ -214,7 +208,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // projection and view matricies from the current view and pose.
             // We bound the framebuffer and viewport up above, and are passing
             // in the appropriate matrices here to be used when rendering.
-            scene.draw(view.projectionMatrix, view.viewMatrix);
+            scene.draw(view.projectionMatrix, pose.transform);
+            //console.log(view.transform);
           }
         } else {
           // There's several options for handling cases where no pose is given.
@@ -236,7 +231,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Start the XR application.
       initXR();
-      })();
     </script>
   </body>
 </html>

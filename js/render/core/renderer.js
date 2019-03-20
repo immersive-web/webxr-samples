@@ -99,13 +99,28 @@ export function createWebGLContext(glAttribs) {
 }
 
 export class RenderView {
-  constructor(projectionMatrix, viewMatrix, viewport = null, eye = 'left') {
+  constructor(projectionMatrix, viewTransform, viewport = null, eye = 'left') {
     this.projectionMatrix = projectionMatrix;
-    this.viewMatrix = viewMatrix;
+    this.viewTransform = viewTransform;
     this.viewport = viewport;
     // If an eye isn't given the left eye is assumed.
     this._eye = eye;
     this._eyeIndex = (eye == 'left' ? 0 : 1);
+
+    this._viewMatrix = mat4.create();
+    
+    /*let q = viewTransform.orientation;
+    let t = viewTransform.position;
+    mat4.fromRotationTranslation(
+        this._viewMatrix,
+        [q.x, q.y, q.z, q.w],
+        [t.x, t.y, t.z]
+    );*/
+    mat4.invert(this._viewMatrix, viewTransform.matrix);
+  }
+
+  get viewMatrix() {
+    return this._viewMatrix;
   }
 
   get eye() {
@@ -610,14 +625,18 @@ export class Renderer {
 
     // Get the positions of the 'camera' for each view matrix.
     for (let i = 0; i < views.length; ++i) {
-      mat4.invert(inverseMatrix, views[i].viewMatrix);
-
       if (this._cameraPositions.length <= i) {
         this._cameraPositions.push(vec3.create());
       }
+      let p = views[i].viewTransform.position;
+      this._cameraPositions[i][0] = p.x;
+      this._cameraPositions[i][1] = p.y;
+      this._cameraPositions[i][2] = p.z;
+
+      /*mat4.invert(inverseMatrix, views[i].viewMatrix);
       let cameraPosition = this._cameraPositions[i];
       vec3.set(cameraPosition, 0, 0, 0);
-      vec3.transformMat4(cameraPosition, cameraPosition, inverseMatrix);
+      vec3.transformMat4(cameraPosition, cameraPosition, inverseMatrix);*/
     }
 
     // Draw each set of render primitives in order

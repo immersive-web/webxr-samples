@@ -28,7 +28,7 @@ export class WebXRView extends RenderView {
   constructor(view, pose, layer) {
     super(
       view ? view.projectionMatrix : null,
-      (pose && view) ? view.viewMatrix : null,
+      (pose && view) ? view.transform : null,
       (layer && view) ? layer.getViewport(view) : null,
       view ? view.eye : 'left'
     );
@@ -220,10 +220,8 @@ export class Scene extends Node {
     }
   }
 
-  draw(projectionMatrix, viewMatrix, eye) {
-    let view = new RenderView();
-    view.projectionMatrix = projectionMatrix;
-    view.viewMatrix = viewMatrix;
+  draw(projectionMatrix, viewTransform, eye) {
+    let view = new RenderView(projectionMatrix, viewTransform);
     if (eye) {
       view.eye = eye;
     }
