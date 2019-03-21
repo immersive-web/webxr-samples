@@ -26,24 +26,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
-
     <title>Input Tracking</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
-
-    <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -59,17 +44,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <script>
-      (function () {
-      'use strict';
-
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
-      }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
+    <script type="module">
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {vec3} from './js/render/math/gl-matrix.js';
 
       // XR globals.
       let xrButton = null;
@@ -96,27 +76,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             xrButton.enabled = true;
           });
 
-          // Note: If you don't want dragging on the canvas to do things like
-          // scroll or pull-to-refresh, you'll want to set touch-action: none;
-          // on the canvas' CSS style, which this page does in common.css
-          let outputCanvas = document.createElement('canvas');
-          let ctx = outputCanvas.getContext('xrpresent');
-
-          navigator.xr.requestSession({ outputContext: ctx })
-              .then((session) => {
-                document.body.appendChild(outputCanvas);
-                onSessionStarted(session);
-              });
-        } else {
-          initFallback();
+          navigator.xr.requestSession().then(onSessionStarted);
         }
-      }
-
-      function initFallback() {
-        initGL();
-        document.body.appendChild(gl.canvas);
-        let fallbackHelper = new FallbackHelper(scene, gl);
-        fallbackHelper.emulateStage = true;
       }
 
       function initGL() {
@@ -136,13 +97,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
+        navigator.xr.requestSession({ mode: 'immersive-vr' }).then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
         });
@@ -152,8 +107,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('end', onSessionEnded);
 
         initGL();
+        
+        // Note: If you don't want dragging on the canvas to do things like
+        // scroll or pull-to-refresh, you'll want to set touch-action: none;
+        // on the canvas' CSS style, which this page does in common.css
+        let outputCanvas = document.createElement('canvas');
+        document.body.appendChild(outputCanvas);
 
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, gl),
+          outputContext: outputCanvas.getContext('xrpresent')
+        });
 
         session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
           if (session.mode == "immersive-vr") {
@@ -172,8 +136,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onSessionEnded(event) {
         if (event.session.mode == "immersive-vr") {
-          document.body.removeChild(document.querySelector('#mirror-canvas'));
           xrButton.setSession(null);
+        }
+
+        let outputContext = event.session.renderState.outputContext;
+        if (outputContext && outputContext.canvas.parentElement) {
+          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 
@@ -181,50 +149,53 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let inputSources = session.getInputSources();
 
         for (let inputSource of inputSources) {
-          let inputPose = frame.getInputPose(inputSource, refSpace);
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
 
           // We may not get a pose back in cases where the input source has lost
           // tracking or does not know where it is relative to the given frame
           // of reference.
-          if (!inputPose) {
+          if (!targetRayPose) {
             continue;
           }
 
-          if (inputPose.gripTransform.matrix) {
-            // If we have a grip matrix use it to render a mesh showing the
-            // position of the controller.
-            scene.inputRenderer.addController(inputPose.gripTransform.matrix);
+          let targetRay = new XRRay(targetRayPose.transform);
+          if (inputSource.targetRayMode == 'tracked-pointer') {
+            // If we have a pointer matrix and the pointer origin is the users
+            // hand (as opposed to their head or the screen) use it to render
+            // a ray coming out of the input device to indicate the pointer
+            // direction.
+            scene.inputRenderer.addLaserPointer(targetRay);
           }
 
-          if (inputPose.targetRay) {
-            if (inputSource.targetRayMode == 'tracked-pointer') {
-              // If we have a pointer matrix and the pointer origin is the users
-              // hand (as opposed to their head or the screen) use it to render
-              // a ray coming out of the input device to indicate the pointer
-              // direction.
-              scene.inputRenderer.addLaserPointer(inputPose.targetRay);
+          // If we have a pointer matrix we can also use it to render a cursor
+          // for both handheld and gaze-based input sources.
+
+          // Statically render the cursor 2 meters down the ray since we're
+          // not calculating any intersections in this sample.
+          let cursorDistance = 2.0;
+          let cursorPos = vec3.fromValues(
+              targetRay.origin.x,
+              targetRay.origin.y,
+              targetRay.origin.z
+              );
+          vec3.add(cursorPos, cursorPos, [
+              targetRay.direction.x * cursorDistance,
+              targetRay.direction.y * cursorDistance,
+              targetRay.direction.z * cursorDistance,
+              ]);
+          // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay.transformMatrix);
+
+          scene.inputRenderer.addCursor(cursorPos);
+          
+          if (inputSource.gripSpace) {
+            let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
+            if (gripPose) {
+              // If we have a grip pose use it to render a mesh showing the
+              // position of the controller.
+              scene.inputRenderer.addController(gripPose.transform.matrix);
             }
-
-            // If we have a pointer matrix we can also use it to render a cursor
-            // for both handheld and gaze-based input sources.
-
-            // Statically render the cursor 2 meters down the ray since we're
-            // not calculating any intersections in this sample.
-            let cursorDistance = 2.0;
-            let cursorPos = vec3.fromValues(
-                inputPose.targetRay.origin.x,
-                inputPose.targetRay.origin.y,
-                inputPose.targetRay.origin.z
-                );
-            vec3.add(cursorPos, cursorPos, [
-                inputPose.targetRay.direction.x * cursorDistance,
-                inputPose.targetRay.direction.y * cursorDistance,
-                inputPose.targetRay.direction.z * cursorDistance,
-                ]);
-            // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay.transformMatrix);
-
-            scene.inputRenderer.addCursor(cursorPos);
           }
+          
         }
       }
 
@@ -248,7 +219,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Start the XR application.
       initXR();
-      })();
     </script>
   </body>
 </html>

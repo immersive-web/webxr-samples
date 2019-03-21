@@ -188,12 +188,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Clear the framebuffer
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-          let o = pose.transform.orientation;
-          console.log(o.x, o.y, o.z, o.w);
-
-          o = pose.views[0].transform.orientation;
-          console.log(o.x, o.y, o.z, o.w);
-
           // Loop through each of the views reported by the frame and draw them
           // into the corresponding viewport.
           for (let view of pose.views) {
@@ -208,8 +202,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // projection and view matricies from the current view and pose.
             // We bound the framebuffer and viewport up above, and are passing
             // in the appropriate matrices here to be used when rendering.
-            scene.draw(view.projectionMatrix, pose.transform);
-            //console.log(view.transform);
+            scene.draw(view.projectionMatrix, view.transform);
           }
         } else {
           // There's several options for handling cases where no pose is given.

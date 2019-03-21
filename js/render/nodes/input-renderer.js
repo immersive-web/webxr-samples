@@ -277,7 +277,7 @@ export class InputRenderer extends Node {
     }
     this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-    laser.matrix = targetRay.transformMatrix;
+    laser.matrix = targetRay.matrix;
     laser.visible = true;
   }
 

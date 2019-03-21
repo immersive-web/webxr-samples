@@ -26,23 +26,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
-
     <title>Framebuffer Scaling</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <script src='js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
-
-    <script src='js/cottontail/build/cottontail.js'></script>
 
     <script src='js/webxr-button.js'></script>
   </head>
@@ -69,17 +55,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <main style='text-align: center;'>
       <p>Click 'Enter XR' to see content</p> 
     </main>
-    <script>
-      (function () {
-      'use strict';
-
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
-      }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
+    <script type="module">
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {CubeSeaNode} from './js/render/nodes/cube-sea.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
 
       let scaleSelect = document.getElementById('framebufferScaleSelect');
       let scaleLabel = document.getElementById('framebufferScaleLabel');
@@ -124,13 +104,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx  }).then(onSessionStarted);
+        navigator.xr.requestSession({ mode: 'immersive-vr' }).then(onSessionStarted);
       }
 
       function onSessionStarted(session) {
@@ -152,6 +126,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
         }
 
+        let outputCanvas = document.createElement('canvas');
+        document.body.appendChild(outputCanvas);
+
         // This is the only meaningful change in this sample from xr-presentation.js.
         // It sets a requested scale to be applied to the framebuffer created
         // for the layer. The UA is allowed to ignore the request or adjust it
@@ -159,9 +136,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // layer is created, though the UA is allowed to resize the framebuffer
         // at any time.
         let scale = parseFloat(scaleSelect.value);
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {
-          framebufferScaleFactor: scale
-        })});
+        session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, gl, { framebufferScaleFactor: scale }),
+          outputContext: outputCanvas.getContext('xrpresent')
+        });
 
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           xrRefSpace = refSpace;
@@ -175,10 +153,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        document.body.removeChild(document.querySelector('#mirror-canvas'));
         xrButton.setSession(null);
 
         gl = null;
+
+        let outputContext = event.session.renderState.outputContext;
+        if (outputContext && outputContext.canvas.parentElement) {
+          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
+        }
       }
 
       function onXRFrame(t, frame) {
@@ -198,7 +180,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Start the XR application.
       initXR();
-      })();
     </script>
   </body>
 </html>

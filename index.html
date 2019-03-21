@@ -128,11 +128,7 @@
 
             { title: 'Magic Window', category: 'Basics',
               path: 'magic-window.html',
-              description: 'Demonstrates use of a non-exclusive XRSession to present "Magic Window" content.' },
-
-            { title: 'Fallback Rendering', category: 'Basics',
-              path: 'fallback-rendering.html',
-              description: 'Demonstrates a way to fallback to rendering the scene when WebXR isn\'t available..' },
+              description: 'Demonstrates use of an inline XRSession to present "Magic Window" content.' },
 
             { tag: 'hr' },
             { tag: 'br' },
@@ -217,16 +213,6 @@
 
             let links = document.createElement('div');
             links.classList.add('links');
-
-            let liveLink = document.createElement('a');
-            liveLink.href = page.path;
-            liveLink.innerHTML = 'Open';
-            links.appendChild(liveLink);
-
-            let polyfillLink = document.createElement('a');
-            polyfillLink.href = page.path + '?allowPolyfill=1';
-            polyfillLink.innerHTML = 'Open with Polyfill';
-            links.appendChild(polyfillLink);
 
             let sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/' + page.path;
