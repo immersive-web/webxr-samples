@@ -50,7 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Scene} from './js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
-      import {mat4} from './js/render/math/gl-matrix.js';
+      import {mat4, quat} from './js/render/math/gl-matrix.js';
 
       // XR globals.
       let xrButton = null;
@@ -70,8 +70,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let spectatorMode = false;
       let spectatorButton = null;
       let spectatorProjectionMatrix = mat4.create();
-      let spectatorViewMatrix = mat4.create();
+      let spectatorQuat = quat.create();
       let headset = null;
+
+      // Set up a view point in a corner of the garage scene near
+      // near the ceiling and looking down at the origin/user.
+      quat.rotateY(spectatorQuat, spectatorQuat, Math.PI * -0.25);
+      quat.rotateX(spectatorQuat, spectatorQuat, Math.PI * -0.15);
+      const spectatorTransform = new XRRigidTransform(
+        {x: -1.75, y: 2.0, z: 1.75},
+        {x: spectatorQuat[0], y: spectatorQuat[1], z: spectatorQuat[2], w: spectatorQuat[3]}
+      );
 
       let mainElement = document.querySelector('main');
 
@@ -244,16 +253,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
           // Set up a sensible projection matrix for the canvas
-          mat4.perspective(spectatorProjectionMatrix, Math.PI*0.4, gl.drawingBufferWidth / gl.drawingBufferHeight, session.depthNear, session.depthFar);
-
-          // Set up a view matrix that gives us a 3rd-person view of the scene.
-          // In this case it's positioned in a corner of the garage scene near
-          // near the ceiling and looking down at the user.
-          mat4.identity(spectatorViewMatrix);
-          mat4.translate(spectatorViewMatrix, spectatorViewMatrix, [-1.75, 2.0, 1.75]);
-          mat4.rotateY(spectatorViewMatrix, spectatorViewMatrix, Math.PI * -0.25);
-          mat4.rotateX(spectatorViewMatrix, spectatorViewMatrix, Math.PI * -0.15);
-          mat4.invert(spectatorViewMatrix, spectatorViewMatrix);
+          mat4.perspective(spectatorProjectionMatrix, Math.PI*0.4,
+                           gl.drawingBufferWidth / gl.drawingBufferHeight,
+                           session.renderState.depthNear,
+                           session.renderState.depthFar);
 
           // Update the headset's pose to match the user's and make it visible
           // for this draw.
@@ -261,11 +264,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             headset.visible = true;
             headset.matrix = pose.transform.matrix;
           }
-
-          let spectatorTransform = new XRRigidTransform(
-            {x: -1.75, y: 2.0, z: 1.75},
-            {x: 1.0, y: 0, z: 0, w: 1.0}
-          );
 
           // Draw the spectator view of the scene.
           scene.draw(spectatorProjectionMatrix, spectatorTransform);
