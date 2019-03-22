@@ -150,16 +150,6 @@
             let links = document.createElement('div');
             links.classList.add('links');
 
-            let liveLink = document.createElement('a');
-            liveLink.href = page.path;
-            liveLink.innerHTML = 'Open';
-            links.appendChild(liveLink);
-
-            let polyfillLink = document.createElement('a');
-            polyfillLink.href = page.path + '?allowPolyfill=1';
-            polyfillLink.innerHTML = 'Open with Polyfill';
-            links.appendChild(polyfillLink);
-
             let sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/tests/' + page.path;
             sourceLink.innerHTML = 'Source';
