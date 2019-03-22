@@ -29,13 +29,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <title>XR Presentation</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <!--script src='js/webxr-version-shim.js'></script-->
-
-    <script src='js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -53,6 +46,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p>Click 'Enter XR' to see content</p> 
     </main>
     <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
@@ -78,7 +72,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function initXR() {
         // Adds a helper button to the page that indicates if any XRDevices are
         // available and let's the user pick between them if there's multiple.
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });

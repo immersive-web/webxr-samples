@@ -19,8 +19,6 @@
 // is intentionally left out so that the sample pages can demonstrate them more
 // clearly.
 
-window.XRDeviceButton = (function () {
-
 //
 // State consts
 //
@@ -267,7 +265,7 @@ const generateCSS = (options, fontSize=18)=> {
 // Button class
 //
 
-class EnterXRButton {
+export class WebXRButton {
   /**
    * Construct a new Enter XR Button
    * @constructor
@@ -489,7 +487,3 @@ const ifChild = (el, cssPrefix, suffix, fn)=> {
   const c = el.querySelector('.' + cssPrefix + '-' + suffix);
   c && fn(c);
 };
-
-return EnterXRButton;
-
-})();

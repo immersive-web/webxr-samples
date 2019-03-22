@@ -29,8 +29,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <title>Framebuffer Scaling</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <script src='js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -56,6 +54,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p>Click 'Enter XR' to see content</p> 
     </main>
     <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {CubeSeaNode} from './js/render/nodes/cube-sea.js';
@@ -90,7 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.addNode(new CubeSeaNode());
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });

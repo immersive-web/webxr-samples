@@ -29,8 +29,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <title>Pointer Painter</title>
 
     <link href='../css/common.css' rel='stylesheet'></link>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -44,6 +42,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
       import {Scene} from '../js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
@@ -63,7 +62,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene._resetInputEndFrame = false;
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
@@ -175,9 +174,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             }
           }
 
-          let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
-          if (gripPose) {
-            scene.inputRenderer.addController(gripPose.transform.matrix);
+          if (inputSource.gripSpace) {
+            let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
+            if (gripPose) {
+              scene.inputRenderer.addController(gripPose.transform.matrix);
+            }
           }
         }
       }

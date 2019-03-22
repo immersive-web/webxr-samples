@@ -184,18 +184,21 @@
           let mainElement = document.getElementById("main");
 
           // Append an element for every item in the pages list.
+          let pageIndex = 0;
           for (var i = 0; i < pages.length; ++i) {
             var page = pages[i];
 
             if (page.tag) {
               mainElement.appendChild(document.createElement(page.tag));
               continue;
+            } else {
+              pageIndex++;
             }
 
             let article = document.createElement('article');
 
             let title = document.createElement('h3');
-            title.setAttribute('data-index', i + 1);
+            title.setAttribute('data-index', pageIndex);
 
             let titleLink = document.createElement('a');
             titleLink.href = page.path;

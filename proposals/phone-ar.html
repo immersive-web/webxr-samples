@@ -29,8 +29,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <title>Phone AR</title>
 
     <link href='../css/common.css' rel='stylesheet'></link>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -44,6 +42,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
       import {Scene} from '../js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
@@ -67,7 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.clear = false;
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession,
           textEnterXRTitle: "START AR",

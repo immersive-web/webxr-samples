@@ -31,8 +31,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link href='../css/common.css' rel='stylesheet'></link>
 
     <script src='../js/third-party/dat.gui.min.js'></script>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -46,10 +44,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
+      import {QueryArgs} from '../js/util/query-args.js';
       import {Scene} from '../js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
       import {CubeSeaNode} from '../js/render/nodes/cube-sea.js';
-      import {QueryArgs} from '../js/render/util/query-args.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
 
       // Helper methods for saving dat.gui-edited parameters in the URL hash.
       // Only non-default values are saved.
@@ -252,7 +252,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           buttonOptions.textXRNotFoundTitle = "AR NOT FOUND";
           buttonOptions.textExitXRTitle = "EXIT  AR";
         }
-        xrButton = new XRDeviceButton(buttonOptions);
+        xrButton = new WebXRButton(buttonOptions);
         document.querySelector('header').appendChild(xrButton.domElement);
 
         let xrMode = appSettings.arMode ? 'immersive-ar' : 'immersive-vr';
