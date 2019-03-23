@@ -52,10 +52,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
 
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      //var versionShim = new WebXRVersionShim();
-
       // XR globals.
       let xrButton = null;
       let xrRefSpace = null;
@@ -193,7 +189,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // isn't all that important. What is important is that it renders
             // into the XRWebGLLayer's framebuffer, using the viewport into that
             // framebuffer reported by the current view, and using the
-            // projection and view matricies from the current view and pose.
+            // projection matrix and view transform from the current view.
             // We bound the framebuffer and viewport up above, and are passing
             // in the appropriate matrices here to be used when rendering.
             scene.draw(view.projectionMatrix, view.transform);

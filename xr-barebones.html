@@ -76,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // Called when the user clicks the button to enter XR. If we don't have a
-      // session already we'll request one, and if we do we'll end it.
+      // session we'll request one, and if we do have a session we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
           navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
@@ -98,9 +98,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Create a WebGL context to render with, initialized to be compatible
         // with the XRDisplay we're presenting to.
         let canvas = document.createElement('canvas');
-        gl = canvas.getContext('webgl', {
-          xrCompatible: true
-        });
+        gl = canvas.getContext('webgl', { xrCompatible: true });
 
         // Use the new WebGL context to create a XRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
@@ -118,14 +116,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
       }
 
-      // Called when the user clicks the 'Exit XR' button. In response we end
-      // the session.
-      function onEndSession(session) {
-        session.end();
-      }
-
-      // Called either when the user has explicitly ended the session (like in
-      // onEndSession()) or when the UA has ended the session for any reason.
+      // Called either when the user has explicitly ended the session by calling
+      // session.end() or when the UA has ended the session for any reason.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
@@ -138,7 +130,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // Called every time the XRSession requests that a new frame be drawn.
-      function onXRFrame(t, frame) {
+      function onXRFrame(time, frame) {
         let session = frame.session;
 
         // Inform the session that we're ready for the next frame.
@@ -163,8 +155,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Update the clear color so that we can observe the color in the
           // headset changing over time.
-          let time = Date.now();
-          gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 1.0);
+          gl.clearColor(Math.cos(time / 2000),
+                        Math.cos(time / 4000),
+                        Math.cos(time / 6000), 1.0);
 
           // Clear the framebuffer
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -178,7 +171,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 
-            // Draw something.
+            // Draw a scene using view.projectionMatrix as the projection matrix
+            // and view.transform to position the virtual camera. If you need a
+            // view matrix, use view.transform.inverse.matrix.
           }*/
         }
       }

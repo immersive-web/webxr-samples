@@ -116,10 +116,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // head is always at the center of the rendered media. Otherwise users
         // with 6DoF hardware could walk towards the edges and see a very skewed
         // or outright broken view of the image. To prevent that, we request a
-        // 'head-model' frame of reference, which suppresses any positional
-        // information from the headset in favor of a head and neck model based
-        // solely on the device orientation. (As an added bonus this mode may
-        // be more power efficient on some hardware!)
+        // 'position-disabled' reference space, which suppresses any positional
+        // information from the headset. (As an added bonus this mode may be
+        // more power efficient on some hardware!)
         session.requestReferenceSpace({ type: 'stationary', subtype: 'position-disabled' }).then((refSpace) => {
           if (session.mode == "immersive-vr") {
             xrImmersiveRefSpace = refSpace;
