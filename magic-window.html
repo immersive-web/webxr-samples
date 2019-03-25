@@ -111,7 +111,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        let refSpaceOptions;
+
+        if (session.mode == "inline") {
+          refSpaceOptions = { type: 'identity' };
+        } else {
+          refSpaceOptions = { type: 'stationary', subtype: 'eye-level' };
+        }
+
+        session.requestReferenceSpace(refSpaceOptions).then((refSpace) => {
           // Since we're dealing with multple sessions now we need to track
           // which XRReferenceSpace is associated with which XRSession.
           if (session.mode == "immersive-vr") {

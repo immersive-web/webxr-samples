@@ -113,13 +113,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // Set the mirroring context to be the same size as one eye on the
-        // layer context.
-        let outputCanvas = document.querySelector('canvas');
-        let glLayer = session.renderState.baseLayer;
-        outputCanvas.width = glLayer.framebufferWidth / 2;
-        outputCanvas.height = glLayer.framebufferHeight;
-
         session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
           xrRefSpace = refSpace;
 
