@@ -60,10 +60,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       };
 
-      let app = new CustomWebXRSampleApp();
+      let app = new CustomWebXRSampleApp({
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
+      });
       document.querySelector('header').appendChild(app.xrButton.domElement);
 
-      app.scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
       app.scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
       app.scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
 

@@ -56,11 +56,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // WebXR sample app setup
       let app = new WebXRSampleApp({
-        referenceSpace: { type: 'stationary', subtype: 'floor-level' }
+        referenceSpace: { type: 'stationary', subtype: 'floor-level' },
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
       });
       document.querySelector('header').appendChild(app.xrButton.domElement);
 
-      app.scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
       app.scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
 
       let checkTexture = new UrlTexture('../media/textures/check-button.png');

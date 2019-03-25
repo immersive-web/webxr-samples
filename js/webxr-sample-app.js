@@ -24,6 +24,18 @@ import {Renderer, createWebGLContext} from './render/core/renderer.js';
 
 export class WebXRSampleApp {
   constructor(options) {
+    // Application options and defaults
+    if (!options) { options = {}; }
+
+    this.options = {
+      inline: 'inline' in options ? options.inline : true,
+      immersiveMode: options.immersiveMode || 'immersive-vr',
+      referenceSpace: options.referenceSpace || { type: 'stationary', subtype: 'eye-level' },
+      mirror: 'mirror' in options ? options.mirror : true,
+      defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true,
+      controllerMesh: options.controllerMesh
+    };
+
     this.gl = null;
     this.renderer = null;
     this.scene = new Scene();
@@ -38,9 +50,7 @@ export class WebXRSampleApp {
 
     this.frameCallback = (time, frame) => {
       let session = frame.session;
-      let refSpace = session.mode == 'inline' ?
-                        this.inlineRefSpace :
-                        this.immersiveRefSpace;
+      let refSpace = this.getSessionReferenceSpace(session);
 
       session.requestAnimationFrame(this.frameCallback);
       this.scene.startFrame();
@@ -49,14 +59,10 @@ export class WebXRSampleApp {
 
       this.scene.endFrame();
     };
+  }
 
-    // Application options and defaults
-    this.options = {
-      inline: options.inline || true,
-      immersiveMode: options.immersiveMode || 'immersive-vr',
-      referenceSpace: options.referenceSpace || { type: 'stationary', subtype: 'eye-level' },
-      mirror: options.mirror || true,
-    };
+  getSessionReferenceSpace(session) {
+    return session.mode == 'inline' ? this.inlineRefSpace : this.immersiveRefSpace;
   }
 
   run() {
@@ -93,6 +99,10 @@ export class WebXRSampleApp {
     if(this.gl) {
       this.renderer = new Renderer(this.gl);
       this.scene.setRenderer(this.renderer);
+
+      if (this.options.controllerMesh) {
+        this.scene.inputRenderer.setControllerMesh(this.options.controllerMesh);
+      }
     }
   }
 
@@ -112,6 +122,13 @@ export class WebXRSampleApp {
     session.addEventListener('end', (event) => {
       this.onSessionEnded(event.session);
     });
+
+    if (this.options.defaultInputHandling) {
+      session.addEventListener('select', (event) => {
+        let refSpace = this.getSessionReferenceSpace(event.frame.session);
+        this.scene.handleSelect(event.inputSource, event.frame, refSpace);
+      });
+    }
 
     this.onInitRenderer();
 
@@ -156,7 +173,9 @@ export class WebXRSampleApp {
   // Override to customize frame handling
   onXRFrame(time, frame, refSpace) {
     let pose = frame.getViewerPose(refSpace);
-    this.scene.updateInputSources(frame, refSpace);
+    if (this.options.defaultInputHandling) {
+      this.scene.updateInputSources(frame, refSpace);
+    }
     this.scene.drawXRFrame(frame, pose);
   }
 }

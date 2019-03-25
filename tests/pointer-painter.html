@@ -42,183 +42,94 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
+      import {WebXRSampleApp} from '../js/webxr-sample-app.js';
       import {WebXRButton} from '../js/util/webxr-button.js';
-      import {Scene} from '../js/render/scenes/scene.js';
-      import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
       import {vec3} from '../js/render/math/gl-matrix.js';
+      
+      // WebXR sample app setup
+      class CustomWebXRSampleApp extends WebXRSampleApp {
+        constructor(options) {
+          super(options);
+          this.selecting = false;
 
-      // XR globals.
-      let xrButton = null;
-      let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
+          this.scene._resetInputEndFrame = false;
+        }
 
-      // WebGL scene globals.
-      let gl = null;
-      let renderer = null;
-      let scene = new Scene();
-      scene.addNode(new Gltf2Node({url: '../media/gltf/garage/garage.gltf'}));
-      scene.enableStats(false);
-      scene._resetInputEndFrame = false;
+        onSessionStarted(session) {
+          super.onSessionStarted(session);
 
-      function initXR() {
-        xrButton = new WebXRButton({
-          onRequestSession: onRequestSession,
-          onEndSession: onEndSession
-        });
-        document.querySelector('header').appendChild(xrButton.domElement);
+          session.addEventListener('selectstart', () => { this.selecting = true; });
+          session.addEventListener('selectend', () => { this.selecting = false; });
+          session.addEventListener('select', (ev) => {
+            let refSpace = this.getSessionReferenceSpace(ev.frame.session);
+            let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
+            if (!targetRayPose) {
+              return;
+            }
 
-        if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
-            xrButton.enabled = true;
+            let targetRay = new XRRay(targetRayPose.transform);
+            this.scene.inputRenderer.addLaserPointer(targetRay);
+
+            let cursorDistance = 2.0;
+            let cursorPos = vec3.fromValues(
+                targetRay.origin.x,
+                targetRay.origin.y,
+                targetRay.origin.z
+                );
+            vec3.add(cursorPos, cursorPos, [
+                targetRay.direction.x * cursorDistance,
+                targetRay.direction.y * cursorDistance,
+                targetRay.direction.z * cursorDistance,
+                ]);
+            this.scene.inputRenderer.addCursor(cursorPos);
           });
-
-          navigator.xr.requestSession().then(onSessionStarted);
-        }
-      }
-
-      function initGL() {
-        if (gl)
-          return;
-
-        gl = createWebGLContext({
-          xrCompatible: true
-        });
-
-        renderer = new Renderer(gl);
-        scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
-      }
-
-      function onRequestSession() {
-        navigator.xr.requestSession({ mode: 'immersive-vr' }).then((session) => {
-          xrButton.setSession(session);
-          onSessionStarted(session);
-        });
-      }
-
-      function onSessionStarted(session) {
-        session.addEventListener('end', onSessionEnded);
-
-        session.addEventListener('selectstart', onSelectStart);
-        session.addEventListener('selectend', onSelectEnd);
-        session.addEventListener('select', onSelect);
-
-        initGL();
-
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
-
-        session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
-        });
-
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            xrNonImmersiveRefSpace = refSpace;
-          }
-
-          session.requestAnimationFrame(onXRFrame);
-        });
-      }
-
-      let selecting = false;
-
-      function onSelectStart(ev) {
-        selecting = true;
-      }
-
-      function onSelectEnd(ev) {
-        selecting = false;
-      }
-
-      function onSelect(ev) {
-        let session = ev.frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
-                         xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
-        let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
-        if (!targetRayPose) {
-          return;
         }
 
-        let targetRay = new XRRay(targetRayPose.transform);
-        scene.inputRenderer.addLaserPointer(targetRay);
+        onRendererInit() {
+          super.onRendererInit();
 
-        let cursorDistance = 2.0;
-        let cursorPos = vec3.fromValues(
-            targetRay.origin.x,
-            targetRay.origin.y,
-            targetRay.origin.z
-            );
-        vec3.add(cursorPos, cursorPos, [
-            targetRay.direction.x * cursorDistance,
-            targetRay.direction.y * cursorDistance,
-            targetRay.direction.z * cursorDistance,
-            ]);
-        scene.inputRenderer.addCursor(cursorPos);
-      }
+          this.scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
+        }
 
-      function updateInputSources(session, frame, refSpace) {
-        let inputSources = session.getInputSources();
+        onXRFrame(time, frame, refSpace) {
+          let inputSources = frame.session.getInputSources();
 
-        for (let inputSource of inputSources) {
-          if (selecting) {
-            let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
-            if (targetRayPose) {
-              let targetRay = new XRRay(targetRayPose.transform);
-              scene.inputRenderer.addLaserPointer(targetRay);
+          for (let inputSource of inputSources) {
+            if (this.selecting) {
+              let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+              if (targetRayPose) {
+                let targetRay = new XRRay(targetRayPose.transform);
+                this.scene.inputRenderer.addLaserPointer(targetRay);
+              }
+            }
+
+            if (inputSource.gripSpace) {
+              let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
+              if (gripPose) {
+                this.scene.inputRenderer.addController(gripPose.transform.matrix);
+              }
             }
           }
 
-          if (inputSource.gripSpace) {
-            let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
-            if (gripPose) {
-              scene.inputRenderer.addController(gripPose.transform.matrix);
-            }
-          }
+          super.onXRFrame(time, frame, refSpace);
+
+          this.scene.inputRenderer.reset({ controllers: true })
         }
-      }
+      };
 
-      function onEndSession(session) {
-        session.end();
-      }
+      let app = new CustomWebXRSampleApp({
+        referenceSpace: { type: 'stationary', subtype: 'floor-level' },
+        defaultInputHandling: false,
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
+      });
+      document.querySelector('header').appendChild(app.xrButton.domElement);
 
-      function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
-          xrButton.setSession(null);
-        }
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
-        }
-      }
-
-      function onXRFrame(t, frame) {
-        let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
-                         xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
-        let pose = frame.getViewerPose(refSpace);
-
-        scene.startFrame();
-
-        session.requestAnimationFrame(onXRFrame);
-
-        updateInputSources(session, frame, refSpace);
-
-        scene.drawXRFrame(frame, pose);
-
-        scene.endFrame();
-        scene.inputRenderer.reset({ controllers: true })
-      }
+      app.scene.addNode(new Gltf2Node({url: '../media/gltf/garage/garage.gltf'}));
+      app.scene.enableStats(false);
 
       // Start the XR application.
-      initXR();
+      app.run();
     </script>
   </body>
 </html>
