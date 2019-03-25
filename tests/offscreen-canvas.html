@@ -44,119 +44,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
-      import {WebXRButton} from '../js/util/webxr-button.js';
-      import {Scene} from '../js/render/scenes/scene.js';
-      import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
+      import {WebXRSampleApp} from '../js/webxr-sample-app.js';
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
       import {SkyboxNode} from '../js/render/nodes/skybox.js';
 
-      // XR globals.
-      let xrButton = null;
-      let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
-
-      // WebGL scene globals.
-      let gl = null;
-      let renderer = null;
-      let scene = new Scene();
-      scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
-      scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
-
-      function initXR() {
-        xrButton = new WebXRButton({
-          onRequestSession: onRequestSession,
-          onEndSession: onEndSession
-        });
-        document.querySelector('header').appendChild(xrButton.domElement);
-
-        if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
-            xrButton.enabled = true;
+      // WebXR sample app setup
+      class CustomWebXRSampleApp extends WebXRSampleApp {
+        onCreateGL() {
+          // This sample will create an offscreen canvas for WebGL rather than
+          // the usual canvas Dom element.
+          let offscreenCanvas = new OffscreenCanvas(16, 16);
+          return offscreenCanvas.getContext('webgl', {
+            xrCompatible: true
           });
-
-          navigator.xr.requestSession().then(onSessionStarted);
         }
-      }
+      };
 
-      function initGL() {
-        if (gl)
-          return;
+      let app = new CustomWebXRSampleApp();
+      document.querySelector('header').appendChild(app.xrButton.domElement);
 
-        let offscreenCanvas = new OffscreenCanvas(16, 16);
-        gl = offscreenCanvas.getContext('webgl', {
-          xrCompatible: true
-        });
-
-        renderer = new Renderer(gl);
-        scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
-      }
-
-      function onRequestSession() {
-        navigator.xr.requestSession({ mode: 'immersive-vr' }).then((session) => {
-          xrButton.setSession(session);
-          onSessionStarted(session);
-        });
-      }
-
-      function onSessionStarted(session) {
-        session.addEventListener('end', onSessionEnded);
-
-        initGL();
-
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
-
-        session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
-        });
-
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            xrNonImmersiveRefSpace = refSpace;
-          }
-          session.requestAnimationFrame(onXRFrame);
-        });
-      }
-
-      function onEndSession(session) {
-        session.end();
-      }
-
-      function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
-          xrButton.setSession(null);
-        }
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
-        }
-      }
-
-      function onXRFrame(t, frame) {
-        let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
-                         xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
-        let pose = frame.getViewerPose(refSpace);
-
-        scene.startFrame();
-
-        session.requestAnimationFrame(onXRFrame);
-
-        scene.updateInputSources(frame, refSpace);
-
-        scene.drawXRFrame(frame, pose);
-
-        scene.endFrame();
-      }
+      app.scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
+      app.scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
+      app.scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
 
       // Start the XR application.
-      initXR();
+      app.run();
     </script>
   </body>
 </html>

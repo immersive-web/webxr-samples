@@ -78,6 +78,24 @@ export class WebXRSampleApp {
     }
   }
 
+  onCreateGL() {
+    return createWebGLContext({
+      xrCompatible: true
+    });
+  }
+
+  onInitRenderer() {
+    if (this.gl)
+      return;
+
+    this.gl = this.onCreateGL();
+
+    if(this.gl) {
+      this.renderer = new Renderer(this.gl);
+      this.scene.setRenderer(this.renderer);
+    }
+  }
+
   onRequestSession() {
     // Called when the button gets clicked. Requests an immersive session.
     navigator.xr.requestSession({ mode: this.options.immersiveMode }).then((session) => {
@@ -95,7 +113,7 @@ export class WebXRSampleApp {
       this.onSessionEnded(event.session);
     });
 
-    this.onInitGL();
+    this.onInitRenderer();
 
     let renderState = { baseLayer: new XRWebGLLayer(session, this.gl) };
     if (session.mode == 'inline' || this.options.mirror) {
@@ -133,19 +151,6 @@ export class WebXRSampleApp {
     if (session == this.xrButton.session) {
       this.xrButton.setSession(null);
     }
-  }
-  
-  onInitGL() {
-    if (this.gl)
-      return;
-
-    this.gl = createWebGLContext({
-      xrCompatible: true
-    });
-
-    this.renderer = new Renderer(this.gl);
-
-    this.scene.setRenderer(this.renderer);
   }
 
   // Override to customize frame handling
