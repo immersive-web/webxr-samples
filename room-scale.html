@@ -111,13 +111,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        // Get a stage frame of reference, which will align the user's physical
-        // floor with Y=0 and can provide boundaries that indicate where the
-        // user can safely walk. If the system can't natively provide stage
-        // coordinates (for example, with a 3DoF device) then it will return an
-        // emulated stage, where the view is translated up by a static height so
-        // that the scene still renders in approximately the right place.
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
+        function onRefSpaceCreated(refSpace) {
           if (session.mode == "immersive-vr") {
             xrImmersiveRefSpace = refSpace;
           } else {
@@ -125,7 +119,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
 
           session.requestAnimationFrame(onXRFrame);
-        });
+        }
+
+        if (session.mode == 'inline') {
+          session.requestReferenceSpace({ type: 'identity' }).then((refSpace) => {
+            // If we're using an identity reference space we need to scoot the
+            // origin down a bit to put the camera at approximately the right
+            // level. (Here we're moving it 1.6 meters, which is *very* roughly
+            // the height of an "average" adult human.)
+            refSpace.originOffset = new XRRigidTransform({y: -1.6});
+            onRefSpaceCreated(refSpace);
+          });
+        } else {
+          // Attempt to get a 'bounded' reference space, which will align the
+          // user's physical floor with Y=0 and provide boundaries that indicate
+          // where the user can safely walk.
+          session.requestReferenceSpace({ type: 'bounded' }).then(onRefSpaceCreated)
+              .catch(() => {
+                // If a bounded reference space isn't supported, fall back to a
+                // stationary/floor-level reference space. This still provides a
+                // floor-relative space and will always be supported for
+                // immersive sessions. It will not, however, provide boundaries
+                // and generally expects the user to stand in one place.
+                // If the device doesn't have a way of determining the floor 
+                // level (for example, with a 3DoF device) then it will return
+                // an emulated floor-level space, where the view is translated
+                // up by a static height so that the scene still renders in
+                // approximately the right place.
+                console.log('Falling back to floor-level reference space');
+                session.requestReferenceSpace({type: 'stationary', subtype: 'floor-level' }).then(onRefSpaceCreated);
+              });
+        }
       }
 
       function onEndSession(session) {
