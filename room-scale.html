@@ -48,6 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {BoundsRenderer} from './js/render/nodes/bounds-renderer.js';
 
       // XR globals.
       let xrButton = null;
@@ -61,6 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.addNode(new Gltf2Node({url: 'media/gltf/camp/camp.gltf'}));
       scene.addNode(new SkyboxNode({url: 'media/textures/eilenriede-park-2k.png'}));
       scene.standingStats(true);
+
+      let boundsRenderer = null;
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -134,21 +137,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Attempt to get a 'bounded' reference space, which will align the
           // user's physical floor with Y=0 and provide boundaries that indicate
           // where the user can safely walk.
-          session.requestReferenceSpace({ type: 'bounded' }).then(onRefSpaceCreated)
-              .catch(() => {
-                // If a bounded reference space isn't supported, fall back to a
-                // stationary/floor-level reference space. This still provides a
-                // floor-relative space and will always be supported for
-                // immersive sessions. It will not, however, provide boundaries
-                // and generally expects the user to stand in one place.
-                // If the device doesn't have a way of determining the floor 
-                // level (for example, with a 3DoF device) then it will return
-                // an emulated floor-level space, where the view is translated
-                // up by a static height so that the scene still renders in
-                // approximately the right place.
-                console.log('Falling back to floor-level reference space');
-                session.requestReferenceSpace({type: 'stationary', subtype: 'floor-level' }).then(onRefSpaceCreated);
-              });
+          session.requestReferenceSpace({ type: 'bounded' }).then((refSpace) => {
+            if (!boundsRenderer) {
+              boundsRenderer = new BoundsRenderer(refSpace);
+              scene.addNode(boundsRenderer);
+            } else {
+              boundsRenderer.boundedRefSpace = refSpace;
+            }
+            onRefSpaceCreated(refSpace);
+          })
+          .catch(() => {
+            // If a bounded reference space isn't supported, fall back to a
+            // stationary/floor-level reference space. This still provides a
+            // floor-relative space and will always be supported for
+            // immersive sessions. It will not, however, provide boundaries
+            // and generally expects the user to stand in one place.
+            // If the device doesn't have a way of determining the floor 
+            // level (for example, with a 3DoF device) then it will return
+            // an emulated floor-level space, where the view is translated
+            // up by a static height so that the scene still renders in
+            // approximately the right place.
+            console.log('Falling back to floor-level reference space');
+            session.requestReferenceSpace({type: 'stationary', subtype: 'floor-level' }).then(onRefSpaceCreated);
+          });
         }
       }
 
