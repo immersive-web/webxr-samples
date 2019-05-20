@@ -95,14 +95,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-ar').then(() => {
+          navigator.xr.supportsSession('immersive-ar').then(() => {
             xrButton.enabled = true;
           });
         }
       }
 
       function onRequestSession() {
-        navigator.xr.requestSession({ mode: 'immersive-ar' })
+        navigator.xr.requestSession('immersive-ar')
             .then((session) => {
               xrButton.setSession(session);
               onSessionStarted(session);

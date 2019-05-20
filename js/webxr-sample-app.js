@@ -71,13 +71,13 @@ export class WebXRSampleApp {
 
   onInitXR() {
     if (navigator.xr) {
-      navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+      navigator.xr.supportsSession('immersive-vr').then(() => {
         this.xrButton.enabled = true;
       });
 
       // Request an inline session if needed.
       if (this.options.inline) {
-        navigator.xr.requestSession().then((session) => {
+        navigator.xr.requestSession('inline').then((session) => {
           this.onSessionStarted(session);
         });
       }
@@ -108,7 +108,7 @@ export class WebXRSampleApp {
 
   onRequestSession() {
     // Called when the button gets clicked. Requests an immersive session.
-    navigator.xr.requestSession({ mode: this.options.immersiveMode }).then((session) => {
+    navigator.xr.requestSession(this.options.immersiveMode).then((session) => {
       this.xrButton.setSession(session);
       this.onSessionStarted(session);
     });

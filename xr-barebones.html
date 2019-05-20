@@ -66,7 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
           // If the device allows creation of exclusive sessions set it as the
           // target of the 'Enter XR' button.
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
             // Updates the button to start an XR session when clicked.
             xrButton.addEventListener('click', onButtonClicked);
             xrButton.innerHTML = 'Enter XR';
@@ -79,7 +79,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // session we'll request one, and if we do have a session we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
-          navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
+          navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
         } else {
           xrSession.end();
         }

@@ -26,21 +26,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>Viewport Scaling</title>
+    <title>Inline Session</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Viewport Scaling</summary>
+        <summary>Inline Session</summary>
         <p>
-          This sample demonstrates scaling the viewports used for a WebXR layer
-          at runtime to dynamically adjust the fillrate required and improve
-          performance or quality as needed.
-
-          Viewport scaling should be used to make a performance/quality tradeoff
-          in response to realtime performance monitoring.
+          This sample demonstrates use of an 'inline' XRSession to present
+          content on the page prior to entering XR presentation with an
+          immersive session.
           <a class="back" href="./">Back</a>
         </p>
       </details>
@@ -49,8 +46,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
-      import {CubeSeaNode} from './js/render/nodes/cube-sea.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
 
       // XR globals.
       let xrButton = null;
@@ -61,31 +58,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      scene.addNode(new CubeSeaNode());
-
-      let resolutionMultiplier = 1.0;
-      let lastAdjustment = Date.now()-1000;
-
-      // Called in the render loop.
-      function adjustViewportScale(session) {
-        // Update the viewport scale every tenth of a second.
-        let t = Date.now();
-        if (t - lastAdjustment < 100)
-          return;
-        lastAdjustment = t;
-
-        // Modify the scale over time on a sin wave. In the real world this
-        // would probably be based on scene complexity.
-        // Oscillates between 1.0 to 0.5.
-        resolutionMultiplier = (Math.sin(t / 1000) * 0.25) + 0.75;
-
-        // This is the only new XRSession call in this sample. It sets a
-        // requested scale to be applied to the viewports reported for each
-        // XRView. The UA is allowed to ignore the request or adjust it as
-        // needed. If the scaling request is honored it will take effect on the
-        // *next* frame, not the current one.
-        session.renderState.baseLayer.requestViewportScaling(resolutionMultiplier);
-      }
+      let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
+      scene.addNode(solarSystem);
+      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -95,33 +70,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
             xrButton.enabled = true;
           });
 
-          navigator.xr.requestSession().then(onSessionStarted);
+          // Start up an inline session, which should always be supported on
+          // browsers that support WebXR regardless of the available hardware.
+          navigator.xr.requestSession('inline').then(onSessionStarted);
         }
       }
 
-      function initGL() {
-        if (gl)
-          return;
-
-        gl = createWebGLContext({
-          xrCompatible: true
-        });
-
-        gl.clearColor(0.1, 0.2, 0.3, 1.0);
-
-        renderer = new Renderer(gl);
-
-        scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
-      }
-
       function onRequestSession() {
-        navigator.xr.requestSession({ mode: 'immersive-vr' }).then((session) => {
+        navigator.xr.requestSession('immersive-vr').then((session) => {
           xrButton.setSession(session);
+          // Set a flag on the session so we can differentiate it from the
+          // inline session.
+          session.isImmersive = true;
           onSessionStarted(session);
         });
       }
@@ -129,8 +93,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
-        initGL();
+        if (!gl) {
+          gl = createWebGLContext({
+            xrCompatible: true
+          });
 
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        // In order for a non-immersive session to be used we must provide
+        // an outputContext, which indicates the canvas that will contain
+        // results of the session's rendering.
         let outputCanvas = document.createElement('canvas');
         document.body.appendChild(outputCanvas);
 
@@ -139,8 +114,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+        let refSpaceOptions;
+
+        if (session.isImmersive) {
+          refSpaceOptions = { type: 'stationary', subtype: 'eye-level' };
+        } else {
+          refSpaceOptions = { type: 'identity' };
+        }
+
+        session.requestReferenceSpace(refSpaceOptions).then((refSpace) => {
+          // Since we're dealing with multiple sessions now we need to track
+          // which XRReferenceSpace is associated with which XRSession.
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -154,33 +139,43 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
+        // Only reset the button when the immersive session ends.
+        if (event.session.isImmersive) {
           xrButton.setSession(null);
         }
-
+        
+        // Remove any output canvas associated with the session from the document. 
         let outputContext = event.session.renderState.outputContext;
         if (outputContext && outputContext.canvas.parentElement) {
           outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 
+      // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        // Ensure that we're using the right frame of reference for the session.
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
 
-        // Adjust the viewports if needed.
-        adjustViewportScale(session);
-
         session.requestAnimationFrame(onXRFrame);
 
-        scene.updateInputSources(frame, refSpace);
+        if (pose) {
+          let glLayer = session.renderState.baseLayer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
-        scene.drawXRFrame(frame, pose);
+          for (let view of pose.views) {
+            let viewport = glLayer.getViewport(view);
+            gl.viewport(viewport.x, viewport.y,
+                        viewport.width, viewport.height);
+
+            scene.draw(view.projectionMatrix, view.transform);
+          }
+        }
 
         scene.endFrame();
       }

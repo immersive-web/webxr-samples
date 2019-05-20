@@ -78,7 +78,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
           // Checks to ensure that environment integration (AR) is available,
           // and only enables the button if so.
-          navigator.xr.supportsSessionMode('immersive-ar').then(() => {
+          navigator.xr.supportsSession('immersive-ar').then(() => {
             xrButton.enabled = true;
           });
         }
@@ -93,7 +93,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // activation event so that appropriate permissions can be granted.
         // This will likely prompt the user to allow camera use, so the promise
         // may remain outstanding for a while.
-        navigator.xr.requestSession({ mode: 'immersive-ar' })
+        navigator.xr.requestSession('immersive-ar')
             .then((session) => {
               xrButton.setSession(session);
               onSessionStarted(session);

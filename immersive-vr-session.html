@@ -26,18 +26,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
 
-    <title>XR Presentation</title>
+    <title>Immersive VR Session</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
   </head>
   <body>
     <header>
       <details open>
-        <summary>XR Presentation</summary>
+        <summary>Immersive VR Session</summary>
         <p>
-          This sample demonstrates how to present a simple WebGL scene to a
-          XRDevice. The scene is not rendered to the page prior to XR
-          presentation, nor is it mirrored during presentation.
+          This sample demonstrates how to use an 'immersive-vr' XRSession to
+          present a simple WebGL scene to an XR device. The scene is not
+          rendered to the page.
           <a class="back" href="./">Back</a>
         </p>
       </details>
@@ -78,7 +78,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
           // If the device allows creation of exclusive sessions set it as the
           // target of the 'Enter XR' button.
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
             xrButton.enabled = true;
           });
         }
@@ -87,7 +87,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession() {
-        navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
+        navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a XRSession. In response we
