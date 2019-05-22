@@ -57,7 +57,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       };
 
       let app = new CustomWebXRSampleApp({
-        referenceSpace: { type: 'stationary', subtype: 'floor-level' },
+        referenceSpace: 'local-floor',
         controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
       });
       document.querySelector('header').appendChild(app.xrButton.domElement);

@@ -118,7 +118,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
+        session.requestReferenceSpace('local-floor').then((refSpace) => {
           if (session.mode == "immersive-vr") {
             xrImmersiveRefSpace = refSpace;
           } else {

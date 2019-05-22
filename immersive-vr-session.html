@@ -120,9 +120,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
         // Get a frame of reference, which is required for querying poses. In
-        // this case an 'eye-level' frame of reference means that all poses will
+        // this case an 'local' frame of reference means that all poses will
         // be relative to the location where the XRDevice was first detected.
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
 
           // Inform the session that we're ready to begin drawing.

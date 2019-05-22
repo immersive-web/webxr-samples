@@ -30,7 +30,7 @@ export class WebXRSampleApp {
     this.options = {
       inline: 'inline' in options ? options.inline : true,
       immersiveMode: options.immersiveMode || 'immersive-vr',
-      referenceSpace: options.referenceSpace || { type: 'stationary', subtype: 'eye-level' },
+      referenceSpace: options.referenceSpace || 'local',
       mirror: 'mirror' in options ? options.mirror : true,
       defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true,
       controllerMesh: options.controllerMesh
@@ -62,7 +62,7 @@ export class WebXRSampleApp {
   }
 
   getSessionReferenceSpace(session) {
-    return session.mode == 'inline' ? this.inlineRefSpace : this.immersiveRefSpace;
+    return session.isImmersive ? this.immersiveRefSpace : this.inlineRefSpace;
   }
 
   run() {
@@ -110,6 +110,7 @@ export class WebXRSampleApp {
     // Called when the button gets clicked. Requests an immersive session.
     navigator.xr.requestSession(this.options.immersiveMode).then((session) => {
       this.xrButton.setSession(session);
+      session.isImmersive = true;
       this.onSessionStarted(session);
     });
   }
@@ -133,7 +134,7 @@ export class WebXRSampleApp {
     this.onInitRenderer();
 
     let renderState = { baseLayer: new XRWebGLLayer(session, this.gl) };
-    if (session.mode == 'inline' || this.options.mirror) {
+    if (!session.isImmersive || this.options.mirror) {
       let outputCanvas = document.createElement('canvas');
       document.body.appendChild(outputCanvas);
       renderState.outputContext = outputCanvas.getContext('xrpresent');
@@ -142,7 +143,7 @@ export class WebXRSampleApp {
     session.updateRenderState(renderState);
 
     this.onRequestReferenceSpace(session).then((refSpace) => {
-      if (session.mode == "immersive-vr") {
+      if (session.isImmersive) {
         this.immersiveRefSpace = refSpace;
       } else {
         this.inlineRefSpace = refSpace;

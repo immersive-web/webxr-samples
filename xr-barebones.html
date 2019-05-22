@@ -105,10 +105,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // be displayed on the XRDevice.
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // Get a frame of reference, which is required for querying poses. In
-        // this case an 'eye-level' frame of reference means that all poses will
-        // be relative to the location where the XRDevice was first detected.
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        // Get a reference space, which is required for querying poses. In this
+        // case an 'local' reference space means that all poses will be relative
+        // to the location where the XRDevice was first detected.
+        session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
 
           // Inform the session that we're ready to begin drawing.
@@ -136,7 +136,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
 
-        // Get the XRDevice pose relative to the Frame of Reference we created
+        // Get the XRDevice pose relative to the reference space we created
         // earlier.
         let pose = frame.getViewerPose(xrRefSpace);
 
@@ -144,7 +144,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // have to check to make sure that we got a valid pose before attempting
         // to render with it. If not in this case we'll just leave the
         // framebuffer cleared, so tracking loss means the scene will simply
-        // dissapear.
+        // disappear.
         if (pose) {
           let glLayer = session.renderState.baseLayer;
 

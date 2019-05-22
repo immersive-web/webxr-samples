@@ -114,15 +114,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        let refSpaceOptions;
-
-        if (session.isImmersive) {
-          refSpaceOptions = { type: 'stationary', subtype: 'eye-level' };
-        } else {
-          refSpaceOptions = { type: 'identity' };
-        }
-
-        session.requestReferenceSpace(refSpaceOptions).then((refSpace) => {
+        let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           // Since we're dealing with multiple sessions now we need to track
           // which XRReferenceSpace is associated with which XRSession.
           if (session.isImmersive) {

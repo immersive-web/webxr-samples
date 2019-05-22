@@ -168,11 +168,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           outputContext: outputCanvas.getContext('xrpresent')
         });
 
-        // In this case we're going to use an eye-level frame of reference
+        // In this case we're going to use an 'local' frame of reference
         // because we want to users head to appear in the right place relative
         // to the center chair, as if they're sitting in it, rather than
         // somewhere in the room relative to the floor.
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        session.requestReferenceSpace('local').then((refSpace) => {
           if (session.mode == "immersive-vr") {
             xrImmersiveRefSpace = refSpace;
           } else {
