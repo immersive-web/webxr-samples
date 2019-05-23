@@ -372,22 +372,24 @@ class WebXRVersionShim {
       const NATIVE_GET_CONTEXT = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function(type, options) {
         if (type == 'webgl' || type == 'webgl2') {
-          if (options.xrCompatible) {
+          if (options && options.xrCompatible) {
             options.compatibleXRDevice = shim._defaultDevice;
           }
         }
         return NATIVE_GET_CONTEXT.call(this, type, options);
       };
 
-      const NATIVE_OFFSCREEN_GET_CONTEXT = OffscreenCanvas.prototype.getContext;
-      OffscreenCanvas.prototype.getContext = function(type, options) {
-        if (type == 'webgl' || type == 'webgl2') {
-          if (options.xrCompatible) {
-            options.compatibleXRDevice = shim._defaultDevice;
+      if ('OffscreenCanvas' in window) {
+        const NATIVE_OFFSCREEN_GET_CONTEXT = OffscreenCanvas.prototype.getContext;
+        OffscreenCanvas.prototype.getContext = function(type, options) {
+          if (type == 'webgl' || type == 'webgl2') {
+            if (options && options.xrCompatible) {
+              options.compatibleXRDevice = shim._defaultDevice;
+            }
           }
-        }
-        return NATIVE_OFFSCREEN_GET_CONTEXT.call(this, type, options);
-      };
+          return NATIVE_OFFSCREEN_GET_CONTEXT.call(this, type, options);
+        };
+      }
     }
 
     //===========================
