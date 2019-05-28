@@ -106,12 +106,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // In order for a non-immersive session to be used we must provide
         // an outputContext, which indicates the canvas that will contain
         // results of the session's rendering.
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
+        if (!session.isImmersive) {
+          document.body.appendChild(gl.canvas);
+
+          // The canvas is synced with the window size via CSS, but we still
+          // need to update the width and height atttributes in order to keep
+          // the default framebuffer resolution in-sync.
+          function onResize() {
+            gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+            gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+          }
+          window.addEventListener('resize', onResize);
+          onResize();
+        }
+
+        let webglLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive
+        });
 
         session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
+          baseLayer: webglLayer
         });
 
         let refSpaceType = session.isImmersive ? 'local' : 'viewer';
