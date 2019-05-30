@@ -96,6 +96,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = createWebGLContext({
           xrCompatible: true
         });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventHandler('resize', onResize);
+        onResize();
 
         renderer = new Renderer(gl);
 
@@ -107,13 +115,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
-
-        session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
+        let glLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive
         });
+        session.updateRenderState({ baseLayer: glLayer });
 
         function onRefSpaceCreated(refSpace) {
           if (session.isImmersive) {
@@ -170,11 +175,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         if (event.session.isImmersive) {
           xrButton.setSession(null);
-        }
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 

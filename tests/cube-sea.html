@@ -151,9 +151,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Use an inline canvas for "magic window" mode?
         magicWindow: getBoolParam('magicWindow', true),
 
-        // Use a mirror canvas during immersive mode?
-        mirrorCanvas: getBoolParam('mirrorCanvas', true),
-
         // Don't produce frames at all. Simulates a broken app.
         noFrames: getBoolParam('noFrames', false),
 
@@ -200,8 +197,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           getParamSaver('arMode', () => { window.location.reload(false); }));
       folderRender.add(appSettings, 'magicWindow').onFinishChange(
           getParamSaver('magicWindow', () => { window.location.reload(false); }));
-      folderRender.add(appSettings, 'mirrorCanvas').onFinishChange(
-          getParamSaver('mirrorCanvas'));
       folderRender.open();
 
       var folderTest = gui.addFolder('Regression testing');
@@ -263,13 +258,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Set up "magic window" mode.
           if (appSettings.magicWindow) {
-            navigator.xr.requestSession('inline')
-                .then((session) => {
-                  let outputCanvas = document.createElement('canvas');
-                  document.body.appendChild(outputCanvas);
-                  session.updateRenderState({ outputContext: outputCanvas.getContext('xrpresent') });
-                  onSessionStarted(session);
-                });
+            navigator.xr.requestSession('inline').then(onSessionStarted);
           }
         }
       }
@@ -281,6 +270,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = createWebGLContext({
           xrCompatible: true
         });
+        if (appSettings.magicWindow) {
+          document.body.appendChild(gl.canvas);
+
+          function onResize() {
+            gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+            gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+          }
+          window.addEventHandler('resize', onResize);
+          onResize();
+        }
 
         // Set up a non-black clear color so that we can see if something renders wrong.
         gl.clearColor(0.1, 0.2, 0.3, 1.0);
@@ -294,14 +293,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let xrOptions = { mode: appSettings.arMode ? 'immersive-ar' : 'immersive-vr' };
         navigator.xr.requestSession(xrOptions).then((session) => {
           xrButton.setSession(session);
-
-          if (appSettings.mirrorCanvas) {
-            let outputCanvas = document.createElement('canvas');
-            outputCanvas.setAttribute('id', 'mirror-canvas');
-            document.body.appendChild(outputCanvas);
-            session.updateRenderState({ outputContext: outputCanvas.getContext('xrpresent') });
-          }
-
+          session.isImmersive = true;
           onSessionStarted(session);
         });
       }
@@ -311,12 +303,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {
+        let glLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive,
           framebufferScaleFactor: appSettings.framebufferScale,
-          antialias: appSettings.antialias}) });
+          antialias: appSettings.antialias
+        });
+        session.updateRenderState({ baseLayer: glLayer });
 
         session.requestReferenceSpace('local').then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -331,10 +326,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onSessionEnded(event) {
         xrButton.setSession(null);
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
-        }
       }
 
       let frameNum = 0;
@@ -342,7 +333,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);

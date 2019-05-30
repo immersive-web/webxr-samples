@@ -125,9 +125,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
         }
 
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
-
         // This is the only meaningful change in this sample from xr-presentation.js.
         // It sets a requested scale to be applied to the framebuffer created
         // for the layer. The UA is allowed to ignore the request or adjust it
@@ -136,8 +133,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // at any time.
         let scale = parseFloat(scaleSelect.value);
         session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl, { framebufferScaleFactor: scale }),
-          outputContext: outputCanvas.getContext('xrpresent')
+          baseLayer: new XRWebGLLayer(session, gl, { framebufferScaleFactor: scale })
         });
 
         session.requestReferenceSpace('local').then((refSpace) => {
@@ -155,11 +151,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
 
         gl = null;
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
-        }
       }
 
       function onXRFrame(t, frame) {

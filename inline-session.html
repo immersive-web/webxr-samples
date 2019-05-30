@@ -98,34 +98,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             xrCompatible: true
           });
 
-          renderer = new Renderer(gl);
-
-          scene.setRenderer(renderer);
-        }
-
-        // In order for a non-immersive session to be used we must provide
-        // an outputContext, which indicates the canvas that will contain
-        // results of the session's rendering.
-        if (!session.isImmersive) {
+          // In order for an inline session to be used we must attach the WebGL
+          // canvas to the document, which will serve as the output surface for
+          // the results of the inline session's rendering.
           document.body.appendChild(gl.canvas);
-
+          
           // The canvas is synced with the window size via CSS, but we still
-          // need to update the width and height atttributes in order to keep
+          // need to update the width and height attributes in order to keep
           // the default framebuffer resolution in-sync.
           function onResize() {
             gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
             gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
           }
-          window.addEventListener('resize', onResize);
+          window.addEventHandler('resize', onResize);
           onResize();
-        }
 
-        let webglLayer = new XRWebGLLayer(session, gl, {
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+        
+        // WebGL layers for inline sessions must set the compositionDisabled
+        // option to true, which stops it from allocating it's own framebuffer
+        // and causes gl commands to naturally execute against the default
+        // framebuffer, while still using the canvas dimensions to compute
+        // viewports and projection matrices.
+        let glLayer = new XRWebGLLayer(session, gl, {
           compositionDisabled: !session.isImmersive
         });
 
         session.updateRenderState({
-          baseLayer: webglLayer
+          baseLayer: glLayer
         });
 
         let refSpaceType = session.isImmersive ? 'local' : 'viewer';
@@ -149,12 +152,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Only reset the button when the immersive session ends.
         if (event.session.isImmersive) {
           xrButton.setSession(null);
-        }
-        
-        // Remove any output canvas associated with the session from the document. 
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 

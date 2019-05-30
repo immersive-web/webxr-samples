@@ -97,6 +97,7 @@ export class WebXRSampleApp {
     this.gl = this.onCreateGL();
 
     if(this.gl) {
+      document.body.append(this.gl.canvas);
       this.renderer = new Renderer(this.gl);
       this.scene.setRenderer(this.renderer);
 
@@ -133,14 +134,11 @@ export class WebXRSampleApp {
 
     this.onInitRenderer();
 
-    let renderState = { baseLayer: new XRWebGLLayer(session, this.gl) };
-    if (!session.isImmersive || this.options.mirror) {
-      let outputCanvas = document.createElement('canvas');
-      document.body.appendChild(outputCanvas);
-      renderState.outputContext = outputCanvas.getContext('xrpresent');
-    }
-
-    session.updateRenderState(renderState);
+    session.updateRenderState({ 
+      baseLayer: new XRWebGLLayer(session, this.gl, {
+        compositionDisabled: !session.isImmersive
+      })
+    });
 
     this.onRequestReferenceSpace(session).then((refSpace) => {
       if (session.isImmersive) {
@@ -160,12 +158,6 @@ export class WebXRSampleApp {
   }
 
   onSessionEnded(session) {
-    // Remove any output canvas that was associated with the session
-    let outputContext = session.renderState.outputContext;
-    if (outputContext && outputContext.canvas.parentElement) {
-      outputContext.canvas.parentElement.removeChild(outputContext.canvas);
-    }
-
     if (session == this.xrButton.session) {
       this.xrButton.setSession(null);
     }

@@ -136,6 +136,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = createWebGLContext({
           xrCompatible: true
         });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventHandler('resize', onResize);
+        onResize();
 
         renderer = new Renderer(gl);
         scene.setRenderer(renderer);
@@ -145,6 +153,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onRequestSession() {
         navigator.xr.requestSession('immersive-vr').then((session) => {
           xrButton.setSession(session);
+          session.isImmersive = true;
           onSessionStarted(session);
         });
       }
@@ -152,7 +161,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
         session.addEventListener('select', (ev) => {
-          let refSpace = ev.frame.session.mode == "immersive-vr" ?
+          let refSpace = ev.frame.session.isImmersive ?
                            xrImmersiveRefSpace :
                            xrNonImmersiveRefSpace;
           scene.handleSelect(ev.inputSource, ev.frame, refSpace);
@@ -160,20 +169,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
-
-        session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
+        let glLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive
         });
+        session.updateRenderState({ baseLayer: glLayer });
 
         // In this case we're going to use an 'local' frame of reference
         // because we want to users head to appear in the right place relative
         // to the center chair, as if they're sitting in it, rather than
         // somewhere in the room relative to the floor.
         session.requestReferenceSpace('local').then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -188,19 +194,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
+        if (event.session.isImmersive) {
           xrButton.setSession(null);
-        }
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);

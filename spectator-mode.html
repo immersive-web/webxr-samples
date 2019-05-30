@@ -57,7 +57,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrNonImmersiveRefSpace = null;
 
       // WebGL scene globals.
-      let outputCanvas = null;
       let gl = null;
       let renderer = null;
       let scene = new Scene();
@@ -95,15 +94,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             xrButton.enabled = true;
           });
 
-          navigator.xr.requestSession('inline')
-              .then((session) => {
-                outputCanvas = document.createElement('canvas');
-                document.body.appendChild(outputCanvas);
-                
-                session.updateRenderState({ outputContext: outputCanvas.getContext('xrpresent') });
-
-                onSessionStarted(session);
-              });
+          navigator.xr.requestSession('inline').then(onSessionStarted);
         }
       }
 
@@ -114,19 +105,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = createWebGLContext({
           xrCompatible: true
         });
+        document.body.appendChild(gl.canvas);
+
+        window.addEventListener('resize', onResize);
 
         renderer = new Renderer(gl);
         scene.setRenderer(renderer);
         scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
-
-        // Because we may be rendering to the gl context's backbuffer now we
-        // need to start monitoring resize events to manage it's size.
-        window.addEventListener('resize', onResize);
       }
 
       function onRequestSession() {
         navigator.xr.requestSession('immersive-vr').then((session) => {
           xrButton.setSession(session);
+          session.isImmersive = true;
           onSessionStarted(session);
 
           // When the exclusive session starts, add a button to the page that
@@ -142,7 +133,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Hide the non-exclusive session's output canvas so that we can see
           // the button.
-          outputCanvas.style.display = 'none';
+          gl.canvas.style.display = 'none';
         });
       }
 
@@ -151,10 +142,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        let glLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive
+        });
+        session.updateRenderState({ baseLayer: glLayer });
 
         session.requestReferenceSpace('local-floor').then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -169,14 +163,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
+        if (event.session.isImmersive) {
           xrButton.setSession(null);
 
-          // When we exit the exclusive session, stop presenting the spectator
-          // view and remove the WebGL canvas from the document.
+          // When we exit the inline session stop presenting the spectator view.
           if (spectatorMode) {
             spectatorMode = false;
-            document.body.removeChild(gl.canvas);
           }
 
           // Remove the spectator button if needed.
@@ -185,8 +177,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             spectatorButton = null;
           }
 
-          // Show the non-exclusive session's output canvas again.
-          outputCanvas.style.display = '';
+          // Show the WebGL canvas again if it was hidden.
+          gl.canvas.style.display = '';
         }
       }
 
@@ -194,9 +186,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onEnableSpectatorMode() {
         spectatorMode = true;
 
-        // Append the WebGL context's canvas to the page so that we can render
-        // directly to it.
-        document.body.appendChild(gl.canvas);
         onResize();
 
         // Remove the spectator button, since it's no longer needed. You could
@@ -214,18 +203,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onResize () {
+        let scaleFactor =  window.devicePixelRatio;
         if (spectatorMode) {
           // The spectator view does take time to render, and can impact the
           // performance of the in-headset view. To help mitigate that, we'll
           // draw the spectator view at half the native resolution.
-          gl.canvas.width = (gl.canvas.offsetWidth * window.devicePixelRatio) / 2.0;
-          gl.canvas.height = (gl.canvas.offsetHeight * window.devicePixelRatio) / 2.0;
+          scaleFactor /= 2.0;
         }
+        gl.canvas.width = (gl.canvas.offsetWidth * scaleFactor);
+        gl.canvas.height = (gl.canvas.offsetHeight * scaleFactor);
       }
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);

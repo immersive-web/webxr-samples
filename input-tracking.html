@@ -87,6 +87,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrCompatible: true
         });
 
+        // Note: If you don't want dragging on the canvas to do things like
+        // scroll or pull-to-refresh, you'll want to set touch-action: none;
+        // on the canvas' CSS style, which this page does in common.css
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventHandler('resize', onResize);
+        onResize();
+
         renderer = new Renderer(gl);
 
         scene.setRenderer(renderer);
@@ -98,6 +110,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onRequestSession() {
         navigator.xr.requestSession('immersive-vr').then((session) => {
           xrButton.setSession(session);
+          session.isImmersive = true;
           onSessionStarted(session);
         });
       }
@@ -106,20 +119,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('end', onSessionEnded);
 
         initGL();
-        
-        // Note: If you don't want dragging on the canvas to do things like
-        // scroll or pull-to-refresh, you'll want to set touch-action: none;
-        // on the canvas' CSS style, which this page does in common.css
-        let outputCanvas = document.createElement('canvas');
-        document.body.appendChild(outputCanvas);
 
-        session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, gl),
-          outputContext: outputCanvas.getContext('xrpresent')
+        let glLayer = new XRWebGLLayer(session, gl, {
+          compositionDisabled: !session.isImmersive
         });
+        session.updateRenderState({ baseLayer: glLayer });
 
         session.requestReferenceSpace('local-floor').then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
             xrNonImmersiveRefSpace = refSpace;
@@ -134,13 +141,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
+        if (event.session.isImmersive) {
           xrButton.setSession(null);
-        }
-
-        let outputContext = event.session.renderState.outputContext;
-        if (outputContext && outputContext.canvas.parentElement) {
-          outputContext.canvas.parentElement.removeChild(outputContext.canvas);
         }
       }
 
@@ -200,7 +202,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onXRFrame(t, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
                          xrNonImmersiveRefSpace;
         let pose = frame.getViewerPose(refSpace);
