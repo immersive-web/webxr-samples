@@ -52,6 +52,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
       import {DropShadowNode} from '../js/render/nodes/drop-shadow.js';
       import {vec3} from '../js/render/math/gl-matrix.js';
+      import {Ray} from '../js/render/math/ray.js';
+
 
       let useReticle = document.getElementById('useReticle');
 
@@ -174,7 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
           }
 
-          let targetRay = new XRRay(targetRayPose.transform);
+          let targetRay = new Ray(targetRayPose.transform);
           vec3.set(rayOrigin,
               targetRay.origin.x,
               targetRay.origin.y,

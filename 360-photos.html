@@ -92,7 +92,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
           gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
         }
-        window.addEventHandler('resize', onResize);
+        window.addEventListener('resize', onResize);
         onResize();
 
         renderer = new Renderer(gl);
@@ -125,7 +125,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // 'position-disabled' reference space, which suppresses any positional
         // information from the headset. (As an added bonus this mode may be
         // more power efficient on some hardware!)
-        session.requestReferenceSpace('local').then((refSpace) => {
+        let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {

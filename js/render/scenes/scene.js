@@ -23,6 +23,7 @@ import {InputRenderer} from '../nodes/input-renderer.js';
 import {StatsViewer} from '../nodes/stats-viewer.js';
 import {Node} from '../core/node.js';
 import {vec3, quat} from '../math/gl-matrix.js';
+import {Ray} from '../math/ray.js';
 
 export class WebXRView extends RenderView {
   constructor(view, layer) {
@@ -80,39 +81,30 @@ export class Scene extends Node {
   // Helper function that automatically adds the appropriate visual elements for
   // all input sources.
   updateInputSources(frame, refSpace) {
-    // FIXME: Check for the existence of the API first. This check should be
-    // removed once the input API is part of the official spec.
-    if (!frame.session.getInputSources) {
-      return;
-    }
-
-    let inputSources = frame.session.getInputSources();
-
     let newHoveredNodes = [];
     let lastHoverFrame = this._hoverFrame;
     this._hoverFrame++;
 
-    for (let inputSource of inputSources) {
+    for (let inputSource of frame.session.inputSources) {
       let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
 
       if (!targetRayPose) {
         continue;
       }
 
-      let targetRay = new XRRay(targetRayPose.transform);
       if (inputSource.targetRayMode == 'tracked-pointer') {
         // If we have a pointer matrix and the pointer origin is the users
         // hand (as opposed to their head or the screen) use it to render
         // a ray coming out of the input device to indicate the pointer
         // direction.
-        this.inputRenderer.addLaserPointer(targetRay);
+        this.inputRenderer.addLaserPointer(targetRayPose.transform);
       }
 
       // If we have a pointer matrix we can also use it to render a cursor
       // for both handheld and gaze-based input sources.
 
       // Check and see if the pointer is pointing at any selectable objects.
-      let hitResult = this.hitTest(targetRay);
+      let hitResult = this.hitTest(targetRayPose.transform);
 
       if (hitResult) {
         // Render a cursor at the intersection point.
@@ -126,6 +118,7 @@ export class Scene extends Node {
       } else {
         // Statically render the cursor 1 meters down the ray since we didn't
         // hit anything selectable.
+        let targetRay = new Ray(targetRayPose.transform);
         let cursorDistance = 1.0;
         let cursorPos = vec3.fromValues(
             targetRay.origin.x,
@@ -170,13 +163,13 @@ export class Scene extends Node {
       return;
     }
 
-    this.handleSelectPointer(new XRRay(targetRayPose.transform));
+    this.handleSelectPointer(targetRayPose.transform);
   }
 
-  handleSelectPointer(targetRay) {
-    if (targetRay) {
+  handleSelectPointer(rigidTransform) {
+    if (rigidTransform) {
       // Check and see if the pointer is pointing at any selectable objects.
-      let hitResult = this.hitTest(targetRay);
+      let hitResult = this.hitTest(rigidTransform);
 
       if (hitResult) {
         // Render a cursor at the intersection point.

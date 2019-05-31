@@ -38,14 +38,14 @@ export class Ray {
     }
 
     // To force the inverse and sign calculations.
-    this.dir = this._dir;
+    this.direction = this._dir;
   }
 
-  get dir() {
+  get direction() {
     return this._dir;
   }
 
-  set dir(value) {
+  set direction(value) {
     this._dir = vec3.copy(this._dir, value);
     vec3.normalize(this._dir, this._dir);
 

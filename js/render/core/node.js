@@ -356,14 +356,14 @@ export class Node {
     }
   }
 
-  _hitTestSelectableNode(ray) {
+  _hitTestSelectableNode(rigidTransform) {
     if (this._renderPrimitives) {
       let localRay = null;
       for (let primitive of this._renderPrimitives) {
         if (primitive._min) {
           if (!localRay) {
             mat4.invert(tmpRayMatrix, this.worldMatrix);
-            mat4.multiply(tmpRayMatrix, tmpRayMatrix, ray.matrix);
+            mat4.multiply(tmpRayMatrix, tmpRayMatrix, rigidTransform.matrix);
             localRay = new Ray(tmpRayMatrix);
           }
           let intersection = localRay.intersectsAABB(primitive._min, primitive._max);
@@ -375,7 +375,7 @@ export class Node {
       }
     }
     for (let child of this.children) {
-      let intersection = child._hitTestSelectableNode(ray);
+      let intersection = child._hitTestSelectableNode(rigidTransform);
       if (intersection) {
         return intersection;
       }
@@ -383,11 +383,12 @@ export class Node {
     return null;
   }
 
-  hitTest(ray) {
+  hitTest(rigidTransform) {
     if (this.selectable && this.visible) {
-      let intersection = this._hitTestSelectableNode(ray);
+      let intersection = this._hitTestSelectableNode(rigidTransform);
 
       if (intersection) {
+        let ray = new Ray(rigidTransform.matrix);
         let origin = vec3.fromValues(ray.origin.x, ray.origin.y, ray.origin.z);
         return {
           node: this,
@@ -400,7 +401,7 @@ export class Node {
 
     let result = null;
     for (let child of this.children) {
-      let childResult = child.hitTest(ray);
+      let childResult = child.hitTest(rigidTransform);
       if (childResult) {
         if (!result || result.distance > childResult.distance) {
           result = childResult;

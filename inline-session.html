@@ -110,7 +110,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
             gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
           }
-          window.addEventHandler('resize', onResize);
+          window.addEventListener('resize', onResize);
           onResize();
 
           renderer = new Renderer(gl);

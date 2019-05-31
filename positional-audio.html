@@ -329,11 +329,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ baseLayer: glLayer });
 
-        session.requestReferenceSpace('local-floor').then((refSpace) => {
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveRefSpace = refSpace;
+            xrNonImmersiveRefSpace = refSpace.getOffsetReferenceSpace(
+                new XRRigidTransform({y: -1.6}));
           }
 
           session.requestAnimationFrame(onXRFrame);
@@ -363,7 +365,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        let hitResult = scene.hitTest(new XRRay(targetRayPose.transform));
+        let hitResult = scene.hitTest(targetRayPose.transform);
         if (hitResult) {
           for (let source of audioSources) {
             if (hitResult.node ==  source.node) {

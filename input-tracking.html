@@ -49,6 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
       import {vec3} from './js/render/math/gl-matrix.js';
+      import {Ray} from './js/render/math/ray.js';
 
       // XR globals.
       let xrButton = null;
@@ -96,7 +97,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
           gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
         }
-        window.addEventHandler('resize', onResize);
+        window.addEventListener('resize', onResize);
         onResize();
 
         renderer = new Renderer(gl);
@@ -125,13 +126,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ baseLayer: glLayer });
 
-        session.requestReferenceSpace('local-floor').then((refSpace) => {
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveRefSpace = refSpace;
+            xrNonImmersiveRefSpace = refSpace.getOffsetReferenceSpace(
+                new XRRigidTransform({y: -1.6}));
           }
-
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -147,9 +149,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function updateInputSources(session, frame, refSpace) {
-        let inputSources = session.getInputSources();
-
-        for (let inputSource of inputSources) {
+        for (let inputSource of session.inputSources) {
           let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
 
           // We may not get a pose back in cases where the input source has lost
@@ -159,13 +159,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             continue;
           }
 
-          let targetRay = new XRRay(targetRayPose.transform);
           if (inputSource.targetRayMode == 'tracked-pointer') {
             // If we have a pointer matrix and the pointer origin is the users
             // hand (as opposed to their head or the screen) use it to render
             // a ray coming out of the input device to indicate the pointer
             // direction.
-            scene.inputRenderer.addLaserPointer(targetRay);
+            scene.inputRenderer.addLaserPointer(targetRayPose.transform);
           }
 
           // If we have a pointer matrix we can also use it to render a cursor
@@ -173,6 +172,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Statically render the cursor 2 meters down the ray since we're
           // not calculating any intersections in this sample.
+          let targetRay = new Ray(targetRayPose.transform);
           let cursorDistance = 2.0;
           let cursorPos = vec3.fromValues(
               targetRay.origin.x,

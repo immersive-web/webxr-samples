@@ -102,7 +102,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
           gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
         }
-        window.addEventHandler('resize', onResize);
+        window.addEventListener('resize', onResize);
         onResize();
 
         renderer = new Renderer(gl);
@@ -120,7 +120,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ baseLayer: glLayer });
 
-        function onRefSpaceCreated(refSpace) {
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
+            xrImmersiveRefSpace = refSpace;
+          } else {
+            xrNonImmersiveRefSpace = refSpace.getOffsetReferenceSpace(
+                new XRRigidTransform({y: -1.6}));
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+
+        /*function onRefSpaceCreated(refSpace) {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
@@ -165,7 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             onRefSpaceCreated(refSpace.getOffsetReferenceSpace(
                 new XRRigidTransform({y: -1.6})));
           });
-        }
+        }*/
       }
 
       function onEndSession(session) {

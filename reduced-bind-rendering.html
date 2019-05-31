@@ -88,7 +88,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
           gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
         }
-        window.addEventHandler('resize', onResize);
+        window.addEventListener('resize', onResize);
         onResize();
 
         // Set up a non-black clear color so that we can see if something renders wrong.
@@ -117,7 +117,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ baseLayer: glLayer });
 
-        session.requestReferenceSpace('local').then((refSpace) => {
+        let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
