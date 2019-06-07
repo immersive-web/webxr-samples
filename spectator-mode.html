@@ -107,6 +107,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         document.body.appendChild(gl.canvas);
 
+        onResize();
         window.addEventListener('resize', onResize);
 
         renderer = new Renderer(gl);
@@ -208,7 +209,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onResize () {
-        let scaleFactor =  window.devicePixelRatio;
+        let scaleFactor = window.devicePixelRatio;
         if (spectatorMode) {
           // The spectator view does take time to render, and can impact the
           // performance of the in-headset view. To help mitigate that, we'll

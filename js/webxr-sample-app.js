@@ -31,7 +31,6 @@ export class WebXRSampleApp {
       inline: 'inline' in options ? options.inline : true,
       immersiveMode: options.immersiveMode || 'immersive-vr',
       referenceSpace: options.referenceSpace || 'local',
-      mirror: 'mirror' in options ? options.mirror : true,
       defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true,
       controllerMesh: options.controllerMesh
     };
@@ -97,7 +96,17 @@ export class WebXRSampleApp {
     this.gl = this.onCreateGL();
 
     if(this.gl) {
-      document.body.append(this.gl.canvas);
+      let canvas = this.gl.canvas;
+      if (canvas instanceof HTMLCanvasElement) {
+        document.body.append(this.gl.canvas);
+        function onResize() {
+          canvas.width = canvas.clientWidth * window.devicePixelRatio;
+          canvas.height = canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', onResize);
+        onResize();
+      }
+
       this.renderer = new Renderer(this.gl);
       this.scene.setRenderer(this.renderer);
 
@@ -152,8 +161,17 @@ export class WebXRSampleApp {
   }
 
   onRequestReferenceSpace(session) {
-    if (this.options.referenceSpace) {
+    if (this.options.referenceSpace && session.isImmersive) {
       return session.requestReferenceSpace(this.options.referenceSpace);
+    } else {
+      return session.requestReferenceSpace('viewer').then((refSpace) => {
+        if (this.options.referenceSpace == 'local-floor' ||
+            this.options.referenceSpace == 'bounded-floor') {
+          refSpace = refSpace.getOffsetReferenceSpace(
+                new XRRigidTransform({y: -1.6}));
+        }
+        return refSpace;
+      });
     }
   }
 
