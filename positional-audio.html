@@ -52,6 +52,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {ButtonNode} from './js/render/nodes/button.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {mat4, vec3} from './js/render/math/gl-matrix.js';
+      import {QueryArgs} from './js/util/query-args.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', false)) {
+        let polyfill = new WebXRPolyfill();
+      }
 
       const DEFAULT_HEIGHT = 1.5;
       const ANALYSER_FFT_SIZE = 1024;

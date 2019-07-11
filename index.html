@@ -178,7 +178,8 @@
 
             { title: 'Barebones', category: 'WIN32_LEAN_AND_MEAN',
               path: 'xr-barebones.html',
-              description: 'Extremely simple use of WebXR with no library dependencies. Doesn\'t render anything exciting.' },
+              description: 'Extremely simple use of WebXR with no library dependencies. Doesn\'t render anything exciting.',
+              noPolyfill: true },
           ];
 
           let mainElement = document.getElementById("main");
@@ -221,6 +222,13 @@
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/' + page.path;
             sourceLink.innerHTML = 'Source';
             links.appendChild(sourceLink);
+
+            if (!page.noPolyfill) {
+              let polyfillLink = document.createElement('a');
+              polyfillLink.href = page.path + '?usePolyfill=1';
+              polyfillLink.innerHTML = 'Run with Polyfill';
+              links.appendChild(polyfillLink);
+            }
 
             article.appendChild(links);
 
