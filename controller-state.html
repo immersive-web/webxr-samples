@@ -107,15 +107,52 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           mat4.identity(this.matrix);
           mat4.translate(this.matrix, this.matrix, this.position);
 
+          this._value = 0.0;
           this._pressed = false;
+          this._touched = false;
+          this._dx = 0.0;
+          this._dy = 0.0;
+        }
+
+        _updateTransform() {
+          mat4.identity(this.matrix);
+          mat4.translate(this.matrix, this.matrix, this.position);
+          mat4.translate(this.matrix, this.matrix, [
+            this._dx * BOX_MOTION_RANGE,
+            -this._value * BOX_SIZE * 0.5,
+            this._dy * BOX_MOTION_RANGE
+          ]);
+          mat4.scale(this.matrix, this.matrix, [1.0, 1.05 - this._value, 1.0]);
+        }
+
+        _updateColor() {
+          let color = null;
+          if (this._pressed) {
+            color = [1, 0, 0, 1]; // Red
+          } else if (this._touched) {
+            color = [0.1, 0.5, 0.1, 1]; // Dark Green
+          } else {
+            color = [0.1, 0.1, 0.1, 1];  // Grey
+          }
+
+          this.renderPrimitive.uniforms.baseColorFactor.value = color;
+        }
+
+        set value(value) {
+          if (value != this._value) {
+            this._value = value;
+            this._updateTransform();
+          }
+        }
+
+        get value() {
+          return this._value;
         }
 
         set pressed(value) {
           if (value != this._pressed) {
             this._pressed = value;
-            this.renderPrimitive.uniforms.baseColorFactor.value = this._pressed ?
-              [1, 0, 0, 1] : // red
-              [0.1, 0.1, 0.1, 1];  // grey
+            this._updateColor();
           }
         }
 
@@ -123,18 +160,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return this._pressed;
         }
 
-        // If this was something like a full-fledged game instead of just a
-        // sample, timestamps should be used when calculating how much to move
-        // on each frame. The way this code is right now, having a higher frame
-        // rate means the boxes move faster.
+        set touched(value) {
+          if (value != this._touched) {
+            this._touched = value;
+            this._updateColor();
+          }
+        }
+
+        get touched() {
+          return this._touched;
+        }
+
         move(dx, dy) {
-          mat4.identity(this.matrix);
-          mat4.translate(this.matrix, this.matrix, this.position);
-          mat4.translate(this.matrix, this.matrix, [
-            dx * BOX_MOTION_RANGE,
-            0,
-            dy * BOX_MOTION_RANGE
-          ]);
+          this._dx = dx;
+          this._dy = dy;
+          this._updateTransform();
         }
       }
 
@@ -158,13 +198,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // if it's currently green).
           for (let i = 0; i < gamepad.buttons.length; ++i) {
             this.boxes[i].pressed = gamepad.buttons[i].pressed;
+            this.boxes[i].value = gamepad.buttons[i].value;
+            this.boxes[i].touched = gamepad.buttons[i].touched;
           }
 
           if (gamepad.mapping == "xr-standard") {
-            // Invert the y axis because gamepads follow the convention that -1
-            // is up/forwards, but we want to have a forward joystick/touchpad
-            // input result in forward motion for the box.
-
             // xr-standard Gamepads always have at least one touchpad/joystick.
             // Its button will always be in the second slot.
             this.boxes[1].move(gamepad.axes[0], gamepad.axes[1]);
@@ -174,6 +212,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               // button will be in the 4th slot and it will use the second pair
               // of input axes.
               this.boxes[3].move(gamepad.axes[2], gamepad.axes[3]);
+            }
+          } else if (gamepad.axes.length >= 2 && gamepad.buttons.length >= 1) {
+            this.boxes[0].move(gamepad.axes[0], gamepad.axes[1]);
+
+            if (gamepad.axes.length >= 4 && gamepad.buttons.length >= 2) {
+              this.boxes[1].move(gamepad.axes[2], gamepad.axes[3]);
             }
           }
         }
