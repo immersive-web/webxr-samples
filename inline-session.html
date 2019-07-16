@@ -112,8 +112,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // browsers that support WebXR regardless of the available hardware.
           navigator.xr.requestSession('inline').then((session) => {
             inlineSession = session;
-            updateFov();
             onSessionStarted(session);
+            updateFov();
           });
         }
       }

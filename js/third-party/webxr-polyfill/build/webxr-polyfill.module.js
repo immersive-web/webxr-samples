@@ -1055,9 +1055,9 @@ class XRRigidTransform$1 {
         fromRotationTranslation(
           this[PRIVATE$5].matrix,
           fromValues$4(
-            this[PRIVATE$5].orientation.x,
-            this[PRIVATE$5].orientation.y,
-            this[PRIVATE$5].orientation.z,
+            -this[PRIVATE$5].orientation.x,
+            -this[PRIVATE$5].orientation.y,
+            -this[PRIVATE$5].orientation.z,
             this[PRIVATE$5].orientation.w),
           fromValues$1(
             this[PRIVATE$5].position.x,
@@ -1419,7 +1419,12 @@ class XRSession$1 extends EventTarget {
       if (this[PRIVATE$12].pendingRenderState !== null) {
         this[PRIVATE$12].activeRenderState = this[PRIVATE$12].pendingRenderState;
         this[PRIVATE$12].pendingRenderState = null;
-        this[PRIVATE$12].device.onBaseLayerSet(this[PRIVATE$12].id, this[PRIVATE$12].activeRenderState.baseLayer);
+        if (this[PRIVATE$12].activeRenderState.baseLayer) {
+          this[PRIVATE$12].device.onBaseLayerSet(this[PRIVATE$12].id, this[PRIVATE$12].activeRenderState.baseLayer);
+        }
+        if (this[PRIVATE$12].activeRenderState.inlineVerticalFieldOfView) {
+          this[PRIVATE$12].device.onInlineVerticalFieldOfViewSet(this[PRIVATE$12].id, this[PRIVATE$12].activeRenderState.inlineVerticalFieldOfView);
+        }
       }
       this[PRIVATE$12].device.onFrameStart(this[PRIVATE$12].id);
       callback(now$1(), this[PRIVATE$12].frame);
@@ -1466,11 +1471,15 @@ class XRSession$1 extends EventTarget {
     }
     const fovSet = (newState.inlineVerticalFieldOfView !== null) &&
                    (newState.inlineVerticalFieldOfView !== undefined);
-    if (this[PRIVATE$12].immersive && fovSet) {
-      const message = "inlineVerticalFieldOfView must not be set for an " +
-                      "XRRenderState passed to updateRenderState for an " +
-                      "immersive session.";
-      throw new Error(message);
+    if (fovSet) {
+      if (this[PRIVATE$12].immersive) {
+        const message = "inlineVerticalFieldOfView must not be set for an " +
+                        "XRRenderState passed to updateRenderState for an " +
+                        "immersive session.";
+        throw new Error(message);
+      } else {
+        newState.inlineVerticalFieldOfView = Math.min(3.13, Math.max(0.01, newState.inlineVerticalFieldOfView));
+      }
     }
     if (this[PRIVATE$12].pendingRenderState === null) {
       this[PRIVATE$12].pendingRenderState = Object.assign({}, this[PRIVATE$12].activeRenderState, newState);
@@ -4929,6 +4938,7 @@ class XRDevice extends EventTarget {
   get depthFar() { throw new Error('Not implemented'); }
   set depthFar(val) { throw new Error('Not implemented'); }
   onBaseLayerSet(sessionId, layer) { throw new Error('Not implemented'); }
+  onInlineVerticalFieldOfViewSet(sessionId, value) { throw new Error('Not implemented'); }
   supportsSession(mode) { throw new Error('Not implemented'); }
   async requestSession(mode) { throw new Error('Not implemented'); }
   requestAnimationFrame(callback) { throw new Error('Not implemented'); }
@@ -5344,6 +5354,7 @@ class Session {
     this.immersive = mode == 'immersive-vr' || mode == 'immersive-ar';
     this.ended = null;
     this.baseLayer = null;
+    this.inlineVerticalFieldOfView = Math.PI * 0.5;
     this.id = ++SESSION_ID;
     this.modifiedCanvasLayer = false;
     if (this.outputContext && !TEST_ENV) {
@@ -5392,9 +5403,13 @@ class WebVRDevice extends XRDevice {
         session.baseLayer = layer;
       });
     }
-    else if (session.outputContext) {
+    else {
       session.baseLayer = layer;
     }
+  }
+  onInlineVerticalFieldOfViewSet(sessionId, value) {
+    const session = this.sessions.get(sessionId);
+    session.inlineVerticalFieldOfView = value;
   }
   supportsSession(mode) {
     if (XRSessionModes.indexOf(mode) == -1) {
@@ -5477,28 +5492,10 @@ class WebVRDevice extends XRDevice {
     if (TEST_ENV) {
       return;
     }
-    if (session.outputContext && !session.immersive) {
-      const outputCanvas = session.outputContext.canvas;
-      const oWidth = outputCanvas.offsetWidth;
-      const oHeight = outputCanvas.offsetHeight;
-      if (outputCanvas.width != oWidth) {
-        outputCanvas.width = oWidth;
-      }
-      if (outputCanvas.height != oHeight) {
-        outputCanvas.height = oHeight;
-      }
+    if (!session.immersive && session.baseLayer) {
       const canvas = session.baseLayer.context.canvas;
-      if (!this.immersiveSession ||
-          canvas !== this.immersiveSession.baseLayer.context.canvas) {
-        if (canvas.width != oWidth) {
-          canvas.width = oWidth;
-        }
-        if (canvas.height != oHeight) {
-          canvas.height = oHeight;
-        }
-        perspective(this.frame.leftProjectionMatrix, Math.PI * 0.4,
-                         oWidth/oHeight, this.depthNear, this.depthFar);
-      }
+      perspective(this.frame.leftProjectionMatrix, session.inlineVerticalFieldOfView,
+          canvas.width/canvas.height, this.depthNear, this.depthFar);
     }
   }
   onFrameEnd(sessionId) {
@@ -5580,6 +5577,8 @@ class WebVRDevice extends XRDevice {
       return this.frame.leftProjectionMatrix;
     } else if (eye === 'right') {
       return this.frame.rightProjectionMatrix;
+    } else if (eye === 'none') {
+      return this.frame.leftProjectionMatrix;
     } else {
       throw new Error(`eye must be of type 'left' or 'right'`);
     }
