@@ -179,58 +179,50 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       class GamepadBoxSet extends Node {
-        constructor(button_count) {
+        constructor(buttonCount, axesCount) {
           super();
 
+          let axesBoxCount = Math.ceil(axesCount / 2);
+          let rowLength = Math.max(buttonCount, axesBoxCount);
+
           // Place the boxes in a horizontal line
-          this.boxes = [];
-          let hl = (button_count - 1) * BOX_SEPARATION * 0.5;
-          for (let x = 0; x < button_count; ++x) {
+          this.buttonBoxes = [];
+          let hl = (rowLength - 1) * BOX_SEPARATION * 0.5;
+          for (let x = 0; x < buttonCount; ++x) {
             let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH]);
-            this.boxes.push(box);
+            this.buttonBoxes.push(box);
+            this.addNode(box);
+          }
+
+          this.axesBoxes = [];
+          for (let x = 0; x < axesBoxCount; ++x) {
+            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH * 2]);
+            this.axesBoxes.push(box);
             this.addNode(box);
           }
         }
 
         update_state(gamepad) {
-          // A button press (pressing and then releasing a button) will change
-          // the associated box's color from red to green (or from green to red
-          // if it's currently green).
+          // The boxes associated with any given button will turn green if
+          // touched and red if pressed. The box height will also scale based
+          // on the button's value to make it appear like a button being pushed.
           for (let i = 0; i < gamepad.buttons.length; ++i) {
-            this.boxes[i].pressed = gamepad.buttons[i].pressed;
-            this.boxes[i].value = gamepad.buttons[i].value;
-            this.boxes[i].touched = gamepad.buttons[i].touched;
+            this.buttonBoxes[i].pressed = gamepad.buttons[i].pressed;
+            this.buttonBoxes[i].value = gamepad.buttons[i].value;
+            this.buttonBoxes[i].touched = gamepad.buttons[i].touched;
           }
 
-          if (gamepad.mapping == "xr-standard") {
-            // xr-standard Gamepads always have at least one touchpad/joystick.
-            // It's button will always be in the second slot.
-            this.boxes[2].move(gamepad.axes[0], gamepad.axes[1]);
-
-            if (gamepad.axes.length >= 4 && gamepad.buttons.length >= 4) {
-              // If an xr-standard Gamepad has a secondary touchpad/joystick, its
-              // button will be in the 4th slot and it will use the second pair
-              // of input axes.
-              this.boxes[3].move(gamepad.axes[2], gamepad.axes[3]);
-            }
-          } else if (gamepad.axes.length >= 2 && gamepad.buttons.length >= 1) {
-            this.boxes[0].move(gamepad.axes[0], gamepad.axes[1]);
-
-            if (gamepad.axes.length >= 4 && gamepad.buttons.length >= 2) {
-              this.boxes[1].move(gamepad.axes[2], gamepad.axes[3]);
-            }
+          // Axes are assumed to come in X/Y pairs and will wiggle the
+          // associated boxes around when moved.
+          for (let i = 0, j = 0; i < gamepad.axes.length; i+=2, ++j) {
+            this.axesBoxes[j].move(gamepad.axes[i], i + 1 < gamepad.axes.length ? gamepad.axes[i + 1] : 0);
           }
         }
       }
 
       function ProcessGamepad(gamepad, hand, pose) {
         if (!(hand in boxTable)) {
-          const y_positions = {
-            "left" : 1,
-            "right" : 2,
-            "none" : 3,
-          };
-          boxTable[hand] = new GamepadBoxSet(gamepad.buttons.length, y_positions[hand]);
+          boxTable[hand] = new GamepadBoxSet(gamepad.buttons.length, gamepad.axes.length);
           scene.addNode(boxTable[hand]);
         }
 
