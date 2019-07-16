@@ -204,8 +204,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           if (gamepad.mapping == "xr-standard") {
             // xr-standard Gamepads always have at least one touchpad/joystick.
-            // Its button will always be in the second slot.
-            this.boxes[1].move(gamepad.axes[0], gamepad.axes[1]);
+            // It's button will always be in the second slot.
+            this.boxes[2].move(gamepad.axes[0], gamepad.axes[1]);
 
             if (gamepad.axes.length >= 4 && gamepad.buttons.length >= 4) {
               // If an xr-standard Gamepad has a secondary touchpad/joystick, its

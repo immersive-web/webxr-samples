@@ -4951,6 +4951,46 @@ class XRDevice extends EventTarget {
   }
 }
 
+let oculusTouch = {
+  mapping: 'xr-standard',
+  axes: {
+    length: 4,
+    0: null,
+    1: null,
+    2: 0,
+    3: 1
+  },
+  buttons: {
+    length: 6,
+    0: 1,
+    1: 2,
+    2: null,
+    3: 0,
+    4: 3,
+    5: 4
+  },
+  gripTransform: {
+    position: [0, -0.02, 0.04, 1],
+    orientation: [Math.PI * 0.11, 0, 0, 1]
+  }
+};
+let GamepadMappings = {
+  "Oculus Touch (Right)": oculusTouch,
+  "Oculus Touch (Left)": oculusTouch,
+  "Oculus Go Controller": {
+    mapping: 'xr-standard',
+    buttons: {
+      length: 3,
+      0: 1,
+      1: null,
+      2: 0
+    },
+    gripTransform: {
+      orientation: [Math.PI * 0.11, 0, 0, 1]
+    }
+  }
+};
+
 const HEAD_ELBOW_OFFSET_RIGHTHANDED = fromValues$1(0.155, -0.465, -0.15);
 const HEAD_ELBOW_OFFSET_LEFTHANDED = fromValues$1(-0.155, -0.465, -0.15);
 const ELBOW_WRIST_OFFSET = fromValues$1(0, 0, -0.25);
@@ -5103,9 +5143,101 @@ class OrientationArmModel {
   }
 }
 
+const PRIVATE$18 = Symbol('@@webxr-polyfill/XRRemappedGamepad');
+const PLACEHOLDER_BUTTON = { pressed: false, touched: false, value: 0.0 };
+Object.freeze(PLACEHOLDER_BUTTON);
+class XRRemappedGamepad {
+  constructor(gamepad, map) {
+    if (!map) {
+      map = {};
+    }
+    let axes = new Array(map.axes ? map.axes.length : gamepad.axes.length);
+    let buttons = new Array(map.buttons ? map.buttons.length : gamepad.buttons.length);
+    let gripTransform = null;
+    if (map.gripTransform) {
+      let orientation = map.gripTransform.orientation || [0, 0, 0, 1];
+      gripTransform = create();
+      fromRotationTranslation(
+        gripTransform,
+        normalize$2(orientation, orientation),
+        map.gripTransform.position || [0, 0, 0]
+      );
+    }
+    let targetRayTransform = null;
+    if (map.targetRayTransform) {
+      let orientation =  map.targetRayTransform.orientation || [0, 0, 0, 1];
+      targetRayTransform = create();
+      fromRotationTranslation(
+        targetRayTransform,
+        normalize$2(orientation, orientation),
+        map.targetRayTransform.position || [0, 0, 0]
+      );
+    }
+    this[PRIVATE$18] = {
+      gamepad,
+      map,
+      mapping: map.mapping || gamepad.mapping,
+      axes,
+      buttons,
+      gripTransform,
+      targetRayTransform,
+    };
+    this._update();
+  }
+  _update() {
+    let gamepad = this[PRIVATE$18].gamepad;
+    let map = this[PRIVATE$18].map;
+    let axes = this[PRIVATE$18].axes;
+    for (let i = 0; i < axes.length; ++i) {
+      if (map.axes && i in map.axes) {
+        if (map.axes[i] === null) {
+          axes[i] = 0;
+        } else {
+          axes[i] = gamepad.axes[map.axes[i]];
+        }
+      } else {
+        axes[i] = gamepad.axes[i];
+      }
+    }
+    let buttons = this[PRIVATE$18].buttons;
+    for (let i = 0; i < buttons.length; ++i) {
+      if (map.buttons && i in map.buttons) {
+        if (map.buttons[i] === null) {
+          buttons[i] = PLACEHOLDER_BUTTON;
+        } else {
+          buttons[i] = gamepad.buttons[map.buttons[i]];
+        }
+      } else {
+        buttons[i] = gamepad.buttons[i];
+      }
+    }
+  }
+  get id() {
+    return '';
+  }
+  get index() {
+    return -1;
+  }
+  get connected() {
+    return this[PRIVATE$18].gamepad.connected;
+  }
+  get timestamp() {
+    return this[PRIVATE$18].gamepad.timestamp;
+  }
+  get mapping() {
+    return this[PRIVATE$18].mapping;
+  }
+  get axes() {
+    return this[PRIVATE$18].axes;
+  }
+  get buttons() {
+    return this[PRIVATE$18].buttons;
+  }
+}
 class GamepadXRInputSource {
   constructor(polyfill, primaryButtonIndex = 0) {
     this.polyfill = polyfill;
+    this.nativeGamepad = null;
     this.gamepad = null;
     this.inputSource = new XRInputSource(this);
     this.lastPosition = create$1();
@@ -5120,8 +5252,18 @@ class GamepadXRInputSource {
     this.armModel = null;
   }
   updateFromGamepad(gamepad) {
-    this.gamepad = gamepad;
+    if (this.nativeGamepad !== gamepad) {
+      this.nativeGamepad = gamepad;
+      if (gamepad) {
+        this.gamepad = new XRRemappedGamepad(gamepad, GamepadMappings[gamepad.id]);
+      } else {
+        this.gamepad = null;
+      }
+    }
     this.handedness = gamepad.hand;
+    if (this.gamepad) {
+      this.gamepad._update();
+    }
     if (gamepad.pose) {
       this.targetRayMode = 'tracked-pointer';
       this.emulatedPosition = !gamepad.pose.hasPosition;
@@ -5131,8 +5273,8 @@ class GamepadXRInputSource {
     }
   }
   updateBasePoseMatrix() {
-    if (this.gamepad && this.gamepad.pose) {
-      let pose = this.gamepad.pose;
+    if (this.nativeGamepad && this.nativeGamepad.pose) {
+      let pose = this.nativeGamepad.pose;
       let position = pose.position;
       let orientation = pose.orientation;
       if (!position && !orientation) {
@@ -5143,7 +5285,7 @@ class GamepadXRInputSource {
           if (!this.armModel) {
             this.armModel = new OrientationArmModel();
           }
-          this.armModel.setHandedness(this.gamepad.hand);
+          this.armModel.setHandedness(this.nativeGamepad.hand);
           this.armModel.update(orientation, this.polyfill.getBasePoseMatrix());
           position = this.armModel.getPosition();
         } else {
@@ -5165,12 +5307,18 @@ class GamepadXRInputSource {
     switch(poseType) {
       case "target-ray":
         coordinateSystem.transformBasePoseMatrix(this.outputMatrix, this.basePoseMatrix);
+        if (this.gamepad && this.gamepad[PRIVATE$18].targetRayTransform) {
+          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$18].targetRayTransform);
+        }
         break;
       case "grip":
-        if (!this.gamepad || !this.gamepad.pose) {
+        if (!this.nativeGamepad || !this.nativeGamepad.pose) {
           return null;
         }
         coordinateSystem.transformBasePoseMatrix(this.outputMatrix, this.basePoseMatrix);
+        if (this.gamepad && this.gamepad[PRIVATE$18].gripTransform) {
+          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$18].gripTransform);
+        }
         break;
       default:
         return null;
