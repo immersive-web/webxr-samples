@@ -249,7 +249,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Inline view adjustment code
       // Allow the user to click and drag the mouse (or touch and drag the
       // screen on handheld devices) to adjust the viewer pose for inline
-      // sessions.
+      // sessions. Samples after this one will hide this logic with a utility
+      // class (InlineViewerPoseHandler).
       let lookYaw = 0;
       let lookPitch = 0;
       const LOOK_SPEED = 0.0025;

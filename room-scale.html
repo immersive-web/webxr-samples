@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
       import {BoundsRenderer} from './js/render/nodes/bounds-renderer.js';
+      import {InlineViewerPoseHandler} from './js/util/inline-viewer-pose-handler.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -63,7 +64,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrInlineRefSpace = null;
+      let inlinePoseHandler = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -138,8 +139,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrInlineRefSpace = refSpace.getOffsetReferenceSpace(
+            // If we're using a viewer reference space we need to scoot the
+            // origin down a bit to put the camera at approximately the right
+            // level. (Here we're moving it 1.6 meters, which is *very* roughly
+            // the eye height of an "average" adult human.)
+            refSpace = refSpace.getOffsetReferenceSpace(
                 new XRRigidTransform({y: -1.6}));
+            inlinePoseHandler = new InlineViewerPoseHandler(gl.canvas, refSpace);
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -206,7 +212,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrInlineRefSpace;
+                         inlinePoseHandler.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();

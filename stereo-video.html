@@ -50,6 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {ButtonNode} from './js/render/nodes/button.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {VideoNode} from './js/render/nodes/video.js';
+      import {InlineViewerPoseHandler} from './js/util/inline-viewer-pose-handler.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -62,7 +63,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrInlineRefSpace = null;
+      let inlinePoseHandler = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -85,6 +86,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!video.paused) {
           playButton.visible = true;
           video.pause();
+        } else {
+          playButton.visible = false;
+          video.play();
         }
       });
       videoNode.selectable = true;
@@ -119,7 +123,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
       // Move the play button to the center of the screen and make it much
       // bigger.
-      playButton.translation = [0.025, 0.275, -4.3];
+      playButton.translation = [0.025, 0.275, -4.2];
       playButton.scale = [5.0, 5.0, 5.0];
       scene.addNode(playButton);
 
@@ -175,7 +179,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('select', (ev) => {
           let refSpace = ev.frame.session.isImmersive ?
                            xrImmersiveRefSpace :
-                           xrInlineRefSpace;
+                           inlinePoseHandler.referenceSpace;
           scene.handleSelect(ev.inputSource, ev.frame, refSpace);
         });
 
@@ -195,7 +199,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrInlineRefSpace = refSpace;
+            inlinePoseHandler = new InlineViewerPoseHandler(gl.canvas, refSpace);
           }
 
           session.requestAnimationFrame(onXRFrame);
@@ -216,7 +220,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrInlineRefSpace;
+                         inlinePoseHandler.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();

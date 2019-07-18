@@ -53,6 +53,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {BoxBuilder} from './js/render/geometry/box-builder.js';
       import {PbrMaterial} from './js/render/materials/pbr.js';
       import {mat4} from './js/render/math/gl-matrix.js';
+      import {InlineViewerPoseHandler} from './js/util/inline-viewer-pose-handler.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -65,7 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrInlineRefSpace = null;
+      let inlinePoseHandler = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -168,8 +169,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrInlineRefSpace = refSpace.getOffsetReferenceSpace(
+            refSpace = refSpace.getOffsetReferenceSpace(
                 new XRRigidTransform({y: -1.6}));
+            inlinePoseHandler = new InlineViewerPoseHandler(gl.canvas, refSpace);
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -178,7 +180,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSelect(ev) {
         let refSpace = ev.frame.session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrInlineRefSpace;
+                         inlinePoseHandler.referenceSpace;
 
         let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
         if (!targetRayPose) {
@@ -212,7 +214,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrInlineRefSpace;
+                         inlinePoseHandler.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
