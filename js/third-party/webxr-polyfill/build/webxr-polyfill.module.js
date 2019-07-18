@@ -206,15 +206,6 @@ if ('performance' in _global === false) {
 }
 var now$1 = now;
 
-const PRIVATE$2 = Symbol('@@webxr-polyfill/XRPresentationContext');
-class XRPresentationContext {
-  constructor(canvas, ctx, glAttribs) {
-    this[PRIVATE$2] = { canvas, ctx, glAttribs };
-    Object.assign(this, ctx);
-  }
-  get canvas() { return this[PRIVATE$2].canvas; }
-}
-
 const EPSILON = 0.000001;
 let ARRAY_TYPE = (typeof Float32Array !== 'undefined') ? Float32Array : Array;
 
@@ -467,64 +458,67 @@ function perspective(out, fovy, aspect, near, far) {
   return out;
 }
 
-const PRIVATE$3 = Symbol('@@webxr-polyfill/XRViewerPose');
+const PRIVATE$2 = Symbol('@@webxr-polyfill/XRViewerPose');
 class XRViewerPose {
   constructor(device) {
-    this[PRIVATE$3] = {
+    this[PRIVATE$2] = {
       device,
       leftViewMatrix: identity(new Float32Array(16)),
       rightViewMatrix: identity(new Float32Array(16)),
       poseModelMatrix: identity(new Float32Array(16)),
     };
   }
-  get poseModelMatrix() { return this[PRIVATE$3].poseModelMatrix; }
+  get poseModelMatrix() { return this[PRIVATE$2].poseModelMatrix; }
   getViewMatrix(view) {
     switch (view.eye) {
-      case 'left': return this[PRIVATE$3].leftViewMatrix;
-      case 'right': return this[PRIVATE$3].rightViewMatrix;
+      case 'left': return this[PRIVATE$2].leftViewMatrix;
+      case 'right': return this[PRIVATE$2].rightViewMatrix;
     }
     throw new Error(`view is not a valid XREye`);
   }
   get views() {
-    return this[PRIVATE$3].views;
+    return this[PRIVATE$2].views;
   }
   set views(value) {
-    this[PRIVATE$3].views = value;
+    this[PRIVATE$2].views = value;
   }
   updateFromReferenceSpace(refSpace) {
-    const pose = this[PRIVATE$3].device.getBasePoseMatrix();
-    const leftViewMatrix = this[PRIVATE$3].device.getBaseViewMatrix('left');
-    const rightViewMatrix = this[PRIVATE$3].device.getBaseViewMatrix('right');
+    const pose = this[PRIVATE$2].device.getBasePoseMatrix();
+    const leftViewMatrix = this[PRIVATE$2].device.getBaseViewMatrix('left');
+    const rightViewMatrix = this[PRIVATE$2].device.getBaseViewMatrix('right');
     if (pose) {
-      refSpace.transformBasePoseMatrix(this[PRIVATE$3].poseModelMatrix, pose);
+      refSpace.transformBasePoseMatrix(this[PRIVATE$2].poseModelMatrix, pose);
+      refSpace._adjustForOriginOffset(this[PRIVATE$2].poseModelMatrix);
     }
     if (leftViewMatrix && rightViewMatrix) {
-      refSpace.transformBaseViewMatrix(this[PRIVATE$3].leftViewMatrix,
+      refSpace.transformBaseViewMatrix(this[PRIVATE$2].leftViewMatrix,
                                          leftViewMatrix,
-                                         this[PRIVATE$3].poseModelMatrix);
-      refSpace.transformBaseViewMatrix(this[PRIVATE$3].rightViewMatrix,
+                                         this[PRIVATE$2].poseModelMatrix);
+      refSpace.transformBaseViewMatrix(this[PRIVATE$2].rightViewMatrix,
                                          rightViewMatrix,
-                                         this[PRIVATE$3].poseModelMatrix);
+                                         this[PRIVATE$2].poseModelMatrix);
+      multiply(this[PRIVATE$2].leftViewMatrix, this[PRIVATE$2].leftViewMatrix, refSpace._originOffsetMatrix());
+      multiply(this[PRIVATE$2].rightViewMatrix, this[PRIVATE$2].rightViewMatrix, refSpace._originOffsetMatrix());
     }
-    for (let view of this[PRIVATE$3].views) {
+    for (let view of this[PRIVATE$2].views) {
       if (view.eye == "left") {
-        view._updateViewMatrix(this[PRIVATE$3].leftViewMatrix);
+        view._updateViewMatrix(this[PRIVATE$2].leftViewMatrix);
       } else if (view.eye == "right") {
-        view._updateViewMatrix(this[PRIVATE$3].rightViewMatrix);
+        view._updateViewMatrix(this[PRIVATE$2].rightViewMatrix);
       }
     }
   }
 }
 
-const PRIVATE$4 = Symbol('@@webxr-polyfill/XRViewport');
+const PRIVATE$3 = Symbol('@@webxr-polyfill/XRViewport');
 class XRViewport {
   constructor(target) {
-    this[PRIVATE$4] = { target };
+    this[PRIVATE$3] = { target };
   }
-  get x() { return this[PRIVATE$4].target.x; }
-  get y() { return this[PRIVATE$4].target.y; }
-  get width() { return this[PRIVATE$4].target.width; }
-  get height() { return this[PRIVATE$4].target.height; }
+  get x() { return this[PRIVATE$3].target.x; }
+  get y() { return this[PRIVATE$3].target.y; }
+  get width() { return this[PRIVATE$3].target.width; }
+  get height() { return this[PRIVATE$3].target.height; }
 }
 
 function create$1() {
@@ -1002,86 +996,86 @@ const setAxes = (function() {
   };
 })();
 
-const PRIVATE$5 = Symbol('@@webxr-polyfill/XRRigidTransform');
+const PRIVATE$4 = Symbol('@@webxr-polyfill/XRRigidTransform');
 class XRRigidTransform$1 {
-  _getPoint(arg) {
-    if (arg instanceof DOMPointReadOnly) {
-      return arg;
-    }
-    return DOMPointReadOnly.fromPoint(arg);
-  }
   constructor() {
-    this[PRIVATE$5] = {
+    this[PRIVATE$4] = {
       matrix: null,
       position: null,
       orientation: null,
       inverse: null,
     };
     if (arguments.length === 0) {
-      this[PRIVATE$5].matrix = identity(new Float32Array(16));
+      this[PRIVATE$4].matrix = identity(new Float32Array(16));
     } else if (arguments.length === 1) {
       if (arguments[0] instanceof Float32Array) {
-        this[PRIVATE$5].matrix = arguments[0];
+        this[PRIVATE$4].matrix = arguments[0];
       } else {
-        this[PRIVATE$5].position = this._getPoint(arguments[0]);
-        this[PRIVATE$5].orientation = DOMPointReadOnly.fromPoint({
+        this[PRIVATE$4].position = this._getPoint(arguments[0]);
+        this[PRIVATE$4].orientation = DOMPointReadOnly.fromPoint({
             x: 0, y: 0, z: 0, w: 1
         });
       }
     } else if (arguments.length === 2) {
-      this[PRIVATE$5].position = this._getPoint(arguments[0]);
-      this[PRIVATE$5].orientation = this._getPoint(arguments[1]);
+      this[PRIVATE$4].position = this._getPoint(arguments[0]);
+      this[PRIVATE$4].orientation = this._getPoint(arguments[1]);
     } else {
       throw new Error("Too many arguments!");
     }
-    if (this[PRIVATE$5].matrix) {
+    if (this[PRIVATE$4].matrix) {
         let position = create$1();
-        getTranslation(position, this[PRIVATE$5].matrix);
-        this[PRIVATE$5].position = DOMPointReadOnly.fromPoint({
+        getTranslation(position, this[PRIVATE$4].matrix);
+        this[PRIVATE$4].position = DOMPointReadOnly.fromPoint({
             x: position[0],
             y: position[1],
             z: position[2]
         });
         let orientation = create$4();
-        getRotation(orientation, this[PRIVATE$5].matrix);
-        this[PRIVATE$5].orientation = DOMPointReadOnly.fromPoint({
+        getRotation(orientation, this[PRIVATE$4].matrix);
+        this[PRIVATE$4].orientation = DOMPointReadOnly.fromPoint({
           x: orientation[0],
           y: orientation[1],
           z: orientation[2],
           w: orientation[3]
         });
     } else {
-        this[PRIVATE$5].matrix = identity(new Float32Array(16));
+        this[PRIVATE$4].matrix = identity(new Float32Array(16));
         fromRotationTranslation(
-          this[PRIVATE$5].matrix,
+          this[PRIVATE$4].matrix,
           fromValues$4(
-            -this[PRIVATE$5].orientation.x,
-            -this[PRIVATE$5].orientation.y,
-            -this[PRIVATE$5].orientation.z,
-            this[PRIVATE$5].orientation.w),
+            this[PRIVATE$4].orientation.x,
+            this[PRIVATE$4].orientation.y,
+            this[PRIVATE$4].orientation.z,
+            this[PRIVATE$4].orientation.w),
           fromValues$1(
-            this[PRIVATE$5].position.x,
-            this[PRIVATE$5].position.y,
-            this[PRIVATE$5].position.z)
+            this[PRIVATE$4].position.x,
+            this[PRIVATE$4].position.y,
+            this[PRIVATE$4].position.z)
         );
     }
   }
-  get matrix() { return this[PRIVATE$5].matrix; }
-  get position() { return this[PRIVATE$5].position; }
-  get orientation() { return this[PRIVATE$5].orientation; }
-  get inverse() {
-    if (this[PRIVATE$5].inverse === null) {
-      let invMatrix = identity(new Float32Array(16));
-      invert(invMatrix, this[PRIVATE$5].matrix);
-      this[PRIVATE$5].inverse = new XRRigidTransform$1(invMatrix);
-      this[PRIVATE$5].inverse[PRIVATE$5].inverse = this;
+  _getPoint(arg) {
+    if (arg instanceof DOMPointReadOnly) {
+      return arg;
     }
-    return this[PRIVATE$5].inverse;
+    return DOMPointReadOnly.fromPoint(arg);
+  }
+  get matrix() { return this[PRIVATE$4].matrix; }
+  get position() { return this[PRIVATE$4].position; }
+  get orientation() { return this[PRIVATE$4].orientation; }
+  get inverse() {
+    if (this[PRIVATE$4].inverse === null) {
+      let invMatrix = identity(new Float32Array(16));
+      invert(invMatrix, this[PRIVATE$4].matrix);
+      this[PRIVATE$4].inverse = new XRRigidTransform$1(invMatrix);
+      this[PRIVATE$4].inverse[PRIVATE$4].inverse = this;
+    }
+    return this[PRIVATE$4].inverse;
   }
 }
 
 const XREyes = ['left', 'right'];
-const PRIVATE$6 = Symbol('@@webxr-polyfill/XRView');
+const PRIVATE$5 = Symbol('@@webxr-polyfill/XRView');
 class XRView {
   constructor(device, eye, sessionId) {
     if (!XREyes.includes(eye)) {
@@ -1089,7 +1083,7 @@ class XRView {
     }
     const temp = Object.create(null);
     const viewport = new XRViewport(temp);
-    this[PRIVATE$6] = {
+    this[PRIVATE$5] = {
       device,
       eye,
       viewport,
@@ -1098,27 +1092,488 @@ class XRView {
       transform: null,
     };
   }
-  get eye() { return this[PRIVATE$6].eye; }
-  get projectionMatrix() { return this[PRIVATE$6].device.getProjectionMatrix(this.eye); }
-  get transform() { return this[PRIVATE$6].transform; }
+  get eye() { return this[PRIVATE$5].eye; }
+  get projectionMatrix() { return this[PRIVATE$5].device.getProjectionMatrix(this.eye); }
+  get transform() { return this[PRIVATE$5].transform; }
   _updateViewMatrix(viewMatrix) {
     let invMatrix = identity(new Float32Array(16));
     invert(invMatrix, viewMatrix);
-    this[PRIVATE$6].transform = new XRRigidTransform$1(invMatrix);
+    this[PRIVATE$5].transform = new XRRigidTransform$1(invMatrix);
   }
   _getViewport(layer) {
-    const viewport = this[PRIVATE$6].viewport;
-    if (this[PRIVATE$6].device.getViewport(this[PRIVATE$6].sessionId,
+    const viewport = this[PRIVATE$5].viewport;
+    if (this[PRIVATE$5].device.getViewport(this[PRIVATE$5].sessionId,
                                            this.eye,
                                            layer,
-                                           this[PRIVATE$6].temp)) {
-      return this[PRIVATE$6].viewport;
+                                           this[PRIVATE$5].temp)) {
+      return this[PRIVATE$5].viewport;
     }
     return undefined;
   }
 }
 
-const PRIVATE$7 = Symbol('@@webxr-polyfill/XRFrame');
+var EPSILON$1 = 0.000001;
+var ARRAY_TYPE$1 = typeof Float32Array !== 'undefined' ? Float32Array : Array;
+
+
+var degree$1 = Math.PI / 180;
+
+function create$7() {
+  var out = new ARRAY_TYPE$1(9);
+  if (ARRAY_TYPE$1 != Float32Array) {
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[5] = 0;
+    out[6] = 0;
+    out[7] = 0;
+  }
+  out[0] = 1;
+  out[4] = 1;
+  out[8] = 1;
+  return out;
+}
+
+function create$9() {
+  var out = new ARRAY_TYPE$1(3);
+  if (ARRAY_TYPE$1 != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+  }
+  return out;
+}
+
+function length$3(a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  return Math.sqrt(x * x + y * y + z * z);
+}
+function fromValues$9(x, y, z) {
+  var out = new ARRAY_TYPE$1(3);
+  out[0] = x;
+  out[1] = y;
+  out[2] = z;
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function normalize$3(out, a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  var len = x * x + y * y + z * z;
+  if (len > 0) {
+    len = 1 / Math.sqrt(len);
+    out[0] = a[0] * len;
+    out[1] = a[1] * len;
+    out[2] = a[2] * len;
+  }
+  return out;
+}
+function dot$3(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+function cross$1(out, a, b) {
+  var ax = a[0],
+      ay = a[1],
+      az = a[2];
+  var bx = b[0],
+      by = b[1],
+      bz = b[2];
+  out[0] = ay * bz - az * by;
+  out[1] = az * bx - ax * bz;
+  out[2] = ax * by - ay * bx;
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var len$3 = length$3;
+
+var forEach$2 = function () {
+  var vec = create$9();
+  return function (a, stride, offset, count, fn, arg) {
+    var i = void 0,
+        l = void 0;
+    if (!stride) {
+      stride = 3;
+    }
+    if (!offset) {
+      offset = 0;
+    }
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];vec[1] = a[i + 1];vec[2] = a[i + 2];
+      fn(vec, vec, arg);
+      a[i] = vec[0];a[i + 1] = vec[1];a[i + 2] = vec[2];
+    }
+    return a;
+  };
+}();
+
+function create$10() {
+  var out = new ARRAY_TYPE$1(4);
+  if (ARRAY_TYPE$1 != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+  }
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function normalize$4(out, a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  var w = a[3];
+  var len = x * x + y * y + z * z + w * w;
+  if (len > 0) {
+    len = 1 / Math.sqrt(len);
+    out[0] = x * len;
+    out[1] = y * len;
+    out[2] = z * len;
+    out[3] = w * len;
+  }
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var forEach$3 = function () {
+  var vec = create$10();
+  return function (a, stride, offset, count, fn, arg) {
+    var i = void 0,
+        l = void 0;
+    if (!stride) {
+      stride = 4;
+    }
+    if (!offset) {
+      offset = 0;
+    }
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];vec[1] = a[i + 1];vec[2] = a[i + 2];vec[3] = a[i + 3];
+      fn(vec, vec, arg);
+      a[i] = vec[0];a[i + 1] = vec[1];a[i + 2] = vec[2];a[i + 3] = vec[3];
+    }
+    return a;
+  };
+}();
+
+function create$11() {
+  var out = new ARRAY_TYPE$1(4);
+  if (ARRAY_TYPE$1 != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+  }
+  out[3] = 1;
+  return out;
+}
+
+function setAxisAngle$1(out, axis, rad) {
+  rad = rad * 0.5;
+  var s = Math.sin(rad);
+  out[0] = s * axis[0];
+  out[1] = s * axis[1];
+  out[2] = s * axis[2];
+  out[3] = Math.cos(rad);
+  return out;
+}
+
+
+
+
+
+
+function slerp$1(out, a, b, t) {
+  var ax = a[0],
+      ay = a[1],
+      az = a[2],
+      aw = a[3];
+  var bx = b[0],
+      by = b[1],
+      bz = b[2],
+      bw = b[3];
+  var omega = void 0,
+      cosom = void 0,
+      sinom = void 0,
+      scale0 = void 0,
+      scale1 = void 0;
+  cosom = ax * bx + ay * by + az * bz + aw * bw;
+  if (cosom < 0.0) {
+    cosom = -cosom;
+    bx = -bx;
+    by = -by;
+    bz = -bz;
+    bw = -bw;
+  }
+  if (1.0 - cosom > EPSILON$1) {
+    omega = Math.acos(cosom);
+    sinom = Math.sin(omega);
+    scale0 = Math.sin((1.0 - t) * omega) / sinom;
+    scale1 = Math.sin(t * omega) / sinom;
+  } else {
+    scale0 = 1.0 - t;
+    scale1 = t;
+  }
+  out[0] = scale0 * ax + scale1 * bx;
+  out[1] = scale0 * ay + scale1 * by;
+  out[2] = scale0 * az + scale1 * bz;
+  out[3] = scale0 * aw + scale1 * bw;
+  return out;
+}
+
+
+
+function fromMat3$1(out, m) {
+  var fTrace = m[0] + m[4] + m[8];
+  var fRoot = void 0;
+  if (fTrace > 0.0) {
+    fRoot = Math.sqrt(fTrace + 1.0);
+    out[3] = 0.5 * fRoot;
+    fRoot = 0.5 / fRoot;
+    out[0] = (m[5] - m[7]) * fRoot;
+    out[1] = (m[6] - m[2]) * fRoot;
+    out[2] = (m[1] - m[3]) * fRoot;
+  } else {
+    var i = 0;
+    if (m[4] > m[0]) i = 1;
+    if (m[8] > m[i * 3 + i]) i = 2;
+    var j = (i + 1) % 3;
+    var k = (i + 2) % 3;
+    fRoot = Math.sqrt(m[i * 3 + i] - m[j * 3 + j] - m[k * 3 + k] + 1.0);
+    out[i] = 0.5 * fRoot;
+    fRoot = 0.5 / fRoot;
+    out[3] = (m[j * 3 + k] - m[k * 3 + j]) * fRoot;
+    out[j] = (m[j * 3 + i] + m[i * 3 + j]) * fRoot;
+    out[k] = (m[k * 3 + i] + m[i * 3 + k]) * fRoot;
+  }
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var normalize$5 = normalize$4;
+
+
+var rotationTo$1 = function () {
+  var tmpvec3 = create$9();
+  var xUnitVec3 = fromValues$9(1, 0, 0);
+  var yUnitVec3 = fromValues$9(0, 1, 0);
+  return function (out, a, b) {
+    var dot = dot$3(a, b);
+    if (dot < -0.999999) {
+      cross$1(tmpvec3, xUnitVec3, a);
+      if (len$3(tmpvec3) < 0.000001) cross$1(tmpvec3, yUnitVec3, a);
+      normalize$3(tmpvec3, tmpvec3);
+      setAxisAngle$1(out, tmpvec3, Math.PI);
+      return out;
+    } else if (dot > 0.999999) {
+      out[0] = 0;
+      out[1] = 0;
+      out[2] = 0;
+      out[3] = 1;
+      return out;
+    } else {
+      cross$1(tmpvec3, a, b);
+      out[0] = tmpvec3[0];
+      out[1] = tmpvec3[1];
+      out[2] = tmpvec3[2];
+      out[3] = 1 + dot;
+      return normalize$5(out, out);
+    }
+  };
+}();
+var sqlerp$1 = function () {
+  var temp1 = create$11();
+  var temp2 = create$11();
+  return function (out, a, b, c, d, t) {
+    slerp$1(temp1, a, d, t);
+    slerp$1(temp2, b, c, t);
+    slerp$1(out, temp1, temp2, 2 * t * (1 - t));
+    return out;
+  };
+}();
+var setAxes$1 = function () {
+  var matr = create$7();
+  return function (out, view, right, up) {
+    matr[0] = right[0];
+    matr[3] = right[1];
+    matr[6] = right[2];
+    matr[1] = up[0];
+    matr[4] = up[1];
+    matr[7] = up[2];
+    matr[2] = -view[0];
+    matr[5] = -view[1];
+    matr[8] = -view[2];
+    return normalize$5(out, fromMat3$1(out, matr));
+  };
+}();
+
+function create$13() {
+  var out = new ARRAY_TYPE$1(2);
+  if (ARRAY_TYPE$1 != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+  }
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var forEach$4 = function () {
+  var vec = create$13();
+  return function (a, stride, offset, count, fn, arg) {
+    var i = void 0,
+        l = void 0;
+    if (!stride) {
+      stride = 2;
+    }
+    if (!offset) {
+      offset = 0;
+    }
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];vec[1] = a[i + 1];
+      fn(vec, vec, arg);
+      a[i] = vec[0];a[i + 1] = vec[1];
+    }
+    return a;
+  };
+}();
+
+const PRIVATE$6 = Symbol('@@webxr-polyfill/XRFrame');
 class XRFrame {
   constructor(device, session, sessionId) {
     const viewerPose = new XRViewerPose(device);
@@ -1129,18 +1584,18 @@ class XRFrame {
       views.push(new XRView(device, 'right', sessionId));
     }
     viewerPose.views = views;
-    this[PRIVATE$7] = {
+    this[PRIVATE$6] = {
       device,
       viewerPose,
       views,
       session,
     };
   }
-  get session() { return this[PRIVATE$7].session; }
-  get views() { return this[PRIVATE$7].views; }
+  get session() { return this[PRIVATE$6].session; }
+  get views() { return this[PRIVATE$6].views; }
   getViewerPose(space) {
-    this[PRIVATE$7].viewerPose.updateFromReferenceSpace(space);
-    return this[PRIVATE$7].viewerPose;
+    this[PRIVATE$6].viewerPose.updateFromReferenceSpace(space);
+    return this[PRIVATE$6].viewerPose;
   }
   getPose(space, baseSpace) {
     if (space._specialType === "viewer") {
@@ -1150,51 +1605,52 @@ class XRFrame {
         viewerPose.emulatedPosition);
     }
     if (space._specialType === "target-ray" || space._specialType === "grip") {
-      return this[PRIVATE$7].device.getInputPose(space._inputSource, baseSpace, space._specialType);
+      return this[PRIVATE$6].device.getInputPose(
+        space._inputSource, baseSpace, space._specialType);
     }
     return null;
   }
 }
 
-const PRIVATE$8 = Symbol('@@webxr-polyfill/XRStageBoundsPoint');
+const PRIVATE$7 = Symbol('@@webxr-polyfill/XRStageBoundsPoint');
 class XRStageBoundsPoint {
   constructor(x, z) {
-    this[PRIVATE$8] = { x, z };
+    this[PRIVATE$7] = { x, z };
   }
-  get x() { return this[PRIVATE$8].x; }
-  get z() { return this[PRIVATE$8].z; }
+  get x() { return this[PRIVATE$7].x; }
+  get z() { return this[PRIVATE$7].z; }
 }
 
-const PRIVATE$9 = Symbol('@@webxr-polyfill/XRStageBounds');
+const PRIVATE$8 = Symbol('@@webxr-polyfill/XRStageBounds');
 class XRStageBounds {
   constructor(boundsData) {
     const geometry = [];
     for (let i = 0; i < boundsData.length; i += 2) {
       geometry.push(new XRStageBoundsPoint(boundsData[i], boundsData[i + 1]));
     }
-    this[PRIVATE$9] = { geometry };
+    this[PRIVATE$8] = { geometry };
   }
-  get geometry() { return this[PRIVATE$9].geometry; }
+  get geometry() { return this[PRIVATE$8].geometry; }
 }
 
-const PRIVATE$10 = Symbol('@@webxr-polyfill/XRSpace');
+const PRIVATE$9 = Symbol('@@webxr-polyfill/XRSpace');
 class XRSpace {
   constructor(specialType = null, inputSource = null) {
-    this[PRIVATE$10] = {
+    this[PRIVATE$9] = {
       specialType,
       inputSource,
     };
   }
   get _specialType() {
-    return this[PRIVATE$10].specialType;
+    return this[PRIVATE$9].specialType;
   }
   get _inputSource() {
-    return this[PRIVATE$10].inputSource;
+    return this[PRIVATE$9].inputSource;
   }
 }
 
 const DEFAULT_EMULATION_HEIGHT = 1.6;
-const PRIVATE$11 = Symbol('@@webxr-polyfill/XRReferenceSpace');
+const PRIVATE$10 = Symbol('@@webxr-polyfill/XRReferenceSpace');
 const XRReferenceSpaceTypes = [
   'viewer',
   'local',
@@ -1228,7 +1684,7 @@ class XRReferenceSpace extends XRSpace {
     if (!transform) {
       transform = identity(new Float32Array(16));
     }
-    this[PRIVATE$11] = {
+    this[PRIVATE$10] = {
       disableStageEmulation,
       stageEmulationHeight,
       emulatedHeight,
@@ -1237,18 +1693,19 @@ class XRReferenceSpace extends XRSpace {
       device,
       bounds,
       options,
+      originOffset : identity(new Float32Array(16)),
     };
     this.onboundschange = undefined;
   }
   _isFloor(type) {
     return type === 'bounded-floor' || type === 'local-floor';
   }
-  get bounds() { return this[PRIVATE$11].bounds; }
-  get emulatedHeight() { return this[PRIVATE$11].emulatedHeight; }
-  get type() { return this[PRIVATE$11].type; }
+  get bounds() { return this[PRIVATE$10].bounds; }
+  get emulatedHeight() { return this[PRIVATE$10].emulatedHeight; }
+  get type() { return this[PRIVATE$10].type; }
   transformBasePoseMatrix(out, pose) {
-    if (this[PRIVATE$11].transform) {
-      multiply(out, this[PRIVATE$11].transform, pose);
+    if (this[PRIVATE$10].transform) {
+      multiply(out, this[PRIVATE$10].transform, pose);
       return;
     }
     switch (this.type) {
@@ -1259,8 +1716,11 @@ class XRReferenceSpace extends XRSpace {
         return;
     }
   }
+  transformBaseInputPoseMatrix(out, baseInputPose, basePose) {
+    this.transformBasePoseMatrix(out, baseInputPose);
+  }
   transformBaseViewMatrix(out, view) {
-    let frameOfRef = this[PRIVATE$11].transform;
+    let frameOfRef = this[PRIVATE$10].transform;
     if (frameOfRef) {
       invert(out, frameOfRef);
       multiply(out, view, out);
@@ -1270,16 +1730,79 @@ class XRReferenceSpace extends XRSpace {
     }
     return out;
   }
-  getOffsetReferenceSpace(originOffset) {
+  _getTransformToBaseSpace() {
+    let result = identity(new Float32Array(16));
+    this.transformBasePoseMatrix(result, result);
+    multiply(result, result, this[PRIVATE$10].originOffset);
+    return result;
+  }
+  _inverseOriginOffsetMatrix() {
+    let result = identity(new Float32Array(16));
+    invert(result, this[PRIVATE$10].originOffset);
+    return result;
+  }
+  _originOffsetMatrix() {
+    return this[PRIVATE$10].originOffset;
+  }
+  _adjustForOriginOffset(transformMatrix) {
+    multiply(transformMatrix, this._inverseOriginOffsetMatrix(), transformMatrix);
+  }
+  getOffsetReferenceSpace(additionalOffset) {
     let newSpace = new XRReferenceSpace(
-      this[PRIVATE$11].device,
-      this[PRIVATE$11].type,
-      this[PRIVATE$11].options,
-      this[PRIVATE$11].transform,
-      this[PRIVATE$11].bounds);
-    newSpace[PRIVATE$11].transform = identity(new Float32Array(16));
-    multiply(newSpace[PRIVATE$11].transform, this[PRIVATE$11].transform, originOffset.matrix);
+      this[PRIVATE$10].device,
+      this[PRIVATE$10].type,
+      this[PRIVATE$10].options,
+      this[PRIVATE$10].transform,
+      this[PRIVATE$10].bounds);
+    multiply(newSpace[PRIVATE$10].originOffset, this[PRIVATE$10].originOffset, additionalOffset.matrix);
     return newSpace;
+  }
+}
+
+const POLYFILLED_XR_COMPATIBLE = Symbol('@@webxr-polyfill/polyfilled-xr-compatible');
+const XR_COMPATIBLE = Symbol('@@webxr-polyfill/xr-compatible');
+
+const PRIVATE$11 = Symbol('@@webxr-polyfill/XRWebGLLayer');
+const XRWebGLLayerInit = Object.freeze({
+  antialias: true,
+  depth: false,
+  stencil: false,
+  alpha: true,
+  multiview: false,
+  ignoreDepthValues: false,
+  framebufferScaleFactor: 1.0,
+});
+class XRWebGLLayer {
+  constructor(session, context, layerInit={}) {
+    const config = Object.assign({}, XRWebGLLayerInit, layerInit);
+    if (!(session instanceof XRSession$1)) {
+      throw new Error('session must be a XRSession');
+    }
+    if (session.ended) {
+      throw new Error(`InvalidStateError`);
+    }
+    if (context[POLYFILLED_XR_COMPATIBLE]) {
+      if (context[XR_COMPATIBLE] !== true) {
+        throw new Error(`InvalidStateError`);
+      }
+    }
+    const framebuffer = context.getParameter(context.FRAMEBUFFER_BINDING);
+    this[PRIVATE$11] = {
+      context,
+      config,
+      framebuffer,
+      session,
+    };
+  }
+  get context() { return this[PRIVATE$11].context; }
+  get antialias() { return this[PRIVATE$11].config.antialias; }
+  get ignoreDepthValues() { return true; }
+  get framebuffer() { return this[PRIVATE$11].framebuffer; }
+  get framebufferWidth() { return this[PRIVATE$11].context.drawingBufferWidth; }
+  get framebufferHeight() { return this[PRIVATE$11].context.drawingBufferHeight; }
+  get _session() { return this[PRIVATE$11].session; }
+  getViewport(view) {
+    return view._getViewport(this);
   }
 }
 
@@ -1420,10 +1943,14 @@ class XRSession$1 extends EventTarget {
         this[PRIVATE$12].activeRenderState = this[PRIVATE$12].pendingRenderState;
         this[PRIVATE$12].pendingRenderState = null;
         if (this[PRIVATE$12].activeRenderState.baseLayer) {
-          this[PRIVATE$12].device.onBaseLayerSet(this[PRIVATE$12].id, this[PRIVATE$12].activeRenderState.baseLayer);
+          this[PRIVATE$12].device.onBaseLayerSet(
+            this[PRIVATE$12].id,
+            this[PRIVATE$12].activeRenderState.baseLayer);
         }
         if (this[PRIVATE$12].activeRenderState.inlineVerticalFieldOfView) {
-          this[PRIVATE$12].device.onInlineVerticalFieldOfViewSet(this[PRIVATE$12].id, this[PRIVATE$12].activeRenderState.inlineVerticalFieldOfView);
+          this[PRIVATE$12].device.onInlineVerticalFieldOfViewSet(
+            this[PRIVATE$12].id,
+            this[PRIVATE$12].activeRenderState.inlineVerticalFieldOfView);
         }
       }
       this[PRIVATE$12].device.onFrameStart(this[PRIVATE$12].id);
@@ -1464,7 +1991,7 @@ class XRSession$1 extends EventTarget {
                       "that has already ended.";
       throw new Error(message);
     }
-    if (newState.baseLayer && (newState.baseLayer.session !== this)) {
+    if (newState.baseLayer && (newState.baseLayer._session !== this)) {
       const message = "Called updateRenderState with a base layer that was " +
                       "created by a different session.";
       throw new Error(message);
@@ -1478,11 +2005,13 @@ class XRSession$1 extends EventTarget {
                         "immersive session.";
         throw new Error(message);
       } else {
-        newState.inlineVerticalFieldOfView = Math.min(3.13, Math.max(0.01, newState.inlineVerticalFieldOfView));
+        newState.inlineVerticalFieldOfView = Math.min(
+          3.13, Math.max(0.01, newState.inlineVerticalFieldOfView));
       }
     }
     if (this[PRIVATE$12].pendingRenderState === null) {
-      this[PRIVATE$12].pendingRenderState = Object.assign({}, this[PRIVATE$12].activeRenderState, newState);
+      this[PRIVATE$12].pendingRenderState = Object.assign(
+        {}, this[PRIVATE$12].activeRenderState, newState);
     }
   }
 }
@@ -1509,58 +2038,6 @@ class XRInputSource {
   get gamepad() { return this[PRIVATE$13].impl.gamepad; }
 }
 
-class XRLayer {
-  constructor() {}
-  getViewport(view) {
-    return view._getViewport(this);
-  }
-}
-
-const POLYFILLED_XR_COMPATIBLE = Symbol('@@webxr-polyfill/polyfilled-xr-compatible');
-const XR_COMPATIBLE = Symbol('@@webxr-polyfill/xr-compatible');
-
-const PRIVATE$14 = Symbol('@@webxr-polyfill/XRWebGLLayer');
-const XRWebGLLayerInit = Object.freeze({
-  antialias: true,
-  depth: false,
-  stencil: false,
-  alpha: true,
-  multiview: false,
-  ignoreDepthValues: false,
-  framebufferScaleFactor: 1.0,
-});
-class XRWebGLLayer extends XRLayer {
-  constructor(session, context, layerInit={}) {
-    const config = Object.assign({}, XRWebGLLayerInit, layerInit);
-    if (!(session instanceof XRSession$1)) {
-      throw new Error('session must be a XRSession');
-    }
-    if (session.ended) {
-      throw new Error(`InvalidStateError`);
-    }
-    if (context[POLYFILLED_XR_COMPATIBLE]) {
-      if (context[XR_COMPATIBLE] !== true) {
-        throw new Error(`InvalidStateError`);
-      }
-    }
-    const framebuffer = context.getParameter(context.FRAMEBUFFER_BINDING);
-    super();
-    this[PRIVATE$14] = {
-      context,
-      config,
-      framebuffer,
-      session,
-    };
-  }
-  get context() { return this[PRIVATE$14].context; }
-  get antialias() { return this[PRIVATE$14].config.antialias; }
-  get ignoreDepthValues() { return true; }
-  get framebuffer() { return this[PRIVATE$14].framebuffer; }
-  get framebufferWidth() { return this[PRIVATE$14].context.drawingBufferWidth; }
-  get framebufferHeight() { return this[PRIVATE$14].context.drawingBufferHeight; }
-  get session() { return this[PRIVATE$14].session; }
-}
-
 const transformByMatrix = function(matrix, point){
   return new DOMPointReadOnly(
     matrix[0] * point.x + matrix[4] * point.y + matrix[8] * point.z + matrix[12] * point.w,
@@ -1569,7 +2046,7 @@ const transformByMatrix = function(matrix, point){
     matrix[3] * point.x + matrix[7] * point.y + matrix[11] * point.z + matrix[15] * point.w,
   );
 };
-const multiply$5 = function(lhs, rhs) {
+const multiply$14 = function(lhs, rhs) {
   let result = new Float32Array([
     0, 0, 0, 0,
     0, 0, 0, 0,
@@ -1589,17 +2066,17 @@ const normalizeLength = function(point){
   let l = Math.sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
   return new DOMPointReadOnly(point.x / l, point.y / l, point.z / l, point.w);
 };
-const dot$3 = function(lhs, rhs) {
+const dot$8 = function(lhs, rhs) {
   return lhs[0] * rhs[0] + lhs[1] * rhs[1] + lhs[2] * rhs[2];
 };
-const cross$1 = function(lhs, rhs){
+const cross$3 = function(lhs, rhs){
   return [
     lhs[1] * rhs[2] - lhs[2] * rhs[1],
     lhs[2] * rhs[0] - lhs[0] * rhs[2],
     lhs[0] * rhs[1] - lhs[1] * rhs[0],
   ];
 };
-const rotate$2 = function(matrix, axis, angle) {
+const rotate$7 = function(matrix, axis, angle) {
   const sin_angle = Math.sin(angle);
   const cos_angle = Math.cos(angle);
   const one_minus_cos_angle = 1 - cos_angle;
@@ -1621,7 +2098,7 @@ const rotate$2 = function(matrix, axis, angle) {
       0,
       1
   ]);
-  return multiply$5(matrix, rotateMatrix);
+  return multiply$14(matrix, rotateMatrix);
 };
 class XRRay {
   constructor() {
@@ -1651,17 +2128,17 @@ class XRRay {
       ]);
       const initial_ray_direction = [0, 0, -1];
       const desired_ray_direction = [this.direction_.x, this.direction_.y, this.direction_.z];
-      const cos_angle = dot$3(initial_ray_direction, desired_ray_direction);
+      const cos_angle = dot$8(initial_ray_direction, desired_ray_direction);
       if (cos_angle > 0.9999) {
       } else if (cos_angle < -0.9999) {
         const axis = new DOMPointReadOnly(1, 0, 0, 0);
         cos_angle = -1;
-        this.matrix_ = rotate$2(this.matrix_, axis, Math.acos(cos_angle));
+        this.matrix_ = rotate$7(this.matrix_, axis, Math.acos(cos_angle));
       } else {
-        const cross_initial_desired = cross$1(initial_ray_direction, desired_ray_direction);
+        const cross_initial_desired = cross$3(initial_ray_direction, desired_ray_direction);
         const axis = normalizeLength(new DOMPointReadOnly(
           cross_initial_desired[0], cross_initial_desired[1], cross_initial_desired[2], 0));
-        this.matrix_ = rotate$2(this.matrix_, axis, Math.acos(cos_angle));
+        this.matrix_ = rotate$7(this.matrix_, axis, Math.acos(cos_angle));
       }
     }
     if (!(this.origin_ instanceof DOMPointReadOnly)) {
@@ -1679,7 +2156,7 @@ class XRRay {
   get matrix() { return this.matrix_; }
 }
 
-const PRIVATE$16 = Symbol('@@webxr-polyfill/XRRenderState');
+const PRIVATE$15 = Symbol('@@webxr-polyfill/XRRenderState');
 const XRRenderStateInit = Object.freeze({
   depthNear: 0.1,
   depthFar: 1000.0,
@@ -1689,24 +2166,24 @@ const XRRenderStateInit = Object.freeze({
 class XRRenderState {
   constructor(stateInit = {}) {
     const config = Object.assign({}, XRRenderStateInit, stateInit);
-    this[PRIVATE$16] = { config };
+    this[PRIVATE$15] = { config };
   }
-  get depthNear() { return this[PRIVATE$16].depthNear; }
-  get depthFar() { return this[PRIVATE$16].depthFar; }
-  get inlineVerticalFieldOfView() { return this[PRIVATE$16].inlineVerticalFieldOfView; }
-  get baseLayer() { return this[PRIVATE$16].baseLayer; }
+  get depthNear() { return this[PRIVATE$15].depthNear; }
+  get depthFar() { return this[PRIVATE$15].depthFar; }
+  get inlineVerticalFieldOfView() { return this[PRIVATE$15].inlineVerticalFieldOfView; }
+  get baseLayer() { return this[PRIVATE$15].baseLayer; }
 }
 
-const PRIVATE$17 = Symbol('@@webxr-polyfill/XRPose');
+const PRIVATE$16 = Symbol('@@webxr-polyfill/XRPose');
 class XRPose$1 {
   constructor(transform, emulatedPosition) {
-    this[PRIVATE$17] = {
+    this[PRIVATE$16] = {
       transform,
       emulatedPosition,
     };
   }
-  get transform() { return this[PRIVATE$17].transform; }
-  get emulatedPosition() { return this[PRIVATE$17].emulatedPosition; }
+  get transform() { return this[PRIVATE$16].transform; }
+  get emulatedPosition() { return this[PRIVATE$16].emulatedPosition; }
 }
 
 var API = {
@@ -1716,9 +2193,7 @@ var API = {
   XRView,
   XRViewport,
   XRViewerPose,
-  XRLayer,
   XRWebGLLayer,
-  XRPresentationContext,
   XRSpace,
   XRReferenceSpace,
   XRStageBounds,
@@ -1740,13 +2215,9 @@ const polyfillMakeXRCompatible = Context => {
   };
   return true;
 };
-const polyfillGetContext = (Canvas, renderContextType) => {
+const polyfillGetContext = (Canvas) => {
   const getContext = Canvas.prototype.getContext;
   Canvas.prototype.getContext = function (contextType, glAttribs) {
-    if (renderContextType && contextType === 'xrpresent') {
-      let ctx = getContext.call(this, renderContextType, glAttribs);
-      return new XRPresentationContext(this, ctx, glAttribs);
-    }
     const ctx = getContext.call(this, contextType, glAttribs);
     ctx[POLYFILLED_XR_COMPATIBLE] = true;
     if (glAttribs && ('xrCompatible' in glAttribs)) {
@@ -4978,6 +5449,21 @@ let oculusTouch = {
     orientation: [Math.PI * 0.11, 0, 0, 1]
   }
 };
+let windowsMixedReality = {
+  mapping: 'xr-standard',
+  id: 'windows-mixed-reality',
+  buttons: {
+    length: 4,
+    0: 1,
+    1: 0,
+    2: 2,
+    3: 4,
+  },
+  gripTransform: {
+    position: [0, -0.02, 0.04, 1],
+    orientation: [Math.PI * 0.11, 0, 0, 1]
+  }
+};
 let GamepadMappings = {
   "Oculus Touch (Right)": oculusTouch,
   "Oculus Touch (Left)": oculusTouch,
@@ -4991,7 +5477,9 @@ let GamepadMappings = {
     gripTransform: {
       orientation: [Math.PI * 0.11, 0, 0, 1]
     }
-  }
+  },
+  "Windows Mixed Reality (Right)": windowsMixedReality,
+  "Windows Mixed Reality (Left)": windowsMixedReality,
 };
 
 const HEAD_ELBOW_OFFSET_RIGHTHANDED = fromValues$1(0.155, -0.465, -0.15);
@@ -5146,7 +5634,7 @@ class OrientationArmModel {
   }
 }
 
-const PRIVATE$18 = Symbol('@@webxr-polyfill/XRRemappedGamepad');
+const PRIVATE$17 = Symbol('@@webxr-polyfill/XRRemappedGamepad');
 const PLACEHOLDER_BUTTON = { pressed: false, touched: false, value: 0.0 };
 Object.freeze(PLACEHOLDER_BUTTON);
 class XRRemappedGamepad {
@@ -5176,7 +5664,7 @@ class XRRemappedGamepad {
         map.targetRayTransform.position || [0, 0, 0]
       );
     }
-    this[PRIVATE$18] = {
+    this[PRIVATE$17] = {
       gamepad,
       map,
       id: map.id || gamepad.id,
@@ -5189,9 +5677,9 @@ class XRRemappedGamepad {
     this._update();
   }
   _update() {
-    let gamepad = this[PRIVATE$18].gamepad;
-    let map = this[PRIVATE$18].map;
-    let axes = this[PRIVATE$18].axes;
+    let gamepad = this[PRIVATE$17].gamepad;
+    let map = this[PRIVATE$17].map;
+    let axes = this[PRIVATE$17].axes;
     for (let i = 0; i < axes.length; ++i) {
       if (map.axes && i in map.axes) {
         if (map.axes[i] === null) {
@@ -5203,7 +5691,7 @@ class XRRemappedGamepad {
         axes[i] = gamepad.axes[i];
       }
     }
-    let buttons = this[PRIVATE$18].buttons;
+    let buttons = this[PRIVATE$17].buttons;
     for (let i = 0; i < buttons.length; ++i) {
       if (map.buttons && i in map.buttons) {
         if (map.buttons[i] === null) {
@@ -5217,25 +5705,25 @@ class XRRemappedGamepad {
     }
   }
   get id() {
-    return this[PRIVATE$18].id;
+    return this[PRIVATE$17].id;
   }
   get index() {
     return 0;
   }
   get connected() {
-    return this[PRIVATE$18].gamepad.connected;
+    return this[PRIVATE$17].gamepad.connected;
   }
   get timestamp() {
-    return this[PRIVATE$18].gamepad.timestamp;
+    return this[PRIVATE$17].gamepad.timestamp;
   }
   get mapping() {
-    return this[PRIVATE$18].mapping;
+    return this[PRIVATE$17].mapping;
   }
   get axes() {
-    return this[PRIVATE$18].axes;
+    return this[PRIVATE$17].axes;
   }
   get buttons() {
-    return this[PRIVATE$18].buttons;
+    return this[PRIVATE$17].buttons;
   }
 }
 class GamepadXRInputSource {
@@ -5311,8 +5799,8 @@ class GamepadXRInputSource {
     switch(poseType) {
       case "target-ray":
         coordinateSystem.transformBasePoseMatrix(this.outputMatrix, this.basePoseMatrix);
-        if (this.gamepad && this.gamepad[PRIVATE$18].targetRayTransform) {
-          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$18].targetRayTransform);
+        if (this.gamepad && this.gamepad[PRIVATE$17].targetRayTransform) {
+          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$17].targetRayTransform);
         }
         break;
       case "grip":
@@ -5320,13 +5808,14 @@ class GamepadXRInputSource {
           return null;
         }
         coordinateSystem.transformBasePoseMatrix(this.outputMatrix, this.basePoseMatrix);
-        if (this.gamepad && this.gamepad[PRIVATE$18].gripTransform) {
-          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$18].gripTransform);
+        if (this.gamepad && this.gamepad[PRIVATE$17].gripTransform) {
+          multiply(this.outputMatrix, this.outputMatrix, this.gamepad[PRIVATE$17].gripTransform);
         }
         break;
       default:
         return null;
     }
+    multiply(this.outputMatrix, coordinateSystem._inverseOriginOffsetMatrix(), this.outputMatrix);
     return new XRPose(new XRRigidTransform(this.outputMatrix), this.emulatedPosition);
   }
 }
@@ -5741,10 +6230,9 @@ class WebXRPolyfill {
     {
       const polyfilledCtx = polyfillMakeXRCompatible(global.WebGLRenderingContext);
       if (polyfilledCtx) {
-        const renderContextType = isImageBitmapSupported(global) ? 'bitmaprenderer' : '2d';
-        polyfillGetContext(global.HTMLCanvasElement, renderContextType);
+        polyfillGetContext(global.HTMLCanvasElement);
         if (global.OffscreenCanvas) {
-          polyfillGetContext(global.OffscreenCanvas, null);
+          polyfillGetContext(global.OffscreenCanvas);
         }
         if (global.WebGL2RenderingContext){
           polyfillMakeXRCompatible(global.WebGL2RenderingContext);

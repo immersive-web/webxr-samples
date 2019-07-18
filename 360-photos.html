@@ -25,6 +25,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 
     <title>360 Photos</title>
 
@@ -48,6 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {InlineViewerPoseHandler} from './js/util/inline-viewer-pose-handler.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -60,7 +63,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
+      let xrInlineRefSpace = null;
+      let inlinePoseHandler = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -138,7 +142,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveRefSpace = refSpace;
+            xrInlineRefSpace = refSpace;
+            inlinePoseHandler = new InlineViewerPoseHandler(gl.canvas, refSpace);
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -158,7 +163,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
+                         inlinePoseHandler.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();

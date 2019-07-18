@@ -25,6 +25,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 
     <title>Inline Session</title>
 
@@ -63,30 +65,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let polyfill = new WebXRPolyfill();
       }
 
+      // Inline sessions, by default, us a vertical field of view of 90 degrees
+      // when computing projection matrices. If an application wants to use a
+      // different FoV for inline sessions it can be specified by setting the
+      // inlineVerticalFieldOfView value in an updateRenderState call. Note that
+      // this only applies to inline sessions, and attempting to set that value
+      // for an immersive session will throw an error.
       let inlineSession = null;
       let fov = document.getElementById('vertFOV');
       let fovLabel = document.getElementById('vertFOVLabel');
       function updateFov() {
         let value = parseFloat(fov.value);
+        // The inlineVerticalFieldOfView is specified in radians.
         let radValue = value * (Math.PI / 180);
+
+        if (inlineSession) {
+          // As with any values set with updateRenderState, this will take
+          // effect on the next frame.
+          inlineSession.updateRenderState({
+            inlineVerticalFieldOfView: radValue
+          });
+        }
+        
+        // Set the label on the page
         let label = `Vertical FOV: ${value} degrees`;
         if (value == 90) {
           label += ' (default)';
         }
         fovLabel.innerHTML = label;
-
-        if (inlineSession) {
-          inlineSession.updateRenderState({
-            inlineVerticalFieldOfView: radValue
-          });
-        }
       }
       fov.addEventListener('change', updateFov);
 
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
+      let xrInlineRefSpace = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -151,13 +164,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           window.addEventListener('resize', onResize);
           onResize();
 
-          // Make the canvas listen for mouse and touch events so that we can
-          // adjust the viewer pose accordingly in inline sessions.
-          gl.canvas.addEventListener("touchstart", onTouchStart);
-          gl.canvas.addEventListener("touchend", onTouchEnd);
-          gl.canvas.addEventListener("touchcancel", onTouchCancel);
-          gl.canvas.addEventListener("touchmove", onTouchMove);
-          gl.canvas.addEventListener('mousemove', onMouseMove);
+          // Installs the listeners necessary to allow users to look around with
+          // inline sessions using the mouse or touch.
+          addInlineViewListeners(gl.canvas);
 
           renderer = new Renderer(gl);
 
@@ -184,7 +193,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveRefSpace = refSpace;
+            xrInlineRefSpace = refSpace;
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -201,27 +210,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      // XRReferenceSpace offset is immutable, so return a new reference space
-      // that has an updated orientation.
-      function getAdjustedRefSpace(refSpace) {
-        // Represent the rotational component of the reference space as a
-        // quaternion.
-        let invOrientation = quat.create();
-        quat.rotateX(invOrientation, invOrientation, -lookPitch);
-        quat.rotateY(invOrientation, invOrientation, -lookYaw);
-        let xform = new XRRigidTransform(
-            {x: 0, y: 0, z: 0},
-            {x: invOrientation[0], y: invOrientation[1], z: invOrientation[2], w: invOrientation[3]});
-        return refSpace.getOffsetReferenceSpace(xform);
-      }
-
       // Called every time a XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
         // Ensure that we're using the right frame of reference for the session.
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
+                         xrInlineRefSpace;
 
         // Account for the click-and-drag mouse movement or touch movement when
         // calculating the viewer pose for inline sessions.
@@ -257,95 +252,92 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // sessions.
       let lookYaw = 0;
       let lookPitch = 0;
-      const lookSpeed = 0.0025;
+      const LOOK_SPEED = 0.0025;
 
-      // Keep track of touch-related state so that users can touch and drag on
-      // the canvas to adjust the viewer pose in an inline session.
-      let primaryTouch = undefined;
-      let prevTouchX = undefined;
-      let prevTouchY = undefined;
-      let currentTouches = new Set();
+      // XRReferenceSpace offset is immutable, so return a new reference space
+      // that has an updated orientation.
+      function getAdjustedRefSpace(refSpace) {
+        // Represent the rotational component of the reference space as a
+        // quaternion.
+        let invOrientation = quat.create();
+        quat.rotateX(invOrientation, invOrientation, -lookPitch);
+        quat.rotateY(invOrientation, invOrientation, -lookYaw);
+        let xform = new XRRigidTransform(
+            {x: 0, y: 0, z: 0},
+            {x: invOrientation[0], y: invOrientation[1], z: invOrientation[2], w: invOrientation[3]});
+        return refSpace.getOffsetReferenceSpace(xform);
+      }
 
-      function processMoveEvent(dx, dy) {
-        lookYaw += dx * lookSpeed;
-        lookPitch += dy * lookSpeed;
+      function rotateView(dx, dy) {
+        lookYaw += dx * LOOK_SPEED;
+        lookPitch += dy * LOOK_SPEED;
         if (lookPitch < -Math.PI*0.5)
             lookPitch = -Math.PI*0.5;
         if (lookPitch > Math.PI*0.5)
             lookPitch = Math.PI*0.5;
       }
 
-      function onMouseMove(event) {
-        // Only rotate when the left button is pressed
-        if (event.buttons && 1) {
-          processMoveEvent(event.movementX, event.movementY);
-        }
-      }
+      // Make the canvas listen for mouse and touch events so that we can
+      // adjust the viewer pose accordingly in inline sessions.
+      function addInlineViewListeners(canvas) {
+        canvas.addEventListener('mousemove', (event) => {
+          // Only rotate when the right button is pressed
+          if (event.buttons && 2) {
+            rotateView(event.movementX, event.movementY);
+          }
+        });
 
-      // Keep track of all active touches, but only use the first touch to
-      // adjust the viewer pose.
-      function onTouchStart(event) {
-        let touches = event.changedTouches;
-        for (let i = 0; i < touches.length; ++i) {
-          let touch = touches[i];
-          let id = touch.identifier;
+        // Keep track of touch-related state so that users can touch and drag on
+        // the canvas to adjust the viewer pose in an inline session.
+        let primaryTouch = undefined;
+        let prevTouchX = undefined;
+        let prevTouchY = undefined;
+
+        // Keep track of all active touches, but only use the first touch to
+        // adjust the viewer pose.
+        canvas.addEventListener("touchstart", (event) => {
           if (primaryTouch == undefined) {
-            primaryTouch = id;
+            let touch = event.changedTouches[0];
+            primaryTouch = touch.identifier;
             prevTouchX = touch.pageX;
             prevTouchY = touch.pageY;
           }
-          currentTouches.add(id);
-        }
-      }
+        });
 
-      // Update the set of active touches now that one or more touches finished.
-      // If the primary touch just finished, update the viewer pose based on the
-      // final touch movement.
-      function onTouchEnd(event) {
-        let touches = event.changedTouches;
-        for (let i = 0; i < touches.length; ++i) {
-          let touch = touches[i];
-          let id = touch.identifier;
-          if (id == primaryTouch) {
-            let dx = touch.pageX - prevTouchX;
-            let dy = touch.pageY - prevTouchY;
-            processMoveEvent(dx, dy);
-            primaryTouch = undefined;
+        // Update the set of active touches now that one or more touches
+        // finished. If the primary touch just finished, update the viewer pose
+        // based on the final touch movement.
+        canvas.addEventListener("touchend", (event) => {
+          for (let touch of event.changedTouches) {
+            if (primaryTouch == touch.identifier) {
+              primaryTouch = undefined;
+              rotateView(touch.pageX - prevTouchX, touch.pageY - prevTouchY);
+            }
           }
-          currentTouches.delete(id);
-        }
-      }
+        });
 
-      // Update the set of active touches now that one or more touches was
-      // cancelled. Don't update the viewer pose when the primary touch was
-      // cancelled.
-      function onTouchCancel(event) {
-        let touches = event.changedTouches;
-        for (let i = 0; i < touches.length; ++i) {
-          let touch = touches[i];
-          let id = touch.identifier;
-          if (id == primaryTouch) {
-            primaryTouch = undefined;
+        // Update the set of active touches now that one or more touches was
+        // cancelled. Don't update the viewer pose when the primary touch was
+        // cancelled.
+        canvas.addEventListener("touchcancel", (event) => {
+          for (let touch of event.changedTouches) {
+            if (primaryTouch == touch.identifier) {
+              primaryTouch = undefined;
+            }
           }
-          currentTouches.delete(id);
-        }
-      }
+        });
 
-      // Only use the delta between the most recent and previous events for the
-      // primary touch. Ignore the other touches.
-      function onTouchMove(event) {
-        let touches = event.changedTouches;
-        for (let i = 0; i < touches.length; ++i) {
-          let touch = touches[i];
-          let id = touch.identifier;
-          if (id == primaryTouch) {
-            let dx = touch.pageX - prevTouchX;
-            let dy = touch.pageY - prevTouchY;
-            processMoveEvent(dx, dy);
-            prevTouchX = touch.pageX;
-            prevTouchY = touch.pageY;
+        // Only use the delta between the most recent and previous events for
+        // the primary touch. Ignore the other touches.
+        canvas.addEventListener("touchmove", (event) => {
+          for (let touch of event.changedTouches) {
+            if (primaryTouch == touch.identifier) {
+              rotateView(touch.pageX - prevTouchX, touch.pageY - prevTouchY);
+              prevTouchX = touch.pageX;
+              prevTouchY = touch.pageY;
+            }
           }
-        }
+        });
       }
 
       // Start the XR application.
