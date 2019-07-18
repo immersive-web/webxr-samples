@@ -4963,19 +4963,13 @@ class XRDevice extends EventTarget {
 
 let oculusTouch = {
   mapping: 'xr-standard',
-  axes: {
-    length: 4,
-    0: null,
-    1: null,
-    2: 0,
-    3: 1
-  },
+  id: 'oculus-touch',
   buttons: {
     length: 6,
     0: 1,
-    1: 2,
-    2: null,
-    3: 0,
+    1: 0,
+    2: 2,
+    3: null,
     4: 3,
     5: 4
   },
@@ -4989,11 +4983,10 @@ let GamepadMappings = {
   "Oculus Touch (Left)": oculusTouch,
   "Oculus Go Controller": {
     mapping: 'xr-standard',
+    id: 'oculus-go',
     buttons: {
-      length: 3,
       0: 1,
-      1: null,
-      2: 0
+      1: 0,
     },
     gripTransform: {
       orientation: [Math.PI * 0.11, 0, 0, 1]
@@ -5186,6 +5179,7 @@ class XRRemappedGamepad {
     this[PRIVATE$18] = {
       gamepad,
       map,
+      id: map.id || gamepad.id,
       mapping: map.mapping || gamepad.mapping,
       axes,
       buttons,
@@ -5223,10 +5217,10 @@ class XRRemappedGamepad {
     }
   }
   get id() {
-    return '';
+    return this[PRIVATE$18].id;
   }
   get index() {
-    return -1;
+    return 0;
   }
   get connected() {
     return this[PRIVATE$18].gamepad.connected;

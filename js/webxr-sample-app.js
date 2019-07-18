@@ -118,7 +118,9 @@ export class WebXRSampleApp {
 
   onRequestSession() {
     // Called when the button gets clicked. Requests an immersive session.
-    navigator.xr.requestSession(this.options.immersiveMode).then((session) => {
+    navigator.xr.requestSession(this.options.immersiveMode, {
+        requiredFeatures: [this.options.referenceSpace]
+    }).then((session) => {
       this.xrButton.setSession(session);
       session.isImmersive = true;
       this.onSessionStarted(session);

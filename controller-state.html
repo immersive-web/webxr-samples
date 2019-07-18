@@ -42,6 +42,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
+    <main style='text-align: center;'>
+      <p>Click 'Enter XR' to see content</p> 
+    </main>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
@@ -292,7 +295,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        navigator.xr.requestSession('immersive-vr').then((session) => {
+        navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor'] 
+        }).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);

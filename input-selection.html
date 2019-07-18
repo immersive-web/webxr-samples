@@ -138,7 +138,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        navigator.xr.requestSession('immersive-vr').then((session) => {
+        navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor'] 
+        }).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);

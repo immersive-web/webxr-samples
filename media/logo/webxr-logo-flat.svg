@@ -1,0 +1,24 @@
+<svg viewBox="0 0 850 205" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
+    <text x="392.906" y="352.302" font-family="'OpenSans-Regular','Open Sans',sans-serif" font-size="144" fill="#3d3d3d" transform="translate(-247.688 -260.542) scale(1.21555)">WebXR</text>
+    <path d="M259.879 588.352c-4.857-11.581-61.068-146.689-61.068-146.689s-13.124-31.17 34.042-53.317c47.165-22.147 104.584-50.036 104.584-50.036v211.727s-33.99 33.704-47.434 47.215c-12.216 12.279-25.248 2.729-30.124-8.9z" fill="#dc0000" transform="translate(-128.427 -188.71) scale(.65147)"/>
+    <path d="M259.879 588.352c-4.857-11.581-61.068-146.689-61.068-146.689s-13.124-31.17 34.042-53.317c47.165-22.147 104.584-50.036 104.584-50.036v211.727s-33.99 33.704-47.434 47.215c-12.216 12.279-25.248 2.729-30.124-8.9z" fill="#c80000" transform="matrix(-.65147 0 0 .65147 311.234 -188.71)"/>
+    <path d="M337.437 338.31l97.478-47.288s20.767-9.152 15.564 20.116L437.16 386.06l-99.723-47.75z" fill="#c80000" fill-opacity="0.64999998" transform="matrix(-.65147 0 0 .65147 311.234 -188.71)"/>
+    <path d="M337.437 338.31l97.478-47.288s20.767-9.152 15.564 20.116L437.16 386.06l-99.723-47.75z" fill="#f00000" fill-opacity="0.64999998" transform="translate(-128.427 -188.71) scale(.65147)"/>
+    <defs>
+        <linearGradient id="_Linear1" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(-393.4632) rotate(-79.73 -.845 .166)">
+            <stop offset="0" stop-color="red"/>
+            <stop offset="1" stop-color="#900"/>
+        </linearGradient>
+        <linearGradient id="_Linear2" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(353.43) rotate(-62.438 1.8 .204)">
+            <stop offset="0" stop-color="red"/>
+            <stop offset="1" stop-color="#900"/>
+        </linearGradient>
+        <linearGradient id="_Linear3" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(-390.559 390.559) rotate(59.813 -1.177 -.66)">
+            <stop offset="0" stop-color="#900" stop-opacity=".65"/>
+            <stop offset="1" stop-color="#fe0000" stop-opacity=".65"/>
+        </linearGradient><linearGradient id="_Linear4" x2="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(-393.4632) rotate(-79.73 -.845 .166)">
+            <stop offset="0" stop-color="red" stop-opacity=".65"/>
+            <stop offset="1" stop-color="#900" stop-opacity=".65"/>
+        </linearGradient>
+    </defs>
+</svg>
