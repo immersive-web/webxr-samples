@@ -21,6 +21,7 @@
 import {WebXRButton} from './util/webxr-button.js';
 import {Scene} from './render/scenes/scene.js';
 import {Renderer, createWebGLContext} from './render/core/renderer.js';
+import {InlineViewerHelper} from './util/inline-viewer-helper.js/index.js';
 
 export class WebXRSampleApp {
   constructor(options) {
@@ -45,7 +46,7 @@ export class WebXRSampleApp {
     });
 
     this.immersiveRefSpace = null;
-    this.inlineRefSpace = null;
+    this.inlineViewerHelper = null;
 
     this.frameCallback = (time, frame) => {
       let session = frame.session;
@@ -61,7 +62,7 @@ export class WebXRSampleApp {
   }
 
   getSessionReferenceSpace(session) {
-    return session.isImmersive ? this.immersiveRefSpace : this.inlineRefSpace;
+    return session.isImmersive ? this.immersiveRefSpace : this.inlineViewerHelper.referenceSpace;
   }
 
   run() {
@@ -155,7 +156,11 @@ export class WebXRSampleApp {
       if (session.isImmersive) {
         this.immersiveRefSpace = refSpace;
       } else {
-        this.inlineRefSpace = refSpace;
+        this.inlineViewerHelper = new InlineViewerHelper(this.gl.canvas, refSpace);
+        if (this.options.referenceSpace == 'local-floor' ||
+            this.options.referenceSpace == 'bounded-floor') {
+          this.inlineViewerHelper.setHeight(1.6);
+        }
       }
 
       session.requestAnimationFrame(this.frameCallback);
@@ -166,14 +171,7 @@ export class WebXRSampleApp {
     if (this.options.referenceSpace && session.isImmersive) {
       return session.requestReferenceSpace(this.options.referenceSpace);
     } else {
-      return session.requestReferenceSpace('viewer').then((refSpace) => {
-        if (this.options.referenceSpace == 'local-floor' ||
-            this.options.referenceSpace == 'bounded-floor') {
-          refSpace = refSpace.getOffsetReferenceSpace(
-                new XRRigidTransform({y: -1.6}));
-        }
-        return refSpace;
-      });
+      return session.requestReferenceSpace('viewer');
     }
   }
 

@@ -47,11 +47,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </header>
     <script type="module">
       import {WebXRButton} from '../js/util/webxr-button.js';
-      import {QueryArgs} from '../js/util/query-args.js';
       import {Scene} from '../js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
       import {CubeSeaNode} from '../js/render/nodes/cube-sea.js';
       import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {InlineViewerHelper} from '../js/util/inline-viewer-helper.js';
+      import {QueryArgs} from '../js/util/query-args.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', false)) {
+        let polyfill = new WebXRPolyfill();
+      }
 
       // Helper methods for saving dat.gui-edited parameters in the URL hash.
       // Only non-default values are saved.
@@ -226,7 +234,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrInlineRefSpace = null;
+      let inlineViewerHelper = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -312,7 +320,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrInlineRefSpace = refSpace;
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
           }
           session.requestAnimationFrame(onXRFrame);
         });
@@ -333,7 +341,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrInlineRefSpace;
+                         inlineViewerHelper.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         frameNum++;

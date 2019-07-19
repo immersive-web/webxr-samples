@@ -52,7 +52,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {mat4, quat} from './js/render/math/gl-matrix.js';
-      import {InlineViewerPoseHandler} from './js/util/inline-viewer-pose-handler.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -65,7 +65,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let inlinePoseHandler = null;
+      let inlineViewerHelper = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -166,9 +166,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            refSpace = refSpace.getOffsetReferenceSpace(
-                new XRRigidTransform({y: -1.6}));
-            inlinePoseHandler = new InlineViewerPoseHandler(gl.canvas, refSpace);
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+            inlineViewerHelper.setHeight(1.6);
           }
 
           session.requestAnimationFrame(onXRFrame);
@@ -238,7 +237,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         inlinePoseHandler.referenceSpace;
+                         inlineViewerHelper.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();

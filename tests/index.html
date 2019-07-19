@@ -163,6 +163,13 @@
             sourceLink.innerHTML = 'Source';
             links.appendChild(sourceLink);
 
+            if (!page.noPolyfill) {
+              let polyfillLink = document.createElement('a');
+              polyfillLink.href = page.path + '?usePolyfill=1';
+              polyfillLink.innerHTML = 'Run with Polyfill';
+              links.appendChild(polyfillLink);
+            }
+
             article.appendChild(links);
 
             mainElement.appendChild(article);

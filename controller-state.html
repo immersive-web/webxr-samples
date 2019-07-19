@@ -44,9 +44,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <main style='text-align: center;'>
-      <p>Click 'Enter XR' to see content</p> 
-    </main>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
       import {Scene} from './js/render/scenes/scene.js';
@@ -57,6 +54,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {BoxBuilder} from './js/render/geometry/box-builder.js';
       import {PbrMaterial} from './js/render/materials/pbr.js';
       import {mat4, vec3, quat} from './js/render/math/gl-matrix.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
       import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
@@ -71,7 +69,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // XR globals.
       let xrButton = null;
-      let xrRefSpace = null;
+      let xrImmersiveRefSpace = null;
+      let inlineViewerHelper = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -252,6 +251,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           navigator.xr.supportsSession('immersive-vr').then(() => {
             xrButton.enabled = true;
           });
+
+          navigator.xr.requestSession('inline').then(onSessionStarted);
         }
       }
 
@@ -315,9 +316,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           baseLayer : new XRWebGLLayer(session, gl)
         });
 
-        session.requestReferenceSpace('local-floor').then((refSpace) => {
-          // Save the session-specific reference space.
-          xrRefSpace = refSpace;
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
+            xrImmersiveRefSpace = refSpace;
+          } else {
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+            inlineViewerHelper.setHeight(1.6);
+          }
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -326,21 +332,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.end();
       }
 
+      function onSessionEnded(event) {
+        if (event.session.isImmersive) {
+          xrButton.setSession(null);
+        }
+      }
+
       function onXRFrame(time, frame) {
         let session = frame.session;
-        let pose = frame.getViewerPose(xrRefSpace);
+        let refSpace = session.isImmersive ?
+                         xrImmersiveRefSpace :
+                         inlineViewerHelper.referenceSpace;
+
+        let pose = frame.getViewerPose(refSpace);
         scene.startFrame();
         session.requestAnimationFrame(onXRFrame);
 
         // Check for and respond to any gamepad state changes.
         for (let source of session.inputSources) {
           if (source.gamepad) {
-            let pose = frame.getPose(source.gripSpace, xrRefSpace);
+            let pose = frame.getPose(source.gripSpace, refSpace);
             ProcessGamepad(source.gamepad, source.handedness, pose);
           }
         }
 
-        scene.updateInputSources(frame, xrRefSpace);
+        scene.updateInputSources(frame, refSpace);
         scene.drawXRFrame(frame, pose);
         scene.endFrame();
       }

@@ -28,10 +28,11 @@ import {quat} from '../render/math/gl-matrix.js';
 
 const LOOK_SPEED = 0.0025;
 
-export class InlineViewerPoseHandler {
+export class InlineViewerHelper {
   constructor(canvas, referenceSpace) {
     this.lookYaw = 0;
     this.lookPitch = 0;
+    this.viewerHeight = 0;
 
     this.canvas = canvas;
     this.baseRefSpace = referenceSpace;
@@ -91,6 +92,13 @@ export class InlineViewerPoseHandler {
     });
   }
 
+  setHeight(value) {
+    if (this.viewerHeight != value) {
+      this.viewerHeight = value;
+    }
+    this.dirty = true;
+  }
+
   rotateView(dx, dy) {
     this.lookYaw += dx * LOOK_SPEED;
     this.lookPitch += dy * LOOK_SPEED;
@@ -120,9 +128,11 @@ export class InlineViewerPoseHandler {
       quat.rotateX(invOrient, invOrient, -this.lookPitch);
       quat.rotateY(invOrient, invOrient, -this.lookYaw);
       let xform = new XRRigidTransform(
-          {x: 0, y: 0, z: 0},
+          {},
           {x: invOrient[0], y: invOrient[1], z: invOrient[2], w: invOrient[3]});
       this.refSpace = this.baseRefSpace.getOffsetReferenceSpace(xform);
+      xform = new XRRigidTransform({y: -this.viewerHeight});
+      this.refSpace = this.refSpace.getOffsetReferenceSpace(xform);
       this.dirty = false;
     }
     return this.refSpace;
