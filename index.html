@@ -215,8 +215,8 @@
 
             if (!page.noPolyfill) {
               let polyfillLink = document.createElement('a');
-              polyfillLink.href = page.path + '?usePolyfill=1';
-              polyfillLink.innerHTML = 'Run with Polyfill';
+              polyfillLink.href = page.path + '?usePolyfill=0';
+              polyfillLink.innerHTML = 'Run Without Polyfill';
               links.appendChild(polyfillLink);
             }
 
