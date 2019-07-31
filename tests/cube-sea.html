@@ -309,7 +309,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         initGL();
 
         let glLayer = new XRWebGLLayer(session, gl, {
-          compositionDisabled: !session.isImmersive,
           framebufferScaleFactor: appSettings.framebufferScale,
           antialias: appSettings.antialias
         });

@@ -124,9 +124,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        let glLayer = new XRWebGLLayer(session, gl, {
-          compositionDisabled: !session.isImmersive
-        });
+        let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
 
         // When rendering 360 photos/videos you want to ensure that the user's

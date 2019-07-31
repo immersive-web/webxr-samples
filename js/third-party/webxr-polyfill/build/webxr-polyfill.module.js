@@ -6057,6 +6057,8 @@ class WebXRPolyfill {
     this.injected = false;
     if (!this.nativeWebXR) {
       this._injectPolyfill(this.global);
+    } else {
+      this._injectCompatibilityShims(this.global);
     }
   }
   _injectPolyfill(global) {
@@ -6092,6 +6094,28 @@ class WebXRPolyfill {
       value: this.xr,
       configurable: true,
     });
+  }
+  _injectCompatibilityShims(global) {
+    if (!partials.every(iface => !!global[iface])) {
+      throw new Error(`Global must have the following attributes : ${partials}`);
+    }
+    if (global.XRWebGLLayer) {
+      let originalRequestSession = global.navigator.xr.requestSession;
+      global.navigator.xr.requestSession = function(mode, options) {
+        return originalRequestSession.call(this, mode, options).then((session) => {
+          session._session_mode = mode;
+          return session;
+        });
+      };
+      var originalXRLayer = global.XRWebGLLayer;
+      global.XRWebGLLayer = function(session, gl, options) {
+        if (!options) {
+          options = {};
+        }
+        options.compositionDisabled = (session._session_mode === "inline");
+        return new originalXRLayer(session, gl, options);
+      };
+    }
   }
 }
 

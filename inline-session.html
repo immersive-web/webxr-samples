@@ -173,14 +173,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.setRenderer(renderer);
         }
         
-        // WebGL layers for inline sessions must set the compositionDisabled
-        // option to true, which stops it from allocating it's own framebuffer
-        // and causes gl commands to naturally execute against the default
-        // framebuffer, while still using the canvas dimensions to compute
+        // WebGL layers for inline sessions won't allocat their own framebuffer,
+        // which causes gl commands to naturally execute against the default
+        // framebuffer while still using the canvas dimensions to compute
         // viewports and projection matrices.
-        let glLayer = new XRWebGLLayer(session, gl, {
-          compositionDisabled: !session.isImmersive
-        });
+        let glLayer = new XRWebGLLayer(session, gl);
 
         session.updateRenderState({
           baseLayer: glLayer

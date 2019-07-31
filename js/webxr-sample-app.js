@@ -21,7 +21,7 @@
 import {WebXRButton} from './util/webxr-button.js';
 import {Scene} from './render/scenes/scene.js';
 import {Renderer, createWebGLContext} from './render/core/renderer.js';
-import {InlineViewerHelper} from './util/inline-viewer-helper.js/index.js';
+import {InlineViewerHelper} from './util/inline-viewer-helper.js';
 
 export class WebXRSampleApp {
   constructor(options) {
@@ -147,9 +147,7 @@ export class WebXRSampleApp {
     this.onInitRenderer();
 
     session.updateRenderState({ 
-      baseLayer: new XRWebGLLayer(session, this.gl, {
-        compositionDisabled: !session.isImmersive
-      })
+      baseLayer: new XRWebGLLayer(session, this.gl)
     });
 
     this.onRequestReferenceSpace(session).then((refSpace) => {

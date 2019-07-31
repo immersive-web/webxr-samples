@@ -156,9 +156,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        let glLayer = new XRWebGLLayer(session, gl, {
-          compositionDisabled: !session.isImmersive
-        });
+        let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
 
         let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
