@@ -295,8 +295,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        let xrOptions = { mode: appSettings.arMode ? 'immersive-ar' : 'immersive-vr' };
-        navigator.xr.requestSession(xrOptions).then((session) => {
+        let xrMode = appSettings.arMode ? 'immersive-ar' : 'immersive-vr';
+        navigator.xr.requestSession(xrMode).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);
