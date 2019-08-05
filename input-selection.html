@@ -25,27 +25,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 
     <title>Input Selection</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
-
-    <script src='js/cottontail/build/cottontail.js'></script>
-
-    <script src='js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -58,68 +43,54 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <script>
-      (function () {
-      'use strict';
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Node} from './js/render/core/node.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {BoxBuilder} from './js/render/geometry/box-builder.js';
+      import {PbrMaterial} from './js/render/materials/pbr.js';
+      import {mat4} from './js/render/math/gl-matrix.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+      import {QueryArgs} from './js/util/query-args.js';
 
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
       }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
-
-      // Temporary
-      let hideStats = QueryArgs.getBool('hideStats', false);
 
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
+      let inlineViewerHelper = null;
 
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      if (hideStats) {
-        scene.enableStats(false);
-      }
       scene.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
       scene.standingStats(true);
 
       let boxes = [];
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession
         });
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
             xrButton.enabled = true;
           });
 
-          let outputCanvas = document.createElement('canvas');
-          let ctx = outputCanvas.getContext('xrpresent');
-
-          navigator.xr.requestSession({ outputContext: ctx })
-              .then((session) => {
-                document.body.appendChild(outputCanvas);
-                onSessionStarted(session);
-              });
-        } else {
-          initFallback();
+          navigator.xr.requestSession('inline').then(onSessionStarted);
         }
-      }
-
-      function initFallback() {
-        initGL();
-        document.body.appendChild(gl.canvas);
-        let fallbackHelper = new FallbackHelper(scene, gl);
-        fallbackHelper.emulateStage = true;
       }
 
       function initGL() {
@@ -129,6 +100,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = createWebGLContext({
           xrCompatible: true
         });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', onResize);
+        onResize();
 
         renderer = new Renderer(gl);
 
@@ -162,14 +141,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
+        navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor'] 
+        }).then((session) => {
           xrButton.setSession(session);
+          session.isImmersive = true;
           onSessionStarted(session);
         });
       }
@@ -183,39 +159,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         initGL();
 
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        let glLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: glLayer });
 
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
-            xrNonImmersiveRefSpace = refSpace;
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+            inlineViewerHelper.setHeight(1.6);
           }
-
           session.requestAnimationFrame(onXRFrame);
         });
       }
 
       function onSelect(ev) {
-        let refSpace = ev.frame.session.mode == "immersive-vr" ?
+        let refSpace = ev.frame.session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
+                         inlineViewerHelper.referenceSpace;
 
-        let inputPose = ev.frame.getInputPose(ev.inputSource, refSpace);
-        if (!inputPose) {
+        let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
+        if (!targetRayPose) {
           return;
         }
 
-        if (inputPose.targetRay) {
-          let hitResult = scene.hitTest(inputPose.targetRay)
-          if (hitResult) {
-            // Check to see if the hit result was one of our boxes.
-            for (let box of boxes) {
-              if (hitResult.node == box.node) {
-                // Change the box color to something random.
-                let uniforms = box.renderPrimitive.uniforms;
-                uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
-              }
+        let hitResult = scene.hitTest(targetRayPose.transform);
+        if (hitResult) {
+          // Check to see if the hit result was one of our boxes.
+          for (let box of boxes) {
+            if (hitResult.node == box.node) {
+              // Change the box color to something random.
+              let uniforms = box.renderPrimitive.uniforms;
+              uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
             }
           }
         }
@@ -226,17 +202,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
-          document.body.removeChild(document.querySelector('#mirror-canvas'));
+        if (event.session.isImmersive) {
           xrButton.setSession(null);
         }
       }
 
       function onXRFrame(time, frame) {
         let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
+        let refSpace = session.isImmersive ?
                          xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
+                         inlineViewerHelper.referenceSpace;
         let pose = frame.getViewerPose(refSpace);
 
         scene.startFrame();
@@ -265,7 +240,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Start the XR application.
       initXR();
-      })();
     </script>
   </body>
 </html>

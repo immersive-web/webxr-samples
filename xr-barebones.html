@@ -25,18 +25,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 
     <title>Barebones WebXR</title>
 
     <link href='css/common.css' rel='stylesheet'></link>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
   </head>
   <body>
     <header>
@@ -58,8 +52,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       (function () {
       'use strict';
 
-      var versionShim = new WebXRVersionShim();
-
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
@@ -76,7 +68,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
           // If the device allows creation of exclusive sessions set it as the
           // target of the 'Enter XR' button.
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
             // Updates the button to start an XR session when clicked.
             xrButton.addEventListener('click', onButtonClicked);
             xrButton.innerHTML = 'Enter XR';
@@ -86,10 +78,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // Called when the user clicks the button to enter XR. If we don't have a
-      // session already we'll request one, and if we do we'll end it.
+      // session we'll request one, and if we do have a session we'll end it.
       function onButtonClicked() {
         if (!xrSession) {
-          navigator.xr.requestSession({mode: 'immersive-vr'}).then(onSessionStarted);
+          navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
         } else {
           xrSession.end();
         }
@@ -108,19 +100,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Create a WebGL context to render with, initialized to be compatible
         // with the XRDisplay we're presenting to.
         let canvas = document.createElement('canvas');
-        gl = canvas.getContext('webgl', {
-          xrCompatible: true
-        });
+        gl = canvas.getContext('webgl', { xrCompatible: true });
 
         // Use the new WebGL context to create a XRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
         // be displayed on the XRDevice.
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // Get a frame of reference, which is required for querying poses. In
-        // this case an 'eye-level' frame of reference means that all poses will
-        // be relative to the location where the XRDevice was first detected.
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        // Get a reference space, which is required for querying poses. In this
+        // case an 'local' reference space means that all poses will be relative
+        // to the location where the XRDevice was first detected.
+        session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
 
           // Inform the session that we're ready to begin drawing.
@@ -128,14 +118,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
       }
 
-      // Called when the user clicks the 'Exit XR' button. In response we end
-      // the session.
-      function onEndSession(session) {
-        session.end();
-      }
-
-      // Called either when the user has explicitly ended the session (like in
-      // onEndSession()) or when the UA has ended the session for any reason.
+      // Called either when the user has explicitly ended the session by calling
+      // session.end() or when the UA has ended the session for any reason.
       // At this point the session object is no longer usable and should be
       // discarded.
       function onSessionEnded(event) {
@@ -148,13 +132,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       // Called every time the XRSession requests that a new frame be drawn.
-      function onXRFrame(t, frame) {
+      function onXRFrame(time, frame) {
         let session = frame.session;
 
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
 
-        // Get the XRDevice pose relative to the Frame of Reference we created
+        // Get the XRDevice pose relative to the reference space we created
         // earlier.
         let pose = frame.getViewerPose(xrRefSpace);
 
@@ -162,7 +146,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // have to check to make sure that we got a valid pose before attempting
         // to render with it. If not in this case we'll just leave the
         // framebuffer cleared, so tracking loss means the scene will simply
-        // dissapear.
+        // disappear.
         if (pose) {
           let glLayer = session.renderState.baseLayer;
 
@@ -173,8 +157,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           // Update the clear color so that we can observe the color in the
           // headset changing over time.
-          let time = Date.now();
-          gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 1.0);
+          gl.clearColor(Math.cos(time / 2000),
+                        Math.cos(time / 4000),
+                        Math.cos(time / 6000), 1.0);
 
           // Clear the framebuffer
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -188,7 +173,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             gl.viewport(viewport.x, viewport.y,
                         viewport.width, viewport.height);
 
-            // Draw something.
+            // Draw a scene using view.projectionMatrix as the projection matrix
+            // and view.transform to position the virtual camera. If you need a
+            // view matrix, use view.transform.inverse.matrix.
           }*/
         }
       }

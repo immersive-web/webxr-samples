@@ -73,6 +73,10 @@
       .github-link {
         font-size: 0.8em;
       }
+
+      .wordmark img {
+        width: 70%;
+      }
     </style>
 
     <!--[if lt IE 9]>
@@ -90,7 +94,11 @@
             <a href='../tests/'>Test Pages</a>
         </div>
 
-        <h1><a href='' class='wordmark'><span>WebXR</span></a></h1>
+        <h1>
+          <a href='' class='wordmark'>
+            <img src='../media/logo/webxr-logo.svg' alt='WebXR Logo'/>
+          </a>
+        </h1>
         <h2 class='tagline'>Proposals</h2>
       </header>
 
@@ -138,16 +146,6 @@
 
             let links = document.createElement('div');
             links.classList.add('links');
-
-            let liveLink = document.createElement('a');
-            liveLink.href = page.path;
-            liveLink.innerHTML = 'Open';
-            links.appendChild(liveLink);
-
-            let polyfillLink = document.createElement('a');
-            polyfillLink.href = page.path + '?allowPolyfill=1';
-            polyfillLink.innerHTML = 'Open with Polyfill';
-            links.appendChild(polyfillLink);
 
             let sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/proposals/' + page.path;

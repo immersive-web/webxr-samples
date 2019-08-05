@@ -1,0 +1,368 @@
+<!doctype html>
+<!--
+Copyright 2019 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+
+    <title>Controller State</title>
+
+    <link href='css/common.css' rel='stylesheet'></link>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Controller State</summary>
+        <p>
+          This sample demonstrates using XRInputSource Gamepad button presses
+          to change box color and joystick/touchpad input to move boxes in 2
+          dimensions.
+          <a class="back" href="./index.html">Back</a>
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Node} from './js/render/core/node.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {BoxBuilder} from './js/render/geometry/box-builder.js';
+      import {PbrMaterial} from './js/render/materials/pbr.js';
+      import {mat4, vec3, quat} from './js/render/math/gl-matrix.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+      import {QueryArgs} from './js/util/query-args.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
+      // If requested, don't display the frame rate info.
+      let hideStats = QueryArgs.getBool('hideStats', false);
+
+      // XR globals.
+      let xrButton = null;
+      let xrImmersiveRefSpace = null;
+      let inlineViewerHelper = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      if (hideStats) {
+        scene.enableStats(false);
+      }
+      scene.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
+      scene.standingStats(true);
+
+      let floorSize = 10;
+      let floorPosition = [0, -floorSize / 2 + 0.01, 0];
+      let floorNode = null;
+
+      let boxTable = {};
+
+      const BOX_SIZE = 0.03;
+      const BOX_MOTION_RANGE = 0.010;
+      const BOX_SEPARATION = 0.04;
+      const BOX_SET_HEIGHT = 0.03;
+      const BOX_SET_DEPTH = -0.06;
+
+      class GamepadBox extends Node {
+        constructor(position) {
+          super();
+
+          this.position = position;
+          let boxBuilder = new BoxBuilder();
+          boxBuilder.pushCube([0, 0, 0], BOX_SIZE);
+          let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+          let boxMaterial = new PbrMaterial();
+          boxMaterial.baseColorFactor.value = [0.1, 0.1, 0.1, 1]; // grey
+          this.renderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+
+          this.addRenderPrimitive(this.renderPrimitive);
+
+          mat4.identity(this.matrix);
+          mat4.translate(this.matrix, this.matrix, this.position);
+
+          this._value = 0.0;
+          this._pressed = false;
+          this._touched = false;
+          this._dx = 0.0;
+          this._dy = 0.0;
+        }
+
+        _updateTransform() {
+          mat4.identity(this.matrix);
+          mat4.translate(this.matrix, this.matrix, this.position);
+          mat4.translate(this.matrix, this.matrix, [
+            this._dx * BOX_MOTION_RANGE,
+            -this._value * BOX_SIZE * 0.5,
+            this._dy * BOX_MOTION_RANGE
+          ]);
+          mat4.scale(this.matrix, this.matrix, [1.0, 1.05 - this._value, 1.0]);
+        }
+
+        _updateColor() {
+          let color = null;
+          if (this._pressed) {
+            color = [1, 0, 0, 1]; // Red
+          } else if (this._touched) {
+            color = [0.1, 0.5, 0.1, 1]; // Dark Green
+          } else {
+            color = [0.1, 0.1, 0.1, 1];  // Grey
+          }
+
+          this.renderPrimitive.uniforms.baseColorFactor.value = color;
+        }
+
+        set value(value) {
+          if (value != this._value) {
+            this._value = value;
+            this._updateTransform();
+          }
+        }
+
+        get value() {
+          return this._value;
+        }
+
+        set pressed(value) {
+          if (value != this._pressed) {
+            this._pressed = value;
+            this._updateColor();
+          }
+        }
+
+        get pressed() {
+          return this._pressed;
+        }
+
+        set touched(value) {
+          if (value != this._touched) {
+            this._touched = value;
+            this._updateColor();
+          }
+        }
+
+        get touched() {
+          return this._touched;
+        }
+
+        move(dx, dy) {
+          this._dx = dx;
+          this._dy = dy;
+          this._updateTransform();
+        }
+      }
+
+      class GamepadBoxSet extends Node {
+        constructor(buttonCount, axesCount) {
+          super();
+
+          let axesBoxCount = Math.ceil(axesCount / 2);
+          let rowLength = Math.max(buttonCount, axesBoxCount);
+
+          // Place the boxes in a horizontal line
+          this.buttonBoxes = [];
+          let hl = (rowLength - 1) * BOX_SEPARATION * 0.5;
+          for (let x = 0; x < buttonCount; ++x) {
+            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH]);
+            this.buttonBoxes.push(box);
+            this.addNode(box);
+          }
+
+          this.axesBoxes = [];
+          for (let x = 0; x < axesBoxCount; ++x) {
+            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH * 2]);
+            this.axesBoxes.push(box);
+            this.addNode(box);
+          }
+        }
+
+        update_state(gamepad) {
+          // The boxes associated with any given button will turn green if
+          // touched and red if pressed. The box height will also scale based
+          // on the button's value to make it appear like a button being pushed.
+          for (let i = 0; i < gamepad.buttons.length; ++i) {
+            this.buttonBoxes[i].pressed = gamepad.buttons[i].pressed;
+            this.buttonBoxes[i].value = gamepad.buttons[i].value;
+            this.buttonBoxes[i].touched = gamepad.buttons[i].touched;
+          }
+
+          // Axes are assumed to come in X/Y pairs and will wiggle the
+          // associated boxes around when moved.
+          for (let i = 0, j = 0; i < gamepad.axes.length; i+=2, ++j) {
+            this.axesBoxes[j].move(gamepad.axes[i], i + 1 < gamepad.axes.length ? gamepad.axes[i + 1] : 0);
+          }
+        }
+      }
+
+      function ProcessGamepad(gamepad, hand, pose) {
+        if (!(hand in boxTable)) {
+          boxTable[hand] = new GamepadBoxSet(gamepad.buttons.length, gamepad.axes.length);
+          scene.addNode(boxTable[hand]);
+        }
+
+        boxTable[hand].update_state(gamepad);
+
+        // Update the pose of the boxes to sync with the controller.
+        if (pose) {
+          boxTable[hand].matrix = pose.transform.matrix;
+        }
+      }
+
+      // Don't bother starting an inline session in this sample since WebXR
+      // gamepads are not available during inline sessions.
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.supportsSession('immersive-vr').then(() => {
+            xrButton.enabled = true;
+          });
+
+          navigator.xr.requestSession('inline').then(onSessionStarted);
+        }
+      }
+
+      function initGL() {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          xrCompatible: true
+        });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
+
+        addFloorBox();
+      }
+
+      function addFloorBox() {
+        let boxBuilder = new BoxBuilder();
+        boxBuilder.pushCube([0, 0, 0], floorSize);
+        let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+
+        let boxMaterial = new PbrMaterial();
+        boxMaterial.baseColorFactor.value = [0.3, 0.3, 0.3, 1.0];
+        let boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+
+        floorNode = new Node();
+        floorNode.addRenderPrimitive(boxRenderPrimitive);
+        floorNode.selectable = true;
+        scene.addNode(floorNode);
+        mat4.identity(floorNode.matrix);
+        mat4.translate(floorNode.matrix, floorNode.matrix, floorPosition);
+      }
+
+      function onRequestSession() {
+        navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor'] 
+        }).then((session) => {
+          xrButton.setSession(session);
+          session.isImmersive = true;
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', () => xrButton.setSession(null));
+
+        initGL();
+
+        session.updateRenderState({
+          baseLayer : new XRWebGLLayer(session, gl)
+        });
+
+        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
+            xrImmersiveRefSpace = refSpace;
+          } else {
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+            inlineViewerHelper.setHeight(1.6);
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        if (event.session.isImmersive) {
+          xrButton.setSession(null);
+        }
+      }
+
+      function onXRFrame(time, frame) {
+        let session = frame.session;
+        let refSpace = session.isImmersive ?
+                         xrImmersiveRefSpace :
+                         inlineViewerHelper.referenceSpace;
+
+        let pose = frame.getViewerPose(refSpace);
+        scene.startFrame();
+        session.requestAnimationFrame(onXRFrame);
+
+        // Check for and respond to any gamepad state changes.
+        for (let source of session.inputSources) {
+          if (source.gamepad) {
+            let pose = frame.getPose(source.gripSpace, refSpace);
+            ProcessGamepad(source.gamepad, source.handedness, pose);
+          }
+        }
+
+        scene.updateInputSources(frame, refSpace);
+        scene.drawXRFrame(frame, pose);
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>

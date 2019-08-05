@@ -25,27 +25,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 
     <title>Permission Requests</title>
 
     <link href='../css/common.css' rel='stylesheet'></link>
-
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='../js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='../js/webxr-version-shim.js'></script>
-
-    <script src='../js/cottontail/build/cottontail.js'></script>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -58,17 +43,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <script>
-      (function () {
-      'use strict';
+    <script type="module">
+      import {WebXRSampleApp} from '../js/webxr-sample-app.js';
+      import {UrlTexture} from '../js/render/core/texture.js';
+      import {ButtonNode} from '../js/render/nodes/button.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {mat4} from '../js/render/math/gl-matrix.js';
+      import {QueryArgs} from '../js/util/query-args.js';
 
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
       }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
 
       const BUTTON_PER_ROW = 5;
       const BUTTON_ROW_ARC = Math.PI * 0.2;
@@ -76,207 +64,90 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       const BUTTON_GRID_HEIGHT = 1.3;
       const BUTTON_GRID_DISTANCE = 1.0;
 
-      // XR globals.
-      let xrButton = null;
-      let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
+      // WebXR sample app setup
+      let app = new WebXRSampleApp({
+        referenceSpace: 'local-floor',
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
+      });
+      document.querySelector('header').appendChild(app.xrButton.domElement);
 
-      // WebGL scene globals.
-      let gl = null;
-      let renderer = null;
-      let scene = new Scene();
-      scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
-      scene.enableStats(false);
+      app.scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
 
       let checkTexture = new UrlTexture('../media/textures/check-button.png');
       let xTexture = new UrlTexture('../media/textures/x-button.png');
-
-      function initXR() {
-        xrButton = new XRDeviceButton({
-          onRequestSession: onRequestSession,
-          onEndSession: onEndSession
+      function addPermissionButton(iconUrl, callback, yAngle, yOffset) {
+        let button = new ButtonNode(new UrlTexture(iconUrl), () => {
+          callback(
+            () => { button.iconTexture = checkTexture; }, // Success callback
+            () => { button.iconTexture = xTexture; } // Failure callback
+          )
         });
-        document.querySelector('header').appendChild(xrButton.domElement);
+        mat4.identity(button.matrix);
+        mat4.translate(button.matrix, button.matrix, [0, yOffset, 0]);
+        mat4.rotateY(button.matrix, button.matrix, yAngle);
+        mat4.translate(button.matrix, button.matrix, [0, 0, -BUTTON_GRID_DISTANCE]);
+        app.scene.addNode(button);
+      }
 
-        if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
-            xrButton.enabled = true;
-          });
+      // Builds a cylindrical grid of buttons
+      function addPermissionButtons(buttonList) {
+        let count = buttonList.length;
+        let rows = Math.ceil(count / BUTTON_PER_ROW);
+        let firstRowOffset = (rows / 2) * BUTTON_ROW_HEIGHT;
+        let anglePerButton = BUTTON_ROW_ARC / BUTTON_PER_ROW;
+        let rowAngleOffset = (BUTTON_ROW_ARC * 0.5) - (anglePerButton * 0.5)
 
-          let outputCanvas = document.createElement('canvas');
-          let ctx = outputCanvas.getContext('xrpresent');
-
-          navigator.xr.requestSession({ outputContext: ctx })
-              .then((session) => {
-                document.body.appendChild(outputCanvas);
-                onSessionStarted(session);
-              });
-        } else {
-          initFallback();
+        for (let i = 0; i < count; ++i) {
+          let button = buttonList[i];
+          let yAngle = rowAngleOffset - ((i % BUTTON_PER_ROW) * anglePerButton);
+          let row = Math.floor(i / BUTTON_PER_ROW);
+          let yOffset = BUTTON_GRID_HEIGHT + (firstRowOffset - (row * BUTTON_ROW_HEIGHT));
+          addPermissionButton(button.icon, button.callback, yAngle, yOffset);
         }
       }
 
-      function initFallback() {
-        initGL();
-        document.body.appendChild(gl.canvas);
-        let fallbackHelper = new FallbackHelper(scene, gl);
-        fallbackHelper.emulateStage = true;
-      }
-
-      function initGL() {
-        if (gl)
-          return;
-
-        gl = createWebGLContext({
-          xrCompatible: true
-        });
-
-        renderer = new Renderer(gl);
-        scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
-
-        function addPermissionButton(iconUrl, callback, yAngle, yOffset) {
-          let button = new ButtonNode(new UrlTexture(iconUrl), () => {
-            callback(
-              () => { button.iconTexture = checkTexture; }, // Success callback
-              () => { button.iconTexture = xTexture; } // Failure callback
-            )
-          });
-          mat4.identity(button.matrix);
-          mat4.translate(button.matrix, button.matrix, [0, yOffset, 0]);
-          mat4.rotateY(button.matrix, button.matrix, yAngle);
-          mat4.translate(button.matrix, button.matrix, [0, 0, -BUTTON_GRID_DISTANCE]);
-          scene.addNode(button);
-        }
-
-        // Builds a cylindrical grid of buttons
-        function addPermissionButtons(buttonList) {
-          let count = buttonList.length;
-          let rows = Math.ceil(count / BUTTON_PER_ROW);
-          let firstRowOffset = (rows / 2) * BUTTON_ROW_HEIGHT;
-          let anglePerButton = BUTTON_ROW_ARC / BUTTON_PER_ROW;
-          let rowAngleOffset = (BUTTON_ROW_ARC * 0.5) - (anglePerButton * 0.5)
-
-          for (let i = 0; i < count; ++i) {
-            let button = buttonList[i];
-            let yAngle = rowAngleOffset - ((i % BUTTON_PER_ROW) * anglePerButton);
-            let row = Math.floor(i / BUTTON_PER_ROW);
-            let yOffset = BUTTON_GRID_HEIGHT + (firstRowOffset - (row * BUTTON_ROW_HEIGHT));
-            addPermissionButton(button.icon, button.callback, yAngle, yOffset);
+      addPermissionButtons([
+        {
+          icon: '../media/textures/camera-button.png',
+          callback: (success, fail) => {
+            navigator.getUserMedia({ video: true }, success, fail);
           }
-        }
-
-        addPermissionButtons([
-          {
-            icon: '../media/textures/camera-button.png',
-            callback: (success, fail) => {
-              navigator.getUserMedia({ video: true }, success, fail);
-            }
-          },
-          {
-            icon: '../media/textures/mic-button.png',
-            callback: (success, fail) => {
-              navigator.getUserMedia({ audio: true }, success, fail);
-            }
-          },
-          {
-            icon: '../media/textures/location-button.png',
-            callback: (success, fail) => {
-              navigator.geolocation.getCurrentPosition(success, fail);
-            }
-          },
-          {
-            icon: '../media/textures/bluetooth-button.png',
-            callback: (success, fail) => {
-              navigator.bluetooth.requestDevice({
-                // filters: [...] <- Prefer filters to save energy & show relevant devices.
-                // acceptAllDevices here ensures dialog can populate, we don't care with what.
-                acceptAllDevices:true
-              })
-              .then(device => device.gatt.connect())
-              .then(success, fail);
-            }
-          },
-          {
-            icon: '../media/textures/usb-button.png',
-            callback: (success, fail) => {
-              navigator.usb.requestDevice({filters: [{}]})
-              .then(success, fail);
-            }
-          },
-        ]);
-      }
-
-      function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
-          xrButton.setSession(session);
-          onSessionStarted(session);
-        });
-      }
-
-      function onSessionStarted(session) {
-        session.addEventListener('end', onSessionEnded);
-
-        session.addEventListener('select', (ev) => {
-          let refSpace = ev.frame.session.mode == "immersive-vr" ?
-                           xrImmersiveRefSpace :
-                           xrNonImmersiveRefSpace;
-          scene.handleSelect(ev.inputSource, ev.frame, refSpace);
-        });
-
-        initGL();
-
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'floor-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            xrNonImmersiveRefSpace = refSpace;
+        },
+        {
+          icon: '../media/textures/mic-button.png',
+          callback: (success, fail) => {
+            navigator.getUserMedia({ audio: true }, success, fail);
           }
-
-          session.requestAnimationFrame(onXRFrame);
-        });
-      }
-
-      function onEndSession(session) {
-        session.end();
-      }
-
-      function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
-          document.body.removeChild(document.querySelector('#mirror-canvas'));
-          xrButton.setSession(null);
-        }
-      }
-
-      function onXRFrame(t, frame) {
-        let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
-                         xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
-        let pose = frame.getViewerPose(refSpace);
-
-        scene.startFrame();
-
-        session.requestAnimationFrame(onXRFrame);
-
-        scene.updateInputSources(frame, refSpace);
-
-        scene.drawXRFrame(frame, pose);
-
-        scene.endFrame();
-      }
+        },
+        {
+          icon: '../media/textures/location-button.png',
+          callback: (success, fail) => {
+            navigator.geolocation.getCurrentPosition(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/bluetooth-button.png',
+          callback: (success, fail) => {
+            navigator.bluetooth.requestDevice({
+              // filters: [...] <- Prefer filters to save energy & show relevant devices.
+              // acceptAllDevices here ensures dialog can populate, we don't care with what.
+              acceptAllDevices:true
+            })
+            .then(device => device.gatt.connect())
+            .then(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/usb-button.png',
+          callback: (success, fail) => {
+            navigator.usb.requestDevice({filters: [{}]})
+            .then(success, fail);
+          }
+        },
+      ]);
 
       // Start the XR application.
-      initXR();
-      })();
+      app.run();
     </script>
   </body>
 </html>

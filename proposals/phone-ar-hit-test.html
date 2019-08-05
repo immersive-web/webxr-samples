@@ -25,27 +25,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 
     <title>AR Hit Test</title>
 
     <link href='../css/common.css' rel='stylesheet'></link>
-
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='../js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='../js/webxr-version-shim.js'></script>
-
-    <script src='../js/cottontail/build/cottontail.js'></script>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -61,17 +46,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <script>
-      (function () {
-      'use strict';
+    <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
+      import {Scene} from '../js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
+      import {Node} from '../js/render/core/node.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {DropShadowNode} from '../js/render/nodes/drop-shadow.js';
+      import {vec3} from '../js/render/math/gl-matrix.js';
+      import {Ray} from '../js/render/math/ray.js';
 
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
-      }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
 
       let useReticle = document.getElementById('useReticle');
 
@@ -105,7 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.clear = false;
 
       function initXR() {
-        xrButton = new XRDeviceButton({
+        xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
           onEndSession: onEndSession,
           textEnterXRTitle: "START AR",
@@ -115,14 +99,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-ar').then(() => {
+          navigator.xr.supportsSession('immersive-ar').then(() => {
             xrButton.enabled = true;
           });
         }
       }
 
       function onRequestSession() {
-        navigator.xr.requestSession({ mode: 'immersive-ar' })
+        navigator.xr.requestSession('immersive-ar')
             .then((session) => {
               xrButton.setSession(session);
               onSessionStarted(session);
@@ -145,7 +129,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.baseLayer = new XRWebGLLayer(session, gl);
 
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
+        session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
           session.requestAnimationFrame(onXRFrame);
         });
@@ -189,26 +173,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         } else {
           // Otherwise we'll use the target ray from the input source that generated
           // this event to fire off a new hit test.
-          let inputPose = event.frame.getInputPose(event.inputSource, xrRefSpace);
-          if (!inputPose) {
+          let targetRayPose = event.frame.getPose(event.inputSource.targetRaySpace, xrRefSpace);
+          if (!targetRayPose) {
             return;
           }
 
-          if (inputPose.targetRay) {
-            vec3.set(rayOrigin,
-                inputPose.targetRay.origin.x,
-                inputPose.targetRay.origin.y,
-                inputPose.targetRay.origin.z);
-            vec3.set(rayDirection,
-                inputPose.targetRay.direction.x,
-                inputPose.targetRay.direction.y,
-                inputPose.targetRay.direction.z);
-            event.frame.session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
-              if (results.length) {
-                addARObjectAt(results[0].hitMatrix);
-              }
-            });
-          }
+          let targetRay = new Ray(targetRayPose.transform);
+          vec3.set(rayOrigin,
+              targetRay.origin.x,
+              targetRay.origin.y,
+              targetRay.origin.z);
+          vec3.set(rayDirection,
+              targetRay.direction.x,
+              targetRay.direction.y,
+              targetRay.direction.z);
+          event.frame.session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
+            if (results.length) {
+              addARObjectAt(results[0].hitMatrix);
+            }
+          });
         }
       }
 
@@ -220,12 +203,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // If requested, use the pose to cast a reticle into the scene using a
         // continuous hit test. For the moment we're just using the flower
         // as the "reticle".
-        if (useReticle.checked && pose && pose.poseModelMatrix) {
+        if (useReticle.checked && pose) {
           vec3.set(rayOrigin, 0, 0, 0);
-          vec3.transformMat4(rayOrigin, rayOrigin, pose.poseModelMatrix);
+          vec3.transformMat4(rayOrigin, rayOrigin, pose.transform.matrix);
 
           vec3.set(rayDirection, 0, 0, -1);
-          vec3.transformMat4(rayDirection, rayDirection, pose.poseModelMatrix);
+          vec3.transformMat4(rayDirection, rayDirection, pose.transform.matrix);
           vec3.sub(rayDirection, rayDirection, rayOrigin);
           vec3.normalize(rayDirection, rayDirection);
 
@@ -254,7 +237,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Start the XR application.
       initXR();
-      })();
     </script>
   </body>
 </html>

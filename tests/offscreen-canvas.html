@@ -25,28 +25,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-
-    <!-- Origin Trial Token, feature = WebXR Device API, origin = https://immersive-web.github.io, expires = 2018-08-28 -->
-<meta http-equiv="origin-trial" data-feature="WebXR Device API" data-expires="2018-08-28" content="AnNpu7ceXvLew05ccD8Zr1OZsdZiB2hLQKK82kTTMDwF7oRKtP3QEJ4RzkeHrmB8Sq0vSV6ZNmszpBCZ0I8p9gAAAABceyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZSIsImV4cGlyeSI6MTUzNTQxNDQwMH0=">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 
     <title>Offscreen Canvas</title>
 
     <link href='../css/common.css' rel='stylesheet'></link>
 
-    <!--The polyfill is not needed for browser that have native API support,
-        but is linked by these samples for wider compatibility.-->
-    <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
-    <script src='../js/webxr-polyfill.js'></script>
-
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='../js/webxr-version-shim.js'></script>
-
     <script src='../js/third-party/dat.gui.min.js'></script>
-    <script src='../js/cottontail/build/cottontail.js'></script>
-
-    <script src='../js/webxr-button.js'></script>
   </head>
   <body>
     <header>
@@ -59,129 +45,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </p>
       </details>
     </header>
-    <script>
-      (function () {
-      'use strict';
+    <script type="module">
+      import {WebXRSampleApp} from '../js/webxr-sample-app.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {SkyboxNode} from '../js/render/nodes/skybox.js';
+      import {QueryArgs} from '../js/util/query-args.js';
 
-      // If requested, initialize the WebXR polyfill
-      if (QueryArgs.getBool('allowPolyfill', false)) {
-        var polyfill = new WebXRPolyfill();
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
       }
-      // Apply the version shim after the polyfill is instantiated, to ensure
-      // that the polyfill also gets patched if necessary.
-      var versionShim = new WebXRVersionShim();
 
-      // XR globals.
-      let xrButton = null;
-      let xrImmersiveRefSpace = null;
-      let xrNonImmersiveRefSpace = null;
-
-      // WebGL scene globals.
-      let gl = null;
-      let renderer = null;
-      let scene = new Scene();
-      scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
-      scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
-
-      function initXR() {
-        xrButton = new XRDeviceButton({
-          onRequestSession: onRequestSession,
-          onEndSession: onEndSession
-        });
-        document.querySelector('header').appendChild(xrButton.domElement);
-
-        if (navigator.xr) {
-          navigator.xr.supportsSessionMode('immersive-vr').then(() => {
-            xrButton.enabled = true;
+      // WebXR sample app setup
+      class CustomWebXRSampleApp extends WebXRSampleApp {
+        onCreateGL() {
+          // This sample will create an offscreen canvas for WebGL rather than
+          // the usual canvas Dom element.
+          let offscreenCanvas = new OffscreenCanvas(16, 16);
+          return offscreenCanvas.getContext('webgl', {
+            xrCompatible: true
           });
-
-          let outputCanvas = document.createElement('canvas');
-          let ctx = outputCanvas.getContext('xrpresent');
-
-          navigator.xr.requestSession({outputContext: ctx})
-              .then((session) => {
-                document.body.appendChild(outputCanvas);
-                onSessionStarted(session);
-              });
         }
-      }
+      };
 
-      function initGL() {
-        if (gl)
-          return;
+      let app = new CustomWebXRSampleApp({
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
+      });
+      document.querySelector('header').appendChild(app.xrButton.domElement);
 
-        let offscreenCanvas = new OffscreenCanvas(16, 16);
-        gl = offscreenCanvas.getContext('webgl', {
-          xrCompatible: true
-        });
-
-        renderer = new Renderer(gl);
-        scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
-      }
-
-      function onRequestSession() {
-        // Set up a mirror canvas
-        let mirrorCanvas = document.createElement('canvas');
-        let ctx = mirrorCanvas.getContext('xrpresent');
-        mirrorCanvas.setAttribute('id', 'mirror-canvas');
-        document.body.appendChild(mirrorCanvas);
-
-        navigator.xr.requestSession({ mode: 'immersive-vr', outputContext: ctx }).then((session) => {
-          xrButton.setSession(session);
-          onSessionStarted(session);
-        });
-      }
-
-      function onSessionStarted(session) {
-        session.addEventListener('end', onSessionEnded);
-
-        initGL();
-
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-
-        session.requestReferenceSpace({ type: 'stationary', subtype: 'eye-level' }).then((refSpace) => {
-          if (session.mode == "immersive-vr") {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            xrNonImmersiveRefSpace = refSpace;
-          }
-          session.requestAnimationFrame(onXRFrame);
-        });
-      }
-
-      function onEndSession(session) {
-        session.end();
-      }
-
-      function onSessionEnded(event) {
-        if (event.session.mode == "immersive-vr") {
-          document.body.removeChild(document.querySelector('#mirror-canvas'));
-          xrButton.setSession(null);
-        }
-      }
-
-      function onXRFrame(t, frame) {
-        let session = frame.session;
-        let refSpace = session.mode == "immersive-vr" ?
-                         xrImmersiveRefSpace :
-                         xrNonImmersiveRefSpace;
-        let pose = frame.getViewerPose(refSpace);
-
-        scene.startFrame();
-
-        session.requestAnimationFrame(onXRFrame);
-
-        scene.updateInputSources(frame, refSpace);
-
-        scene.drawXRFrame(frame, pose);
-
-        scene.endFrame();
-      }
+      app.scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
+      app.scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
 
       // Start the XR application.
-      initXR();
-      })();
+      app.run();
     </script>
   </body>
 </html>
