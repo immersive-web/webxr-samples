@@ -373,10 +373,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      let draggingSource = null;
-      let draggingInput = null;
-      let draggingTransform = mat4.create();
-
       function hitTest(inputSource, frame, refSpace) {
         let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
         if (!targetRayPose) {
@@ -386,11 +382,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let hitResult = scene.hitTest(targetRayPose.transform);
         if (hitResult) {
           for (let source of audioSources) {
-            if (hitResult.node ==  source.node) {
-              draggingSource = source;
-              draggingInput = inputSource;
-              mat4.invert(draggingTransform, targetRayPose.transform.matrix);
-              mat4.multiply(draggingTransform, draggingTransform, source.node.matrix);
+            if (hitResult.node === source.node) {
+              // Associate the input source with the audio source object until
+              // onSelectEnd event is raised with the same input source.
+              source.draggingInput = inputSource;
+              source.draggingTransform = mat4.create();
+              mat4.invert(source.draggingTransform, targetRayPose.transform.matrix);
+              mat4.multiply(source.draggingTransform, source.draggingTransform, source.node.matrix);
               return true;
             }
           }
@@ -406,9 +404,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         hitTest(ev.inputSource, ev.frame, refSpace);
       }
 
+      // Remove any references to the input source from the audio sources so
+      // that the objects are not dragged any further after the user releases
+      // the trigger.
       function onSelectEnd(ev) {
-        draggingSource =  null;
-        draggingInput = null;
+        for (let source of audioSources) {
+          if (source.draggingInput === ev.inputSource) {
+            source.draggingInput = undefined;
+            source.draggingTransform = undefined;
+          }
+        }
       }
 
       let tmpMatrix = mat4.create();
@@ -425,13 +430,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         scene.updateInputSources(frame, refSpace);
 
-        if (draggingSource) {
-          let draggingPose = frame.getPose(draggingInput.targetRaySpace, refSpace);
-          if (draggingPose) {
-            let pos = draggingSource.position;
-            mat4.multiply(tmpMatrix, draggingPose.transform.matrix, draggingTransform);
-            vec3.transformMat4(pos, [0, 0, 0], tmpMatrix);
-            draggingSource.source.setPosition(pos[0], pos[1], pos[2]);
+        // Update the position of all currently selected audio sources. It's
+        // possible to select multiple audio sources and drag them at the same
+        // time (one per controller that has the trigger held down).
+        for (let source of audioSources) {
+          if (source.draggingInput) {
+            let draggingPose = frame.getPose(source.draggingInput.targetRaySpace, refSpace);
+            if (draggingPose) {
+              let pos = source.position;
+              mat4.multiply(tmpMatrix, draggingPose.transform.matrix, source.draggingTransform);
+              vec3.transformMat4(pos, [0, 0, 0], tmpMatrix);
+              source.source.setPosition(pos[0], pos[1], pos[2]);
+            }
           }
         }
 
