@@ -2028,9 +2028,11 @@ const polyfillGetContext = (Canvas) => {
   const getContext = Canvas.prototype.getContext;
   Canvas.prototype.getContext = function (contextType, glAttribs) {
     const ctx = getContext.call(this, contextType, glAttribs);
-    ctx[POLYFILLED_XR_COMPATIBLE] = true;
-    if (glAttribs && ('xrCompatible' in glAttribs)) {
-      ctx[XR_COMPATIBLE] = glAttribs.xrCompatible;
+    if (ctx) {
+      ctx[POLYFILLED_XR_COMPATIBLE] = true;
+      if (glAttribs && ('xrCompatible' in glAttribs)) {
+        ctx[XR_COMPATIBLE] = glAttribs.xrCompatible;
+      }
     }
     return ctx;
   };
@@ -5236,8 +5238,24 @@ class XRDevice extends EventTarget {
   }
 }
 
+let oculusGo = {
+  mapping: 'xr-standard',
+  profiles: ['oculus-go', 'touchpad-controller'],
+  buttons: {
+    length: 3,
+    0: 1,
+    1: null,
+    2: 0
+  },
+  gripTransform: {
+    orientation: [Math.PI * 0.11, 0, 0, 1]
+  }
+};
 let oculusTouch = {
   mapping: 'xr-standard',
+  displayProfiles: {
+    'Oculus Quest': ['oculus-quest', 'oculus-touch', 'thumbstick-controller']
+  },
   profiles: ['oculus-touch', 'thumbstick-controller'],
   axes: {
     length: 4,
@@ -5260,6 +5278,26 @@ let oculusTouch = {
     orientation: [Math.PI * 0.11, 0, 0, 1]
   }
 };
+let openVr = {
+  mapping: 'xr-standard',
+  profiles: ['openvr-controller', 'touchpad-controller'],
+  displayProfiles: {
+    'HTC Vive': ['htc-vive', 'touchpad-controller'],
+    'HTC Vive DVT': ['htc-vive', 'touchpad-controller']
+  },
+  buttons: {
+    length: 3,
+    0: 1,
+    1: 2,
+    2: 0
+  },
+  gripTransform: {
+    position: [0, 0, 0.05, 1],
+  },
+  targetRayTransform: {
+    orientation: [Math.PI * -0.08, 0, 0, 1]
+  }
+};
 let windowsMixedReality = {
   mapping: 'xr-standard',
   profiles: ['windows-mixed-reality', 'touchpad-thumbstick-controller'],
@@ -5276,23 +5314,12 @@ let windowsMixedReality = {
   }
 };
 let GamepadMappings = {
-  "Oculus Touch (Right)": oculusTouch,
-  "Oculus Touch (Left)": oculusTouch,
-  "Oculus Go Controller": {
-    mapping: 'xr-standard',
-    profiles: ['oculus-go', 'touchpad-controller'],
-    buttons: {
-      length: 3,
-      0: 1,
-      1: null,
-      2: 0
-    },
-    gripTransform: {
-      orientation: [Math.PI * 0.11, 0, 0, 1]
-    }
-  },
-  "Windows Mixed Reality (Right)": windowsMixedReality,
-  "Windows Mixed Reality (Left)": windowsMixedReality,
+  'Oculus Go Controller': oculusGo,
+  'Oculus Touch (Right)': oculusTouch,
+  'Oculus Touch (Left)': oculusTouch,
+  'OpenVR Gamepad': openVr,
+  'Windows Mixed Reality (Right)': windowsMixedReality,
+  'Windows Mixed Reality (Left)': windowsMixedReality,
 };
 
 const HEAD_ELBOW_OFFSET_RIGHTHANDED = fromValues$1(0.155, -0.465, -0.15);
@@ -5451,7 +5478,7 @@ const PRIVATE$14 = Symbol('@@webxr-polyfill/XRRemappedGamepad');
 const PLACEHOLDER_BUTTON = { pressed: false, touched: false, value: 0.0 };
 Object.freeze(PLACEHOLDER_BUTTON);
 class XRRemappedGamepad {
-  constructor(gamepad, map) {
+  constructor(gamepad, display, map) {
     if (!map) {
       map = {};
     }
@@ -5477,10 +5504,16 @@ class XRRemappedGamepad {
         map.targetRayTransform.position || [0, 0, 0]
       );
     }
+    let profiles = map.profiles;
+    if (map.displayProfiles) {
+      if (display.displayName in map.displayProfiles) {
+        profiles = map.displayProfiles[display.displayName];
+      }
+    }
     this[PRIVATE$14] = {
       gamepad,
       map,
-      profiles: map.profiles || [gamepad.id],
+      profiles: profiles || [gamepad.id],
       mapping: map.mapping || gamepad.mapping,
       axes,
       buttons,
@@ -5502,6 +5535,11 @@ class XRRemappedGamepad {
         }
       } else {
         axes[i] = gamepad.axes[i];
+      }
+    }
+    if (map.axes && map.axes.invert) {
+      for (let axis of map.axes.invert) {
+        axes[axis] *= -1;
       }
     }
     let buttons = this[PRIVATE$14].buttons;
@@ -5543,8 +5581,9 @@ class XRRemappedGamepad {
   }
 }
 class GamepadXRInputSource {
-  constructor(polyfill, primaryButtonIndex = 0) {
+  constructor(polyfill, display, primaryButtonIndex = 0) {
     this.polyfill = polyfill;
+    this.display = display;
     this.nativeGamepad = null;
     this.gamepad = null;
     this.inputSource = new XRInputSource(this);
@@ -5565,7 +5604,7 @@ class GamepadXRInputSource {
     if (this.nativeGamepad !== gamepad) {
       this.nativeGamepad = gamepad;
       if (gamepad) {
-        this.gamepad = new XRRemappedGamepad(gamepad, GamepadMappings[gamepad.id]);
+        this.gamepad = new XRRemappedGamepad(gamepad, this.display, GamepadMappings[gamepad.id]);
       } else {
         this.gamepad = null;
       }
@@ -5774,7 +5813,7 @@ class WebVRDevice extends XRDevice {
         if (gamepad && gamepad.displayId > 0) {
           let inputSourceImpl = prevInputSources[i];
           if (!inputSourceImpl) {
-            inputSourceImpl = new GamepadXRInputSource(this, this.getPrimaryButtonIndex(gamepad));
+            inputSourceImpl = new GamepadXRInputSource(this, this.display, this.getPrimaryButtonIndex(gamepad));
           }
           inputSourceImpl.updateFromGamepad(gamepad);
           this.gamepadInputSources[i] = inputSourceImpl;
