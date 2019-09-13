@@ -71,11 +71,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
           // If the device allows creation of exclusive sessions set it as the
           // target of the 'Enter XR' button.
-          navigator.xr.supportsSession('immersive-vr').then(() => {
-            // Updates the button to start an XR session when clicked.
-            xrButton.addEventListener('click', onButtonClicked);
-            xrButton.innerHTML = 'Enter XR';
-            xrButton.disabled = false;
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            if (supported) {
+              // Updates the button to start an XR session when clicked.
+              xrButton.addEventListener('click', onButtonClicked);
+              xrButton.innerHTML = 'Enter XR';
+              xrButton.disabled = false;
+            }
           });
         }
       }
