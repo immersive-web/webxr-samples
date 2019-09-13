@@ -260,8 +260,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         let xrMode = appSettings.arMode ? 'immersive-ar' : 'immersive-vr';
         if (navigator.xr) {
-          navigator.xr.supportsSession(xrMode).then(() => {
-            xrButton.enabled = true;
+          navigator.xr.isSessionSupported(xrMode).then((supported) => {
+            xrButton.enabled = supported;
           });
 
           // Set up "magic window" mode.

@@ -85,8 +85,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSession('immersive-vr').then(() => {
-            xrButton.enabled = true;
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            xrButton.enabled = supported;
           });
 
           navigator.xr.requestSession('inline').then(onSessionStarted);

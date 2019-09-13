@@ -98,8 +98,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.supportsSession('immersive-ar').then(() => {
-            xrButton.enabled = true;
+          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+            xrButton.enabled = supported;
           });
         }
       }

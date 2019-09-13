@@ -71,8 +71,8 @@ export class WebXRSampleApp {
 
   onInitXR() {
     if (navigator.xr) {
-      navigator.xr.supportsSession('immersive-vr').then(() => {
-        this.xrButton.enabled = true;
+      navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+        this.xrButton.enabled = supported;
       });
 
       // Request an inline session if needed.
