@@ -42,6 +42,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <p>
           This sample demonstrates how to play a stereo 3D video.
           <a class="back" href="./">Back</a>
+          <br/>
+          <hr/>
+          Autoplay when VR starts: <input id='autoplayVideo' type='checkbox'/>
         </p>
       </summary>
     </header>
@@ -62,6 +65,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if (QueryArgs.getBool('usePolyfill', true)) {
         let polyfill = new WebXRPolyfill();
       }
+
+      let autoplayCheckbox = document.getElementById('autoplayVideo');
 
       // XR globals.
       let xrButton = null;
@@ -168,12 +173,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
+        let autoplay = autoplayCheckbox.checked;
+
+        if (autoplay) {
+          // If we want the video to autoplay when the session has fully started
+          // (which may be several seconds after the original requestSession
+          // call due to clicking through consent prompts or similar) then we
+          // need to start the video within a user activiation event first 
+          // (which this function is.) Once it's been started successfully we
+          // pause it, at which point we can resume it pretty much whenever we'd
+          // like.
+          video.play().then(() => {
+            video.pause();
+          });
+        }
+
         navigator.xr.requestSession('immersive-vr', {
             requiredFeatures: ['local-floor'] 
         }).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);
+
+          if (autoplay) {
+            video.play();
+          }
         });
       }
 
@@ -214,6 +238,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         if (event.session.isImmersive) {
           xrButton.setSession(null);
+          video.pause();
         }
       }
 
