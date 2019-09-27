@@ -177,7 +177,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
           }
 
-          let targetRay = new Ray(targetRayPose.transform);
+          let targetRay = new XRRay(targetRayPose.transform);
           vec3.set(rayOrigin,
               targetRay.origin.x,
               targetRay.origin.y,
@@ -186,7 +186,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               targetRay.direction.x,
               targetRay.direction.y,
               targetRay.direction.z);
-          event.frame.session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
+          event.frame.session.requestHitTest(targetRay, xrRefSpace).then((results) => {
             if (results.length) {
               addARObjectAt(results[0].hitMatrix);
             }
@@ -211,7 +211,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           vec3.sub(rayDirection, rayDirection, rayOrigin);
           vec3.normalize(rayDirection, rayDirection);
 
-          session.requestHitTest(rayOrigin, rayDirection, xrRefSpace).then((results) => {
+          let ray = new XRRay({x : rayOrigin[0], y : rayOrigin[1], z : rayOrigin[2]},
+            {x : rayDirection[0], y : rayDirection[1], z : rayDirection[2]});
+          session.requestHitTest(ray, xrRefSpace).then((results) => {
             // When the hit test returns use it to place our proxy object.
             if (results.length) {
               let hitResult = results[0];
