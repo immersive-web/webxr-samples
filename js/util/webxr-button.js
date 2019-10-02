@@ -155,7 +155,6 @@ const generateCSS = (options, fontSize=18)=> {
   const height = options.height;
   const borderWidth = 2;
   const borderColor = options.background ? options.background : options.color;
-  const borderErrorColor = '#FF4444';
   const cssPrefix = options.cssprefix;
 
   let borderRadius;
@@ -267,11 +266,22 @@ const generateCSS = (options, fontSize=18)=> {
     */
 
     button.${cssPrefix}-button[error=true] {
-        border: ${borderErrorColor} ${borderWidth}px solid;
+        animation: errorShake 0.4s;
     }
 
-    button.${cssPrefix}-button[error=true] .${cssPrefix}-title {
-        color: ${borderErrorColor};
+    @keyframes errorShake {
+      0% { transform: translate(1px, 0) }
+      10% { transform: translate(-2px, 0) }
+      20% { transform: translate(2px, 0) }
+      30% { transform: translate(-2px, 0) }
+      40% { transform: translate(2px, 0) }
+      50% { transform: translate(-2px, 0) }
+      60% { transform: translate(2px, 0) }
+      70% { transform: translate(-2px, 0) }
+      80% { transform: translate(2px, 0) }
+      90% { transform: translate(-1px, 0) }
+      100% { transform: translate(0px, 0) }
+    }
   `);
 };
 
@@ -478,7 +488,7 @@ export class WebXRButton {
           setTimeout(() => {
             this.__setDisabledAttribute(false);
             this.domElement.setAttribute('error', 'false');
-          }, 2000);
+          }, 1000);
         });
       }
     }
