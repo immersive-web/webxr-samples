@@ -94,7 +94,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // activation event so that appropriate permissions can be granted.
         // This will likely prompt the user to allow camera use, so the promise
         // may remain outstanding for a while.
-        navigator.xr.requestSession('immersive-ar')
+        return navigator.xr.requestSession('immersive-ar')
             .then((session) => {
               xrButton.setSession(session);
               onSessionStarted(session);

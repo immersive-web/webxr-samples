@@ -41,7 +41,7 @@ export class WebXRSampleApp {
     this.scene = new Scene();
 
     this.xrButton = new WebXRButton({
-      onRequestSession: () => { this.onRequestSession(); },
+      onRequestSession: () => { return this.onRequestSession(); },
       onEndSession: (session) => { this.onEndSession(session); }
     });
 
@@ -119,7 +119,7 @@ export class WebXRSampleApp {
 
   onRequestSession() {
     // Called when the button gets clicked. Requests an immersive session.
-    navigator.xr.requestSession(this.options.immersiveMode, {
+    return navigator.xr.requestSession(this.options.immersiveMode, {
         requiredFeatures: [this.options.referenceSpace]
     }).then((session) => {
       this.xrButton.setSession(session);

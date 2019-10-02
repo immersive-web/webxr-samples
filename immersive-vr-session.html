@@ -100,7 +100,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession() {
-        navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+        return navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a XRSession. In response we
