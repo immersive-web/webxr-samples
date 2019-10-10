@@ -118,8 +118,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         scene.setRenderer(renderer);
 
-        // Loads a generic controller mesh.
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
+        // Loads a generic controller meshes.
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}), 'right');
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller-left.gltf'}), 'left');
       }
 
       function onRequestSession() {
@@ -207,7 +208,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (gripPose) {
               // If we have a grip pose use it to render a mesh showing the
               // position of the controller.
-              scene.inputRenderer.addController(gripPose.transform.matrix);
+              scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness);
             }
           }
           
