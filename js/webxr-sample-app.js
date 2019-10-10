@@ -33,7 +33,8 @@ export class WebXRSampleApp {
       immersiveMode: options.immersiveMode || 'immersive-vr',
       referenceSpace: options.referenceSpace || 'local',
       defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true,
-      controllerMesh: options.controllerMesh
+      controllerMesh: options.controllerMesh,
+      leftControllerMesh: options.leftControllerMesh
     };
 
     this.gl = null;
@@ -113,6 +114,9 @@ export class WebXRSampleApp {
 
       if (this.options.controllerMesh) {
         this.scene.inputRenderer.setControllerMesh(this.options.controllerMesh);
+      }
+      if (this.options.leftControllerMesh) {
+        this.scene.inputRenderer.setControllerMesh(this.options.leftControllerMesh, 'left');
       }
     }
   }

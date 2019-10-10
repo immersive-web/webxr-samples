@@ -102,8 +102,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         onRendererInit() {
           super.onRendererInit();
-
-          this.scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}));
         }
 
         onXRFrame(time, frame, refSpace) {
@@ -118,7 +116,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (inputSource.gripSpace) {
               let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
               if (gripPose) {
-                this.scene.inputRenderer.addController(gripPose.transform.matrix);
+                this.scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness);
               }
             }
           }
@@ -132,7 +130,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let app = new CustomWebXRSampleApp({
         referenceSpace: 'local-floor',
         defaultInputHandling: false,
-        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'})
+        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}),
+        leftControllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller-left.gltf'})
       });
       document.querySelector('header').appendChild(app.xrButton.domElement);
 

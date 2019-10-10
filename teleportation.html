@@ -170,7 +170,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         renderer = new Renderer(gl);
 
         scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}));
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}), 'right');
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller-left.gltf'}), 'left');
 
         // Create several boxes to use for hit testing.
         addBox(-1.0, 1.6, -1.3, 1.0, 0.0, 0.0, boxes);

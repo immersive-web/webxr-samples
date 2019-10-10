@@ -211,8 +211,7 @@ export class InputRenderer extends Node {
     this._maxInputElements = 32;
 
     this._controllers = [];
-    this._controllerNode = null;
-    this._controllerNodeHandedness = null;
+    this._controllerNodes = null;
     this._lasers = null;
     this._cursors = null;
 
@@ -223,8 +222,7 @@ export class InputRenderer extends Node {
 
   onRendererChanged(renderer) {
     this._controllers = [];
-    this._controllerNode = null;
-    this._controllerNodeHandedness = null;
+    this._controllerNodes = null;
     this._lasers = null;
     this._cursors = null;
 
@@ -234,23 +232,30 @@ export class InputRenderer extends Node {
   }
 
   setControllerMesh(controllerNode, handedness = 'right') {
-    this._controllerNode = controllerNode;
-    this._controllerNode.visible = false;
+    if (!this._controllerNodes) {
+      this._controllerNodes = {};
+    }
+    this._controllerNodes[handedness] = controllerNode;
+    this._controllerNodes[handedness].visible = false;
     // FIXME: Temporary fix to initialize for cloning.
-    this.addNode(this._controllerNode);
-    this._controllerNodeHandedness = handedness;
+    this.addNode(this._controllerNodes[handedness]);
   }
 
-  addController(gripMatrix) {
-    if (!this._controllerNode) {
+  addController(gripMatrix, handedness = 'right') {
+    let controllerNode = this._controllerNodes[handedness];
+    if (!controllerNode) {
+      // in the case if we don't have a node for correct handedness - fall back to the 'right' one.
+      controllerNode = this._controllerNodes['right'];
+      if (!controllerNode) {
         return;
+      }
     }
 
     let controller = null;
     if (this._activeControllers < this._controllers.length) {
       controller = this._controllers[this._activeControllers];
     } else {
-      controller = this._controllerNode.clone();
+      controller = controllerNode.clone();
       this.addNode(controller);
       this._controllers.push(controller);
     }
