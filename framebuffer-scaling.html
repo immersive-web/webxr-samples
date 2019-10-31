@@ -85,7 +85,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           case 1.5: label += ' - 150% recommended res'; break;
           case 2.0: label += ' - 200% recommended res'; break;
         }
-        scaleLabel.innerHTML = label;
+        scaleLabel.textContent = label;
       }
 
       scaleSelect.addEventListener('change', updateLabel);

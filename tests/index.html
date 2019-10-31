@@ -143,16 +143,16 @@
 
             let titleLink = document.createElement('a');
             titleLink.href = page.path;
-            titleLink.innerHTML = page.title;
+            titleLink.textContent = page.title;
             title.appendChild(titleLink);
             article.appendChild(title);
 
             let category = document.createElement('h4');
-            category.innerHTML = page.category;
+            category.textContent = page.category;
             article.appendChild(category);
 
             let description = document.createElement('p');
-            description.innerHTML = page.description;
+            description.textContent = page.description;
             article.appendChild(description);
 
             let links = document.createElement('div');
@@ -160,13 +160,13 @@
 
             let sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/tests/' + page.path;
-            sourceLink.innerHTML = 'Source';
+            sourceLink.textContent = 'Source';
             links.appendChild(sourceLink);
 
             if (!page.noPolyfill) {
               let polyfillLink = document.createElement('a');
               polyfillLink.href = page.path + '?usePolyfill=1';
-              polyfillLink.innerHTML = 'Run with Polyfill';
+              polyfillLink.textContent = 'Run with Polyfill';
               links.appendChild(polyfillLink);
             }
 

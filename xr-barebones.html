@@ -75,7 +75,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (supported) {
               // Updates the button to start an XR session when clicked.
               xrButton.addEventListener('click', onButtonClicked);
-              xrButton.innerHTML = 'Enter XR';
+              xrButton.textContent = 'Enter XR';
               xrButton.disabled = false;
             }
           });
@@ -96,7 +96,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         xrSession = session;
-        xrButton.innerHTML = 'Exit XR';
+        xrButton.textContent = 'Exit XR';
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
@@ -129,7 +129,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // discarded.
       function onSessionEnded(event) {
         xrSession = null;
-        xrButton.innerHTML = 'Enter VR';
+        xrButton.textContent = 'Enter VR';
 
         // In this simple case discard the WebGL context too, since we're not
         // rendering anything else to the screen with it.
