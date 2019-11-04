@@ -491,12 +491,6 @@ const POLYFILL_REQUEST_SESSION_ERROR =
 or navigator.xr.requestSession('inline') prior to requesting an immersive
 session. This is a limitation specific to the WebXR Polyfill and does not apply
 to native implementations of the API.`;
-function isValidFeatureDescriptor(featureDescriptor) {
-  if (XRReferenceSpaceTypes.includes(featureDescriptor)) {
-    return true;
-  }
-  return false;
-}
 class XR$1 extends EventTarget {
   constructor(devicePromise) {
     super();
@@ -511,10 +505,6 @@ class XR$1 extends EventTarget {
   async isSessionSupported(mode) {
     if (!this[PRIVATE$3].device) {
       await this[PRIVATE$3].devicePromise;
-    }
-    if (!XRSessionModes.includes(mode)) {
-      throw new TypeError(
-          `The provided value '${mode}' is not a valid enum value of type XRSessionMode`);
     }
     if (mode != 'inline') {
       return Promise.resolve(this[PRIVATE$3].device.isSessionSupported(mode));
@@ -533,14 +523,15 @@ class XR$1 extends EventTarget {
       throw new TypeError(
           `The provided value '${mode}' is not a valid enum value of type XRSessionMode`);
     }
-    const requestedOptions = Object.assign({}, DEFAULT_SESSION_OPTIONS[mode], options);
+    const defaultOptions = DEFAULT_SESSION_OPTIONS[mode];
+    const requiredFeatures = defaultOptions.requiredFeatures.concat(
+        options && options.requiredFeatures ? options.requiredFeatures : []);
+    const optionalFeatures = defaultOptions.optionalFeatures.concat(
+        options && options.optionalFeatures ? options.optionalFeatures : []);
     const enabledFeatures = new Set();
     let requirementsFailed = false;
-    for (let feature of requestedOptions.requiredFeatures) {
-      if (!isValidFeatureDescriptor(feature)) {
-        console.error(`The required feature '${feature}' is not a valid feature descriptor`);
-        requirementsFailed = true;
-      } else if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
+    for (let feature of requiredFeatures) {
+      if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
         console.error(`The required feature '${feature}' is not supported`);
         requirementsFailed = true;
       } else {
@@ -550,10 +541,8 @@ class XR$1 extends EventTarget {
     if (requirementsFailed) {
       throw new DOMException('Session does not support some required features', 'NotSupportedError');
     }
-    for (let feature of requestedOptions.requiredFeatures) {
-      if (!isValidFeatureDescriptor(feature)) {
-        console.warning(`The optional feature '${feature}' is not a valid feature descriptor`);
-      } else if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
+    for (let feature of optionalFeatures) {
+      if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
         console.log(`The optional feature '${feature}' is not supported`);
       } else {
         enabledFeatures.add(feature);
@@ -1182,8 +1171,7 @@ class XRViewerPose extends XRPose$1 {
     if (leftViewMatrix) {
       refSpace._transformBaseViewMatrix(
         this[PRIVATE$6].leftViewMatrix,
-        leftViewMatrix,
-        this[PRIVATE$6].poseModelMatrix);
+        leftViewMatrix);
       multiply(
         this[PRIVATE$6].leftViewMatrix,
         this[PRIVATE$6].leftViewMatrix,
@@ -1192,8 +1180,7 @@ class XRViewerPose extends XRPose$1 {
     if (rightViewMatrix) {
       refSpace._transformBaseViewMatrix(
         this[PRIVATE$6].rightViewMatrix,
-        rightViewMatrix,
-        this[PRIVATE$6].poseModelMatrix);
+        rightViewMatrix);
       multiply(
         this[PRIVATE$6].rightViewMatrix,
         this[PRIVATE$6].rightViewMatrix,
@@ -1754,10 +1741,28 @@ class XRFrame {
   }
 }
 
+const PRIVATE$10 = Symbol('@@webxr-polyfill/XRRenderState');
+const XRRenderStateInit = Object.freeze({
+  depthNear: 0.1,
+  depthFar: 1000.0,
+  inlineVerticalFieldOfView: null,
+  baseLayer: null
+});
+class XRRenderState {
+  constructor(stateInit = {}) {
+    const config = Object.assign({}, XRRenderStateInit, stateInit);
+    this[PRIVATE$10] = { config };
+  }
+  get depthNear() { return this[PRIVATE$10].config.depthNear; }
+  get depthFar() { return this[PRIVATE$10].config.depthFar; }
+  get inlineVerticalFieldOfView() { return this[PRIVATE$10].config.inlineVerticalFieldOfView; }
+  get baseLayer() { return this[PRIVATE$10].config.baseLayer; }
+}
+
 const POLYFILLED_XR_COMPATIBLE = Symbol('@@webxr-polyfill/polyfilled-xr-compatible');
 const XR_COMPATIBLE = Symbol('@@webxr-polyfill/xr-compatible');
 
-const PRIVATE$10 = Symbol('@@webxr-polyfill/XRWebGLLayer');
+const PRIVATE$11 = Symbol('@@webxr-polyfill/XRWebGLLayer');
 const XRWebGLLayerInit = Object.freeze({
   antialias: true,
   depth: false,
@@ -1782,56 +1787,71 @@ class XRWebGLLayer {
       }
     }
     const framebuffer = context.getParameter(context.FRAMEBUFFER_BINDING);
-    this[PRIVATE$10] = {
+    this[PRIVATE$11] = {
       context,
       config,
       framebuffer,
       session,
     };
   }
-  get context() { return this[PRIVATE$10].context; }
-  get antialias() { return this[PRIVATE$10].config.antialias; }
+  get context() { return this[PRIVATE$11].context; }
+  get antialias() { return this[PRIVATE$11].config.antialias; }
   get ignoreDepthValues() { return true; }
-  get framebuffer() { return this[PRIVATE$10].framebuffer; }
-  get framebufferWidth() { return this[PRIVATE$10].context.drawingBufferWidth; }
-  get framebufferHeight() { return this[PRIVATE$10].context.drawingBufferHeight; }
-  get _session() { return this[PRIVATE$10].session; }
+  get framebuffer() { return this[PRIVATE$11].framebuffer; }
+  get framebufferWidth() { return this[PRIVATE$11].context.drawingBufferWidth; }
+  get framebufferHeight() { return this[PRIVATE$11].context.drawingBufferHeight; }
+  get _session() { return this[PRIVATE$11].session; }
   getViewport(view) {
     return view._getViewport(this);
   }
 }
 
-const PRIVATE$11 = Symbol('@@webxr-polyfill/XRInputSourceEvent');
+const PRIVATE$12 = Symbol('@@webxr-polyfill/XRInputSourceEvent');
 class XRInputSourceEvent extends Event {
   constructor(type, eventInitDict) {
     super(type, eventInitDict);
-    this[PRIVATE$11] = {
+    this[PRIVATE$12] = {
       frame: eventInitDict.frame,
       inputSource: eventInitDict.inputSource
     };
   }
-  get frame() { return this[PRIVATE$11].frame; }
-  get inputSource() { return this[PRIVATE$11].inputSource; }
+  get frame() { return this[PRIVATE$12].frame; }
+  get inputSource() { return this[PRIVATE$12].inputSource; }
 }
 
-const PRIVATE$12 = Symbol('@@webxr-polyfill/XRSessionEvent');
+const PRIVATE$13 = Symbol('@@webxr-polyfill/XRSessionEvent');
 class XRSessionEvent extends Event {
   constructor(type, eventInitDict) {
     super(type, eventInitDict);
-    this[PRIVATE$12] = {
+    this[PRIVATE$13] = {
       session: eventInitDict.session
     };
   }
-  get session() { return this[PRIVATE$12].session; }
+  get session() { return this[PRIVATE$13].session; }
 }
 
-const PRIVATE$13 = Symbol('@@webxr-polyfill/XRSession');
+const PRIVATE$14 = Symbol('@@webxr-polyfill/XRInputSourcesChangeEvent');
+class XRInputSourcesChangeEvent extends Event {
+  constructor(type, eventInitDict) {
+    super(type, eventInitDict);
+    this[PRIVATE$14] = {
+      session: eventInitDict.session,
+      added: eventInitDict.added,
+      removed: eventInitDict.removed
+    };
+  }
+  get session() { return this[PRIVATE$14].session; }
+  get added() { return this[PRIVATE$14].added; }
+  get removed() { return this[PRIVATE$14].removed; }
+}
+
+const PRIVATE$15 = Symbol('@@webxr-polyfill/XRSession');
 class XRSession$1 extends EventTarget {
   constructor(device, mode, id) {
     super();
     let immersive = mode != 'inline';
     let outputContext = null;
-    this[PRIVATE$13] = {
+    this[PRIVATE$15] = {
       device,
       mode,
       immersive,
@@ -1840,62 +1860,63 @@ class XRSession$1 extends EventTarget {
       suspended: false,
       suspendedCallback: null,
       id,
-      activeRenderState: null,
+      activeRenderState: new XRRenderState(),
       pendingRenderState: null,
+      currentInputSources: []
     };
-    const frame = new XRFrame(device, this, this[PRIVATE$13].id);
-    this[PRIVATE$13].frame = frame;
-    this[PRIVATE$13].onPresentationEnd = sessionId => {
-      if (sessionId !== this[PRIVATE$13].id) {
-        this[PRIVATE$13].suspended = false;
+    const frame = new XRFrame(device, this, this[PRIVATE$15].id);
+    this[PRIVATE$15].frame = frame;
+    this[PRIVATE$15].onPresentationEnd = sessionId => {
+      if (sessionId !== this[PRIVATE$15].id) {
+        this[PRIVATE$15].suspended = false;
         this.dispatchEvent('focus', { session: this });
-        const suspendedCallback = this[PRIVATE$13].suspendedCallback;
-        this[PRIVATE$13].suspendedCallback = null;
+        const suspendedCallback = this[PRIVATE$15].suspendedCallback;
+        this[PRIVATE$15].suspendedCallback = null;
         if (suspendedCallback) {
           this.requestAnimationFrame(suspendedCallback);
         }
         return;
       }
-      this[PRIVATE$13].ended = true;
-      device.removeEventListener('@webvr-polyfill/vr-present-end', this[PRIVATE$13].onPresentationEnd);
-      device.removeEventListener('@webvr-polyfill/vr-present-start', this[PRIVATE$13].onPresentationStart);
-      device.removeEventListener('@@webvr-polyfill/input-select-start', this[PRIVATE$13].onSelectStart);
-      device.removeEventListener('@@webvr-polyfill/input-select-end', this[PRIVATE$13].onSelectEnd);
+      this[PRIVATE$15].ended = true;
+      device.removeEventListener('@webvr-polyfill/vr-present-end', this[PRIVATE$15].onPresentationEnd);
+      device.removeEventListener('@webvr-polyfill/vr-present-start', this[PRIVATE$15].onPresentationStart);
+      device.removeEventListener('@@webvr-polyfill/input-select-start', this[PRIVATE$15].onSelectStart);
+      device.removeEventListener('@@webvr-polyfill/input-select-end', this[PRIVATE$15].onSelectEnd);
       this.dispatchEvent('end', new XRSessionEvent('end', { session: this }));
     };
-    device.addEventListener('@@webxr-polyfill/vr-present-end', this[PRIVATE$13].onPresentationEnd);
-    this[PRIVATE$13].onPresentationStart = sessionId => {
-      if (sessionId === this[PRIVATE$13].id) {
+    device.addEventListener('@@webxr-polyfill/vr-present-end', this[PRIVATE$15].onPresentationEnd);
+    this[PRIVATE$15].onPresentationStart = sessionId => {
+      if (sessionId === this[PRIVATE$15].id) {
         return;
       }
-      this[PRIVATE$13].suspended = true;
+      this[PRIVATE$15].suspended = true;
       this.dispatchEvent('blur', { session: this });
     };
-    device.addEventListener('@@webxr-polyfill/vr-present-start', this[PRIVATE$13].onPresentationStart);
-    this[PRIVATE$13].onSelectStart = evt => {
-      if (evt.sessionId !== this[PRIVATE$13].id) {
+    device.addEventListener('@@webxr-polyfill/vr-present-start', this[PRIVATE$15].onPresentationStart);
+    this[PRIVATE$15].onSelectStart = evt => {
+      if (evt.sessionId !== this[PRIVATE$15].id) {
         return;
       }
       this.dispatchEvent('selectstart', new XRInputSourceEvent('selectstart', {
-        frame: this[PRIVATE$13].frame,
+        frame: this[PRIVATE$15].frame,
         inputSource: evt.inputSource
       }));
     };
-    device.addEventListener('@@webxr-polyfill/input-select-start', this[PRIVATE$13].onSelectStart);
-    this[PRIVATE$13].onSelectEnd = evt => {
-      if (evt.sessionId !== this[PRIVATE$13].id) {
+    device.addEventListener('@@webxr-polyfill/input-select-start', this[PRIVATE$15].onSelectStart);
+    this[PRIVATE$15].onSelectEnd = evt => {
+      if (evt.sessionId !== this[PRIVATE$15].id) {
         return;
       }
       this.dispatchEvent('selectend', new XRInputSourceEvent('selectend', {
-        frame: this[PRIVATE$13].frame,
+        frame: this[PRIVATE$15].frame,
         inputSource: evt.inputSource
       }));
       this.dispatchEvent('select',  new XRInputSourceEvent('select', {
-        frame: this[PRIVATE$13].frame,
+        frame: this[PRIVATE$15].frame,
         inputSource: evt.inputSource
       }));
     };
-    device.addEventListener('@@webxr-polyfill/input-select-end', this[PRIVATE$13].onSelectEnd);
+    device.addEventListener('@@webxr-polyfill/input-select-end', this[PRIVATE$15].onSelectEnd);
     this.onblur = undefined;
     this.onfocus = undefined;
     this.onresetpose = undefined;
@@ -1904,106 +1925,107 @@ class XRSession$1 extends EventTarget {
     this.onselectstart = undefined;
     this.onselectend = undefined;
   }
-  get renderState() { return this[PRIVATE$13].activeRenderState; }
-  get immersive() { return this[PRIVATE$13].immersive; }
-  get outputContext() { return this[PRIVATE$13].outputContext; }
-  get depthNear() { return this[PRIVATE$13].device.depthNear; }
-  set depthNear(value) { this[PRIVATE$13].device.depthNear = value; }
-  get depthFar() { return this[PRIVATE$13].device.depthFar; }
-  set depthFar(value) { this[PRIVATE$13].device.depthFar = value; }
+  get renderState() { return this[PRIVATE$15].activeRenderState; }
+  get immersive() { return this[PRIVATE$15].immersive; }
+  get outputContext() { return this[PRIVATE$15].outputContext; }
+  get depthNear() { return this[PRIVATE$15].device.depthNear; }
+  set depthNear(value) { this[PRIVATE$15].device.depthNear = value; }
+  get depthFar() { return this[PRIVATE$15].device.depthFar; }
+  set depthFar(value) { this[PRIVATE$15].device.depthFar = value; }
   get environmentBlendMode() {
-    return this[PRIVATE$13].device.environmentBlendMode || 'opaque';
+    return this[PRIVATE$15].device.environmentBlendMode || 'opaque';
   }
-  get baseLayer() { return this[PRIVATE$13].baseLayer; }
+  get baseLayer() { return this[PRIVATE$15].baseLayer; }
   set baseLayer(value) {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       return;
     }
-    this[PRIVATE$13].baseLayer = value;
-    this[PRIVATE$13].device.onBaseLayerSet(this[PRIVATE$13].id, value);
+    this[PRIVATE$15].baseLayer = value;
+    this[PRIVATE$15].device.onBaseLayerSet(this[PRIVATE$15].id, value);
   }
   async requestReferenceSpace(type) {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       return;
     }
     if (!XRReferenceSpaceTypes.includes(type)) {
       throw new TypeError(`XRReferenceSpaceType must be one of ${XRReferenceSpaceTypes}`);
     }
-    if (!this[PRIVATE$13].device.doesSessionSupportReferenceSpace(this[PRIVATE$13].id, type)) {
+    if (!this[PRIVATE$15].device.doesSessionSupportReferenceSpace(this[PRIVATE$15].id, type)) {
       throw new DOMException(`The ${type} reference space is not supported by this session.`, 'NotSupportedError');
     }
-    let transform = await this[PRIVATE$13].device.requestFrameOfReferenceTransform(type);
+    let transform = await this[PRIVATE$15].device.requestFrameOfReferenceTransform(type);
     if (type === 'bounded-floor') {
       if (!transform) {
         throw new DOMException(`${type} XRReferenceSpace not supported by this device.`, 'NotSupportedError');
       }
-      let bounds = this[PRIVATE$13].device.requestStageBounds();
+      let bounds = this[PRIVATE$15].device.requestStageBounds();
       if (!bounds) {
         throw new DOMException(`${type} XRReferenceSpace not supported by this device.`, 'NotSupportedError');
       }
       throw new DOMException(`The WebXR polyfill does not support the ${type} reference space yet.`, 'NotSupportedError');
     }
-    return new XRReferenceSpace(this[PRIVATE$13].device, type, transform);
+    return new XRReferenceSpace(this[PRIVATE$15].device, type, transform);
   }
   requestAnimationFrame(callback) {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       return;
     }
-    if (this[PRIVATE$13].suspended && this[PRIVATE$13].suspendedCallback) {
+    if (this[PRIVATE$15].suspended && this[PRIVATE$15].suspendedCallback) {
       return;
     }
-    if (this[PRIVATE$13].suspended && !this[PRIVATE$13].suspendedCallback) {
-      this[PRIVATE$13].suspendedCallback = callback;
+    if (this[PRIVATE$15].suspended && !this[PRIVATE$15].suspendedCallback) {
+      this[PRIVATE$15].suspendedCallback = callback;
     }
-    return this[PRIVATE$13].device.requestAnimationFrame(() => {
-      if (this[PRIVATE$13].pendingRenderState !== null) {
-        this[PRIVATE$13].activeRenderState = this[PRIVATE$13].pendingRenderState;
-        this[PRIVATE$13].pendingRenderState = null;
-        if (this[PRIVATE$13].activeRenderState.baseLayer) {
-          this[PRIVATE$13].device.onBaseLayerSet(
-            this[PRIVATE$13].id,
-            this[PRIVATE$13].activeRenderState.baseLayer);
+    return this[PRIVATE$15].device.requestAnimationFrame(() => {
+      if (this[PRIVATE$15].pendingRenderState !== null) {
+        this[PRIVATE$15].activeRenderState = new XRRenderState(this[PRIVATE$15].pendingRenderState);
+        this[PRIVATE$15].pendingRenderState = null;
+        if (this[PRIVATE$15].activeRenderState.baseLayer) {
+          this[PRIVATE$15].device.onBaseLayerSet(
+            this[PRIVATE$15].id,
+            this[PRIVATE$15].activeRenderState.baseLayer);
         }
-        if (this[PRIVATE$13].activeRenderState.inlineVerticalFieldOfView) {
-          this[PRIVATE$13].device.onInlineVerticalFieldOfViewSet(
-            this[PRIVATE$13].id,
-            this[PRIVATE$13].activeRenderState.inlineVerticalFieldOfView);
+        if (this[PRIVATE$15].activeRenderState.inlineVerticalFieldOfView) {
+          this[PRIVATE$15].device.onInlineVerticalFieldOfViewSet(
+            this[PRIVATE$15].id,
+            this[PRIVATE$15].activeRenderState.inlineVerticalFieldOfView);
         }
       }
-      this[PRIVATE$13].device.onFrameStart(this[PRIVATE$13].id);
-      callback(now$1(), this[PRIVATE$13].frame);
-      this[PRIVATE$13].device.onFrameEnd(this[PRIVATE$13].id);
+      this[PRIVATE$15].device.onFrameStart(this[PRIVATE$15].id);
+      this._checkInputSourcesChange();
+      callback(now$1(), this[PRIVATE$15].frame);
+      this[PRIVATE$15].device.onFrameEnd(this[PRIVATE$15].id);
     });
   }
   cancelAnimationFrame(handle) {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       return;
     }
-    this[PRIVATE$13].device.cancelAnimationFrame(handle);
+    this[PRIVATE$15].device.cancelAnimationFrame(handle);
   }
   get inputSources() {
-    return this[PRIVATE$13].device.getInputSources();
+    return this[PRIVATE$15].device.getInputSources();
   }
   async end() {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       return;
     }
-    if (!this.immersive) {
-      this[PRIVATE$13].ended = true;
-      this[PRIVATE$13].device.removeEventListener('@@webvr-polyfill/vr-present-start',
-                                                 this[PRIVATE$13].onPresentationStart);
-      this[PRIVATE$13].device.removeEventListener('@@webvr-polyfill/vr-present-end',
-                                                 this[PRIVATE$13].onPresentationEnd);
-      this[PRIVATE$13].device.removeEventListener('@@webvr-polyfill/input-select-start',
-                                                 this[PRIVATE$13].onSelectStart);
-      this[PRIVATE$13].device.removeEventListener('@@webvr-polyfill/input-select-end',
-                                                 this[PRIVATE$13].onSelectEnd);
+    if (this.immersive) {
+      this[PRIVATE$15].ended = true;
+      this[PRIVATE$15].device.removeEventListener('@@webvr-polyfill/vr-present-start',
+                                                 this[PRIVATE$15].onPresentationStart);
+      this[PRIVATE$15].device.removeEventListener('@@webvr-polyfill/vr-present-end',
+                                                 this[PRIVATE$15].onPresentationEnd);
+      this[PRIVATE$15].device.removeEventListener('@@webvr-polyfill/input-select-start',
+                                                 this[PRIVATE$15].onSelectStart);
+      this[PRIVATE$15].device.removeEventListener('@@webvr-polyfill/input-select-end',
+                                                 this[PRIVATE$15].onSelectEnd);
       this.dispatchEvent('end', new XRSessionEvent('end', { session: this }));
     }
-    return this[PRIVATE$13].device.endSession(this[PRIVATE$13].id);
+    return this[PRIVATE$15].device.endSession(this[PRIVATE$15].id);
   }
   updateRenderState(newState) {
-    if (this[PRIVATE$13].ended) {
+    if (this[PRIVATE$15].ended) {
       const message = "Can't call updateRenderState on an XRSession " +
                       "that has already ended.";
       throw new Error(message);
@@ -2016,7 +2038,7 @@ class XRSession$1 extends EventTarget {
     const fovSet = (newState.inlineVerticalFieldOfView !== null) &&
                    (newState.inlineVerticalFieldOfView !== undefined);
     if (fovSet) {
-      if (this[PRIVATE$13].immersive) {
+      if (this[PRIVATE$15].immersive) {
         const message = "inlineVerticalFieldOfView must not be set for an " +
                         "XRRenderState passed to updateRenderState for an " +
                         "immersive session.";
@@ -2026,80 +2048,74 @@ class XRSession$1 extends EventTarget {
           3.13, Math.max(0.01, newState.inlineVerticalFieldOfView));
       }
     }
-    if (this[PRIVATE$13].pendingRenderState === null) {
-      this[PRIVATE$13].pendingRenderState = Object.assign(
-        {}, this[PRIVATE$13].activeRenderState, newState);
+    if (this[PRIVATE$15].pendingRenderState === null) {
+      this[PRIVATE$15].pendingRenderState = Object.assign({}, this[PRIVATE$15].activeRenderState);
+    }
+    Object.assign(this[PRIVATE$15].pendingRenderState, newState);
+  }
+  _checkInputSourcesChange() {
+    const added = [];
+    const removed = [];
+    const newInputSources = this.inputSources;
+    const oldInputSources = this[PRIVATE$15].currentInputSources;
+    for (const newInputSource of newInputSources) {
+      if (!oldInputSources.includes(newInputSource)) {
+        added.push(newInputSource);
+      }
+    }
+    for (const oldInputSource of oldInputSources) {
+      if (!newInputSources.includes(oldInputSource)) {
+        removed.push(oldInputSource);
+      }
+    }
+    if (added.length > 0 || removed.length > 0) {
+      this.dispatchEvent('inputsourceschange', new XRInputSourcesChangeEvent('inputsourceschange', {
+        session: this,
+        added: added,
+        removed: removed
+      }));
+    }
+    this[PRIVATE$15].currentInputSources.length = 0;
+    for (const newInputSource of newInputSources) {
+      this[PRIVATE$15].currentInputSources.push(newInputSource);
     }
   }
 }
 
-const PRIVATE$14 = Symbol('@@webxr-polyfill/XRInputSource');
+const PRIVATE$16 = Symbol('@@webxr-polyfill/XRInputSource');
 class XRInputSource {
   constructor(impl) {
-    this[PRIVATE$14] = {
+    this[PRIVATE$16] = {
       impl,
       gripSpace: new XRSpace("grip", this),
       targetRaySpace: new XRSpace("target-ray", this)
     };
   }
-  get handedness() { return this[PRIVATE$14].impl.handedness; }
-  get targetRayMode() { return this[PRIVATE$14].impl.targetRayMode; }
+  get handedness() { return this[PRIVATE$16].impl.handedness; }
+  get targetRayMode() { return this[PRIVATE$16].impl.targetRayMode; }
   get gripSpace() {
-    let mode = this[PRIVATE$14].impl.targetRayMode;
+    let mode = this[PRIVATE$16].impl.targetRayMode;
     if (mode === "gaze" || mode === "screen") {
       return null;
     }
-    return this[PRIVATE$14].gripSpace;
+    return this[PRIVATE$16].gripSpace;
   }
-  get targetRaySpace() { return this[PRIVATE$14].targetRaySpace; }
-  get profiles() { return this[PRIVATE$14].impl.profiles; }
-  get gamepad() { return this[PRIVATE$14].impl.gamepad; }
+  get targetRaySpace() { return this[PRIVATE$16].targetRaySpace; }
+  get profiles() { return this[PRIVATE$16].impl.profiles; }
+  get gamepad() { return this[PRIVATE$16].impl.gamepad; }
 }
 
-const PRIVATE$15 = Symbol('@@webxr-polyfill/XRInputSourcesChangeEvent');
-class XRInputSourcesChangeEvent extends Event {
-  constructor(type, eventInitDict) {
-    super(type, eventInitDict);
-    this[PRIVATE$15] = {
-      session: eventInitDict.session,
-      added: eventInitDict.added,
-      removed: eventInitDict.removed
-    };
-  }
-  get session() { return this[PRIVATE$15].session; }
-  get added() { return this[PRIVATE$15].added; }
-  get removed() { return this[PRIVATE$15].removed; }
-}
-
-const PRIVATE$16 = Symbol('@@webxr-polyfill/XRReferenceSpaceEvent');
+const PRIVATE$17 = Symbol('@@webxr-polyfill/XRReferenceSpaceEvent');
 class XRReferenceSpaceEvent extends Event {
   constructor(type, eventInitDict) {
     super(type, eventInitDict);
-    this[PRIVATE$16] = {
+    this[PRIVATE$17] = {
       referenceSpace: eventInitDict.referenceSpace,
       transform: eventInitDict.transform || null
     };
   }
-  get referenceSpace() { return this[PRIVATE$16].referenceSpace; }
-  get transform() { return this[PRIVATE$16].transform; }
-}
-
-const PRIVATE$17 = Symbol('@@webxr-polyfill/XRRenderState');
-const XRRenderStateInit = Object.freeze({
-  depthNear: 0.1,
-  depthFar: 1000.0,
-  inlineVerticalFieldOfView: null,
-  baseLayer: null
-});
-class XRRenderState {
-  constructor(stateInit = {}) {
-    const config = Object.assign({}, XRRenderStateInit, stateInit);
-    this[PRIVATE$17] = { config };
-  }
-  get depthNear() { return this[PRIVATE$17].depthNear; }
-  get depthFar() { return this[PRIVATE$17].depthFar; }
-  get inlineVerticalFieldOfView() { return this[PRIVATE$17].inlineVerticalFieldOfView; }
-  get baseLayer() { return this[PRIVATE$17].baseLayer; }
+  get referenceSpace() { return this[PRIVATE$17].referenceSpace; }
+  get transform() { return this[PRIVATE$17].transform; }
 }
 
 var API = {
@@ -5719,7 +5735,7 @@ class GamepadXRInputSource {
         this.gamepad = null;
       }
     }
-    this.handedness = gamepad.hand;
+    this.handedness = gamepad.hand === '' ? 'none' : gamepad.hand;
     if (this.gamepad) {
       this.gamepad._update();
     }
