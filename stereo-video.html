@@ -176,6 +176,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onRequestSession() {
         let autoplay = autoplayCheckbox.checked;
 
+        let pending;
+
         if (autoplay) {
           // If we want the video to autoplay when the session has fully started
           // (which may be several seconds after the original requestSession
@@ -184,7 +186,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // (which this function is.) Once it's been started successfully we
           // pause it, at which point we can resume it pretty much whenever we'd
           // like.
-          video.play().then(() => {
+          pending = video.play().then(() => {
             video.pause();
           });
         }
@@ -197,7 +199,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onSessionStarted(session);
 
           if (autoplay) {
-            video.play();
+            pending.then(() => {
+              video.play();
+            });
           }
         });
       }
