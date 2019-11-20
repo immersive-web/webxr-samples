@@ -101,25 +101,30 @@ export function createWebGLContext(glAttribs) {
 export class RenderView {
   constructor(projectionMatrix, viewTransform, viewport = null, eye = 'left') {
     this.projectionMatrix = projectionMatrix;
-    this.viewTransform = viewTransform;
     this.viewport = viewport;
     // If an eye isn't given the left eye is assumed.
     this._eye = eye;
     this._eyeIndex = (eye == 'left' ? 0 : 1);
 
     // Compute the view matrix
-    this._viewMatrix = mat4.create();
-    let q = viewTransform.orientation;
-    let t = viewTransform.position;
-    mat4.fromRotationTranslation(
-        this._viewMatrix,
-        [q.x, q.y, q.z, q.w],
-        [t.x, t.y, t.z]
-    );
-    mat4.invert(this._viewMatrix, this._viewMatrix);
-    
-    // Alternative view matrix code path
-    //this._viewMatrix = viewTransform.inverse().matrix;
+    if (viewTransform instanceof Float32Array) {
+      this._viewMatrix = mat4.clone(viewTransform);
+      this.viewTransform = new XRRigidTransform(); // TODO
+    } else {
+      this.viewTransform = viewTransform;
+      this._viewMatrix = viewTransform.inverse.matrix;
+
+      // Alternative view matrix code path
+      /*this._viewMatrix = mat4.create();
+      let q = viewTransform.orientation;
+      let t = viewTransform.position;
+      mat4.fromRotationTranslation(
+          this._viewMatrix,
+          [q.x, q.y, q.z, q.w],
+          [t.x, t.y, t.z]
+      );
+      mat4.invert(this._viewMatrix, this._viewMatrix);*/
+    }
   }
 
   get viewMatrix() {

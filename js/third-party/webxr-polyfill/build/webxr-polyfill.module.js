@@ -1706,6 +1706,8 @@ var forEach$4 = function () {
 }();
 
 const PRIVATE$9 = Symbol('@@webxr-polyfill/XRFrame');
+const NON_ACTIVE_MSG = "XRFrame access outside the callback that produced it is invalid.";
+const NON_ANIMFRAME_MSG = "getViewerPose can only be called on XRFrame objects passed to XRSession.requestAnimationFrame callbacks.";
 class XRFrame {
   constructor(device, session, stereo, sessionId) {
     const views = [];
@@ -1716,6 +1718,8 @@ class XRFrame {
       views.push(new XRView(device, 'none', sessionId));
     }
     this[PRIVATE$9] = {
+      active: false,
+      animationFrame: false,
       device,
       viewerPose: new XRViewerPose(device, views),
       views,
@@ -1724,10 +1728,19 @@ class XRFrame {
   }
   get session() { return this[PRIVATE$9].session; }
   getViewerPose(space) {
+    if (!this[PRIVATE$9].animationFrame) {
+      throw new DOMException(NON_ANIMFRAME_MSG, 'InvalidStateError');
+    }
+    if (!this[PRIVATE$9].active) {
+      throw new DOMException(NON_ACTIVE_MSG, 'InvalidStateError');
+    }
     this[PRIVATE$9].viewerPose._updateFromReferenceSpace(space);
     return this[PRIVATE$9].viewerPose;
   }
   getPose(space, baseSpace) {
+    if (!this[PRIVATE$9].active) {
+      throw new DOMException(NON_ACTIVE_MSG, 'InvalidStateError');
+    }
     if (space._specialType === "viewer") {
       let viewerPose = this.getViewerPose(baseSpace);
       return new XRPose(
@@ -1857,26 +1870,77 @@ class XRSession$1 extends EventTarget {
       immersive,
       ended: false,
       suspended: false,
-      suspendedCallback: null,
+      frameCallbacks: [],
+      currentFrameCallbacks: null,
+      frameHandle: 0,
+      deviceFrameHandle: null,
       id,
       activeRenderState: new XRRenderState(),
       pendingRenderState: null,
       currentInputSources: []
     };
-    const frame = new XRFrame(device, this, immersive, this[PRIVATE$15].id);
-    this[PRIVATE$15].frame = frame;
+    this[PRIVATE$15].onDeviceFrame = () => {
+      if (this[PRIVATE$15].ended || this[PRIVATE$15].suspended) {
+        return;
+      }
+      this[PRIVATE$15].deviceFrameHandle = null;
+      this[PRIVATE$15].startDeviceFrameLoop();
+      if (this[PRIVATE$15].pendingRenderState !== null) {
+        this[PRIVATE$15].activeRenderState = new XRRenderState(this[PRIVATE$15].pendingRenderState);
+        this[PRIVATE$15].pendingRenderState = null;
+        if (this[PRIVATE$15].activeRenderState.baseLayer) {
+          this[PRIVATE$15].device.onBaseLayerSet(
+            this[PRIVATE$15].id,
+            this[PRIVATE$15].activeRenderState.baseLayer);
+        }
+      }
+      if (this[PRIVATE$15].activeRenderState.baseLayer === null) {
+        return;
+      }
+      const frame = new XRFrame(device, this, immersive, this[PRIVATE$15].id);
+      const callbacks = this[PRIVATE$15].currentFrameCallbacks = this[PRIVATE$15].frameCallbacks;
+      this[PRIVATE$15].frameCallbacks = [];
+      frame[PRIVATE$9].active = true;
+      frame[PRIVATE$9].animationFrame = true;
+      this[PRIVATE$15].device.onFrameStart(this[PRIVATE$15].id, this[PRIVATE$15].activeRenderState);
+      this._checkInputSourcesChange();
+      const rightNow = now$1();
+      for (let i = 0; i < callbacks.length; i++) {
+        try {
+          if (!callbacks[i].cancelled && typeof callbacks[i].callback === 'function') {
+            callbacks[i].callback(rightNow, frame);
+          }
+        } catch(err) {
+          console.error(err);
+        }
+      }
+      this[PRIVATE$15].currentFrameCallbacks = null;
+      frame[PRIVATE$9].active = false;
+      this[PRIVATE$15].device.onFrameEnd(this[PRIVATE$15].id);
+    };
+    this[PRIVATE$15].startDeviceFrameLoop = () => {
+      if (this[PRIVATE$15].deviceFrameHandle === null) {
+        this[PRIVATE$15].deviceFrameHandle = this[PRIVATE$15].device.requestAnimationFrame(
+          this[PRIVATE$15].onDeviceFrame
+        );
+      }
+    };
+    this[PRIVATE$15].stopDeviceFrameLoop = () => {
+      const handle = this[PRIVATE$15].deviceFrameHandle;
+      if (handle !== null) {
+        this[PRIVATE$15].device.cancelAnimationFrame(handle);
+        this[PRIVATE$15].deviceFrameHandle = null;
+      }
+    };
     this[PRIVATE$15].onPresentationEnd = sessionId => {
       if (sessionId !== this[PRIVATE$15].id) {
         this[PRIVATE$15].suspended = false;
+        this[PRIVATE$15].startDeviceFrameLoop();
         this.dispatchEvent('focus', { session: this });
-        const suspendedCallback = this[PRIVATE$15].suspendedCallback;
-        this[PRIVATE$15].suspendedCallback = null;
-        if (suspendedCallback) {
-          this.requestAnimationFrame(suspendedCallback);
-        }
         return;
       }
       this[PRIVATE$15].ended = true;
+      this[PRIVATE$15].stopDeviceFrameLoop();
       device.removeEventListener('@webvr-polyfill/vr-present-end', this[PRIVATE$15].onPresentationEnd);
       device.removeEventListener('@webvr-polyfill/vr-present-start', this[PRIVATE$15].onPresentationStart);
       device.removeEventListener('@@webvr-polyfill/input-select-start', this[PRIVATE$15].onSelectStart);
@@ -1889,6 +1953,7 @@ class XRSession$1 extends EventTarget {
         return;
       }
       this[PRIVATE$15].suspended = true;
+      this[PRIVATE$15].stopDeviceFrameLoop();
       this.dispatchEvent('blur', { session: this });
     };
     device.addEventListener('@@webxr-polyfill/vr-present-start', this[PRIVATE$15].onPresentationStart);
@@ -1896,26 +1961,25 @@ class XRSession$1 extends EventTarget {
       if (evt.sessionId !== this[PRIVATE$15].id) {
         return;
       }
-      this.dispatchEvent('selectstart', new XRInputSourceEvent('selectstart', {
-        frame: this[PRIVATE$15].frame,
-        inputSource: evt.inputSource
-      }));
+      this[PRIVATE$15].dispatchInputSourceEvent('selectstart',  evt.inputSource);
     };
     device.addEventListener('@@webxr-polyfill/input-select-start', this[PRIVATE$15].onSelectStart);
     this[PRIVATE$15].onSelectEnd = evt => {
       if (evt.sessionId !== this[PRIVATE$15].id) {
         return;
       }
-      this.dispatchEvent('selectend', new XRInputSourceEvent('selectend', {
-        frame: this[PRIVATE$15].frame,
-        inputSource: evt.inputSource
-      }));
-      this.dispatchEvent('select',  new XRInputSourceEvent('select', {
-        frame: this[PRIVATE$15].frame,
-        inputSource: evt.inputSource
-      }));
+      this[PRIVATE$15].dispatchInputSourceEvent('selectend',  evt.inputSource);
+      this[PRIVATE$15].dispatchInputSourceEvent('select',  evt.inputSource);
     };
     device.addEventListener('@@webxr-polyfill/input-select-end', this[PRIVATE$15].onSelectEnd);
+    this[PRIVATE$15].dispatchInputSourceEvent = (type, inputSource) => {
+      const frame = new XRFrame(device, this, this[PRIVATE$15].immersive, this[PRIVATE$15].id);
+      const event = new XRInputSourceEvent(type, { frame, inputSource });
+      frame[PRIVATE$9].active = true;
+      this.dispatchEvent(type, event);
+      frame[PRIVATE$9].active = false;
+    };
+    this[PRIVATE$15].startDeviceFrameLoop();
     this.onblur = undefined;
     this.onfocus = undefined;
     this.onresetpose = undefined;
@@ -1955,33 +2019,28 @@ class XRSession$1 extends EventTarget {
     if (this[PRIVATE$15].ended) {
       return;
     }
-    if (this[PRIVATE$15].suspended && this[PRIVATE$15].suspendedCallback) {
-      return;
-    }
-    if (this[PRIVATE$15].suspended && !this[PRIVATE$15].suspendedCallback) {
-      this[PRIVATE$15].suspendedCallback = callback;
-    }
-    return this[PRIVATE$15].device.requestAnimationFrame(() => {
-      if (this[PRIVATE$15].pendingRenderState !== null) {
-        this[PRIVATE$15].activeRenderState = new XRRenderState(this[PRIVATE$15].pendingRenderState);
-        this[PRIVATE$15].pendingRenderState = null;
-        if (this[PRIVATE$15].activeRenderState.baseLayer) {
-          this[PRIVATE$15].device.onBaseLayerSet(
-            this[PRIVATE$15].id,
-            this[PRIVATE$15].activeRenderState.baseLayer);
-        }
-      }
-      this[PRIVATE$15].device.onFrameStart(this[PRIVATE$15].id, this[PRIVATE$15].activeRenderState);
-      this._checkInputSourcesChange();
-      callback(now$1(), this[PRIVATE$15].frame);
-      this[PRIVATE$15].device.onFrameEnd(this[PRIVATE$15].id);
+    const handle = ++this[PRIVATE$15].frameHandle;
+    this[PRIVATE$15].frameCallbacks.push({
+      handle,
+      callback,
+      cancelled: false
     });
+    return handle;
   }
   cancelAnimationFrame(handle) {
-    if (this[PRIVATE$15].ended) {
-      return;
+    let callbacks = this[PRIVATE$15].frameCallbacks;
+    let index = callbacks.findIndex(d => d && d.handle === handle);
+    if (index > -1) {
+      callbacks[index].cancelled = true;
+      callbacks.splice(index, 1);
     }
-    this[PRIVATE$15].device.cancelAnimationFrame(handle);
+    callbacks = this[PRIVATE$15].currentFrameCallbacks;
+    if (callbacks) {
+      index = callbacks.findIndex(d => d && d.handle === handle);
+      if (index > -1) {
+        callbacks[index].cancelled = true;
+      }
+    }
   }
   get inputSources() {
     return this[PRIVATE$15].device.getInputSources();
@@ -2002,6 +2061,7 @@ class XRSession$1 extends EventTarget {
                                                  this[PRIVATE$15].onSelectEnd);
       this.dispatchEvent('end', new XRSessionEvent('end', { session: this }));
     }
+    this[PRIVATE$15].stopDeviceFrameLoop();
     return this[PRIVATE$15].device.endSession(this[PRIVATE$15].id);
   }
   updateRenderState(newState) {
@@ -5354,9 +5414,19 @@ class XRDevice extends EventTarget {
   }
 }
 
+let daydream = {
+  mapping: '',
+  profiles: ['daydream', 'generic-trigger-touchpad'],
+  buttons: {
+    length: 3,
+    0: null,
+    1: null,
+    2: 0
+  },
+};
 let oculusGo = {
   mapping: 'xr-standard',
-  profiles: ['oculus-go', 'touchpad-controller'],
+  profiles: ['oculus-go', 'generic-trigger-touchpad'],
   buttons: {
     length: 3,
     0: 1,
@@ -5370,9 +5440,9 @@ let oculusGo = {
 let oculusTouch = {
   mapping: 'xr-standard',
   displayProfiles: {
-    'Oculus Quest': ['oculus-quest', 'oculus-touch', 'thumbstick-controller']
+    'Oculus Quest': ['oculus-touch-s', 'oculus-touch', 'generic-trigger-squeeze-thumbstick']
   },
-  profiles: ['oculus-touch', 'thumbstick-controller'],
+  profiles: ['oculus-touch', 'generic-trigger-squeeze-thumbstick'],
   axes: {
     length: 4,
     0: null,
@@ -5396,10 +5466,11 @@ let oculusTouch = {
 };
 let openVr = {
   mapping: 'xr-standard',
-  profiles: ['openvr-controller', 'touchpad-controller'],
+  profiles: ['openvr-controller', 'generic-trigger-squeeze-touchpad'],
   displayProfiles: {
-    'HTC Vive': ['htc-vive', 'touchpad-controller'],
-    'HTC Vive DVT': ['htc-vive', 'touchpad-controller']
+    'HTC Vive': ['htc-vive', 'generic-trigger-squeeze-touchpad'],
+    'HTC Vive DVT': ['htc-vive', 'generic-trigger-squeeze-touchpad'],
+    'Valve Index': ['valve-index', 'generic-trigger-squeeze-touchpad-thumbstick']
   },
   buttons: {
     length: 3,
@@ -5414,9 +5485,37 @@ let openVr = {
     orientation: [Math.PI * -0.08, 0, 0, 1]
   }
 };
+let samsungGearVR = {
+  mapping: 'xr-standard',
+  profiles: ['samsung-gearvr', 'generic-trigger-touchpad'],
+  buttons: {
+    length: 3,
+    0: 1,
+    1: null,
+    2: 0
+  },
+  gripTransform: {
+    orientation: [Math.PI * 0.11, 0, 0, 1]
+  }
+};
+let samsungOdyssey = {
+  mapping: 'xr-standard',
+  profiles: ['samsung-odyssey', 'microsoft-mixed-reality', 'generic-trigger-squeeze-touchpad-thumbstick'],
+  buttons: {
+    length: 4,
+    0: 1,
+    1: 0,
+    2: 2,
+    3: 4,
+  },
+  gripTransform: {
+    position: [0, -0.02, 0.04, 1],
+    orientation: [Math.PI * 0.11, 0, 0, 1]
+  }
+};
 let windowsMixedReality = {
   mapping: 'xr-standard',
-  profiles: ['windows-mixed-reality', 'touchpad-thumbstick-controller'],
+  profiles: ['microsoft-mixed-reality', 'generic-trigger-squeeze-touchpad-thumbstick'],
   buttons: {
     length: 4,
     0: 1,
@@ -5430,10 +5529,14 @@ let windowsMixedReality = {
   }
 };
 let GamepadMappings = {
+  'Daydream Controller': daydream,
+  'Gear VR Controller': samsungGearVR,
   'Oculus Go Controller': oculusGo,
   'Oculus Touch (Right)': oculusTouch,
   'Oculus Touch (Left)': oculusTouch,
   'OpenVR Gamepad': openVr,
+  'Spatial Controller (Spatial Interaction Source) 045E-065A': windowsMixedReality,
+  'Spatial Controller (Spatial Interaction Source) 045E-065D': samsungOdyssey,
   'Windows Mixed Reality (Right)': windowsMixedReality,
   'Windows Mixed Reality (Left)': windowsMixedReality,
 };
