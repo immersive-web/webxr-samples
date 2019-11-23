@@ -78,6 +78,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let renderer = null;
       let scene = new Scene();
       scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
+      scene.standingStats(true);
 
       function initXR() {
         xrButton = new WebXRButton({

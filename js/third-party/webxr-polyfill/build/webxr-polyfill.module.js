@@ -140,23 +140,6 @@ class EventTarget {
   }
 }
 
-const PRIVATE$1 = Symbol('@@webxr-polyfill/XRSpace');
-
-class XRSpace {
-  constructor(specialType = null, inputSource = null) {
-    this[PRIVATE$1] = {
-      specialType,
-      inputSource,
-    };
-  }
-  get _specialType() {
-    return this[PRIVATE$1].specialType;
-  }
-  get _inputSource() {
-    return this[PRIVATE$1].inputSource;
-  }
-}
-
 const EPSILON = 0.000001;
 let ARRAY_TYPE = (typeof Float32Array !== 'undefined') ? Float32Array : Array;
 
@@ -407,187 +390,6 @@ function perspective(out, fovy, aspect, near, far) {
     out[14] = -2 * near;
   }
   return out;
-}
-
-const DEFAULT_EMULATION_HEIGHT = 1.6;
-const PRIVATE$2 = Symbol('@@webxr-polyfill/XRReferenceSpace');
-const XRReferenceSpaceTypes = [
-  'viewer',
-  'local',
-  'local-floor',
-  'bounded-floor',
-  'unbounded'
-];
-function isFloor(type) {
-  return type === 'bounded-floor' || type === 'local-floor';
-}
-class XRReferenceSpace extends XRSpace {
-  constructor(device, type, transform) {
-    if (!XRReferenceSpaceTypes.includes(type)) {
-      throw new Error(`XRReferenceSpaceType must be one of ${XRReferenceSpaceTypes}`);
-    }
-    super((type === 'viewer') ? 'viewer' : null);
-    if (type === 'bounded-floor' && !transform) {
-      throw new Error(`XRReferenceSpace cannot use 'bounded-floor' type if the platform does not provide the floor level`);
-    }
-    if (isFloor(type) && !transform) {
-      transform = identity(new Float32Array(16));
-      transform[13] = DEFAULT_EMULATION_HEIGHT;
-    }
-    if (!transform) {
-      transform = identity(new Float32Array(16));
-    }
-    this[PRIVATE$2] = {
-      type,
-      transform,
-      device,
-      originOffset : identity(new Float32Array(16)),
-    };
-  }
-  _transformBasePoseMatrix(out, pose) {
-    multiply(out, this[PRIVATE$2].transform, pose);
-  }
-  _transformBaseViewMatrix(out, view) {
-    invert(out, this[PRIVATE$2].transform);
-    multiply(out, view, out);
-  }
-  _originOffsetMatrix() {
-    return this[PRIVATE$2].originOffset;
-  }
-  _adjustForOriginOffset(transformMatrix) {
-    let inverseOriginOffsetMatrix = identity(new Float32Array(16));
-    invert(inverseOriginOffsetMatrix, this[PRIVATE$2].originOffset);
-    multiply(transformMatrix, inverseOriginOffsetMatrix, transformMatrix);
-  }
-  getOffsetReferenceSpace(additionalOffset) {
-    let newSpace = new XRReferenceSpace(
-      this[PRIVATE$2].device,
-      this[PRIVATE$2].type,
-      this[PRIVATE$2].transform,
-      this[PRIVATE$2].bounds);
-    multiply(newSpace[PRIVATE$2].originOffset, this[PRIVATE$2].originOffset, additionalOffset.matrix);
-    return newSpace;
-  }
-}
-
-const PRIVATE$3 = Symbol('@@webxr-polyfill/XR');
-const XRSessionModes = ['inline', 'immersive-vr', 'immersive-ar'];
-const DEFAULT_SESSION_OPTIONS = {
-  'inline': {
-    requiredFeatures: ['viewer'],
-    optionalFeatures: [],
-  },
-  'immersive-vr': {
-    requiredFeatures: ['viewer', 'local'],
-    optionalFeatures: [],
-  },
-  'immersive-ar': {
-    requiredFeatures: ['viewer', 'local'],
-    optionalFeatures: [],
-  }
-};
-const POLYFILL_REQUEST_SESSION_ERROR =
-`Polyfill Error: Must call navigator.xr.isSessionSupported() with any XRSessionMode
-or navigator.xr.requestSession('inline') prior to requesting an immersive
-session. This is a limitation specific to the WebXR Polyfill and does not apply
-to native implementations of the API.`;
-class XR$1 extends EventTarget {
-  constructor(devicePromise) {
-    super();
-    this[PRIVATE$3] = {
-      device: null,
-      devicePromise,
-      immersiveSession: null,
-      inlineSessions: new Set(),
-    };
-    devicePromise.then((device) => { this[PRIVATE$3].device = device; });
-  }
-  async isSessionSupported(mode) {
-    if (!this[PRIVATE$3].device) {
-      await this[PRIVATE$3].devicePromise;
-    }
-    if (mode != 'inline') {
-      return Promise.resolve(this[PRIVATE$3].device.isSessionSupported(mode));
-    }
-    return Promise.resolve(true);
-  }
-  async requestSession(mode, options) {
-    if (!this[PRIVATE$3].device) {
-      if (mode != 'inline') {
-        throw new Error(POLYFILL_REQUEST_SESSION_ERROR);
-      } else {
-        await this[PRIVATE$3].devicePromise;
-      }
-    }
-    if (!XRSessionModes.includes(mode)) {
-      throw new TypeError(
-          `The provided value '${mode}' is not a valid enum value of type XRSessionMode`);
-    }
-    const defaultOptions = DEFAULT_SESSION_OPTIONS[mode];
-    const requiredFeatures = defaultOptions.requiredFeatures.concat(
-        options && options.requiredFeatures ? options.requiredFeatures : []);
-    const optionalFeatures = defaultOptions.optionalFeatures.concat(
-        options && options.optionalFeatures ? options.optionalFeatures : []);
-    const enabledFeatures = new Set();
-    let requirementsFailed = false;
-    for (let feature of requiredFeatures) {
-      if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
-        console.error(`The required feature '${feature}' is not supported`);
-        requirementsFailed = true;
-      } else {
-        enabledFeatures.add(feature);
-      }
-    }
-    if (requirementsFailed) {
-      throw new DOMException('Session does not support some required features', 'NotSupportedError');
-    }
-    for (let feature of optionalFeatures) {
-      if (!this[PRIVATE$3].device.isFeatureSupported(feature)) {
-        console.log(`The optional feature '${feature}' is not supported`);
-      } else {
-        enabledFeatures.add(feature);
-      }
-    }
-    const sessionId = await this[PRIVATE$3].device.requestSession(mode, enabledFeatures);
-    const session = new XRSession(this[PRIVATE$3].device, mode, sessionId);
-    if (mode == 'inline') {
-      this[PRIVATE$3].inlineSessions.add(session);
-    } else {
-      this[PRIVATE$3].immersiveSession = session;
-    }
-    const onSessionEnd = () => {
-      if (mode == 'inline') {
-        this[PRIVATE$3].inlineSessions.delete(session);
-      } else {
-        this[PRIVATE$3].immersiveSession = null;
-      }
-      session.removeEventListener('end', onSessionEnd);
-    };
-    session.addEventListener('end', onSessionEnd);
-    return session;
-  }
-}
-
-let now;
-if ('performance' in _global === false) {
-  let startTime = Date.now();
-  now = () => Date.now() - startTime;
-} else {
-  now = () => performance.now();
-}
-var now$1 = now;
-
-const PRIVATE$4 = Symbol('@@webxr-polyfill/XRPose');
-class XRPose$1 {
-  constructor(transform, emulatedPosition) {
-    this[PRIVATE$4] = {
-      transform,
-      emulatedPosition,
-    };
-  }
-  get transform() { return this[PRIVATE$4].transform; }
-  get emulatedPosition() { return this[PRIVATE$4].emulatedPosition; }
-  _setTransform(transform) { this[PRIVATE$4].transform = transform; }
 }
 
 function create$1() {
@@ -1065,61 +867,61 @@ const setAxes = (function() {
   };
 })();
 
-const PRIVATE$5 = Symbol('@@webxr-polyfill/XRRigidTransform');
+const PRIVATE$1 = Symbol('@@webxr-polyfill/XRRigidTransform');
 class XRRigidTransform$1 {
   constructor() {
-    this[PRIVATE$5] = {
+    this[PRIVATE$1] = {
       matrix: null,
       position: null,
       orientation: null,
       inverse: null,
     };
     if (arguments.length === 0) {
-      this[PRIVATE$5].matrix = identity(new Float32Array(16));
+      this[PRIVATE$1].matrix = identity(new Float32Array(16));
     } else if (arguments.length === 1) {
       if (arguments[0] instanceof Float32Array) {
-        this[PRIVATE$5].matrix = arguments[0];
+        this[PRIVATE$1].matrix = arguments[0];
       } else {
-        this[PRIVATE$5].position = this._getPoint(arguments[0]);
-        this[PRIVATE$5].orientation = DOMPointReadOnly.fromPoint({
+        this[PRIVATE$1].position = this._getPoint(arguments[0]);
+        this[PRIVATE$1].orientation = DOMPointReadOnly.fromPoint({
             x: 0, y: 0, z: 0, w: 1
         });
       }
     } else if (arguments.length === 2) {
-      this[PRIVATE$5].position = this._getPoint(arguments[0]);
-      this[PRIVATE$5].orientation = this._getPoint(arguments[1]);
+      this[PRIVATE$1].position = this._getPoint(arguments[0]);
+      this[PRIVATE$1].orientation = this._getPoint(arguments[1]);
     } else {
       throw new Error("Too many arguments!");
     }
-    if (this[PRIVATE$5].matrix) {
+    if (this[PRIVATE$1].matrix) {
         let position = create$1();
-        getTranslation(position, this[PRIVATE$5].matrix);
-        this[PRIVATE$5].position = DOMPointReadOnly.fromPoint({
+        getTranslation(position, this[PRIVATE$1].matrix);
+        this[PRIVATE$1].position = DOMPointReadOnly.fromPoint({
             x: position[0],
             y: position[1],
             z: position[2]
         });
         let orientation = create$4();
-        getRotation(orientation, this[PRIVATE$5].matrix);
-        this[PRIVATE$5].orientation = DOMPointReadOnly.fromPoint({
+        getRotation(orientation, this[PRIVATE$1].matrix);
+        this[PRIVATE$1].orientation = DOMPointReadOnly.fromPoint({
           x: orientation[0],
           y: orientation[1],
           z: orientation[2],
           w: orientation[3]
         });
     } else {
-        this[PRIVATE$5].matrix = identity(new Float32Array(16));
+        this[PRIVATE$1].matrix = identity(new Float32Array(16));
         fromRotationTranslation(
-          this[PRIVATE$5].matrix,
+          this[PRIVATE$1].matrix,
           fromValues$4(
-            this[PRIVATE$5].orientation.x,
-            this[PRIVATE$5].orientation.y,
-            this[PRIVATE$5].orientation.z,
-            this[PRIVATE$5].orientation.w),
+            this[PRIVATE$1].orientation.x,
+            this[PRIVATE$1].orientation.y,
+            this[PRIVATE$1].orientation.z,
+            this[PRIVATE$1].orientation.w),
           fromValues$1(
-            this[PRIVATE$5].position.x,
-            this[PRIVATE$5].position.y,
-            this[PRIVATE$5].position.z)
+            this[PRIVATE$1].position.x,
+            this[PRIVATE$1].position.y,
+            this[PRIVATE$1].position.z)
         );
     }
   }
@@ -1129,70 +931,279 @@ class XRRigidTransform$1 {
     }
     return DOMPointReadOnly.fromPoint(arg);
   }
-  get matrix() { return this[PRIVATE$5].matrix; }
-  get position() { return this[PRIVATE$5].position; }
-  get orientation() { return this[PRIVATE$5].orientation; }
+  get matrix() { return this[PRIVATE$1].matrix; }
+  get position() { return this[PRIVATE$1].position; }
+  get orientation() { return this[PRIVATE$1].orientation; }
   get inverse() {
-    if (this[PRIVATE$5].inverse === null) {
+    if (this[PRIVATE$1].inverse === null) {
       let invMatrix = identity(new Float32Array(16));
-      invert(invMatrix, this[PRIVATE$5].matrix);
-      this[PRIVATE$5].inverse = new XRRigidTransform$1(invMatrix);
-      this[PRIVATE$5].inverse[PRIVATE$5].inverse = this;
+      invert(invMatrix, this[PRIVATE$1].matrix);
+      this[PRIVATE$1].inverse = new XRRigidTransform$1(invMatrix);
+      this[PRIVATE$1].inverse[PRIVATE$1].inverse = this;
     }
-    return this[PRIVATE$5].inverse;
+    return this[PRIVATE$1].inverse;
   }
+}
+
+const PRIVATE$2 = Symbol('@@webxr-polyfill/XRSpace');
+
+class XRSpace {
+  constructor(specialType = null, inputSource = null) {
+    this[PRIVATE$2] = {
+      specialType,
+      inputSource,
+      baseMatrix: null,
+      inverseBaseMatrix: null,
+      lastFrameId: -1
+    };
+  }
+  get _specialType() {
+    return this[PRIVATE$2].specialType;
+  }
+  get _inputSource() {
+    return this[PRIVATE$2].inputSource;
+  }
+  _ensurePoseUpdated(device, frameId) {
+    if (frameId == this[PRIVATE$2].lastFrameId) return;
+    this[PRIVATE$2].lastFrameId = frameId;
+    this._onPoseUpdate(device);
+  }
+  _onPoseUpdate(device) {
+    if (this[PRIVATE$2].specialType == 'viewer') {
+      this._baseMatrix = device.getBasePoseMatrix();
+    }
+  }
+  set _baseMatrix(matrix) {
+    this[PRIVATE$2].baseMatrix = matrix;
+    this[PRIVATE$2].inverseBaseMatrix = null;
+  }
+  get _baseMatrix() {
+    if (!this[PRIVATE$2].baseMatrix) {
+      if (this[PRIVATE$2].inverseBaseMatrix) {
+        this[PRIVATE$2].baseMatrix = new Float32Array(16);
+        invert(this[PRIVATE$2].baseMatrix, this[PRIVATE$2].inverseBaseMatrix);
+      }
+    }
+    return this[PRIVATE$2].baseMatrix;
+  }
+  set _inverseBaseMatrix(matrix) {
+    this[PRIVATE$2].inverseBaseMatrix = matrix;
+    this[PRIVATE$2].baseMatrix = null;
+  }
+  get _inverseBaseMatrix() {
+    if (!this[PRIVATE$2].inverseBaseMatrix) {
+      if (this[PRIVATE$2].baseMatrix) {
+        this[PRIVATE$2].inverseBaseMatrix = new Float32Array(16);
+        invert(this[PRIVATE$2].inverseBaseMatrix, this[PRIVATE$2].baseMatrix);
+      }
+    }
+    return this[PRIVATE$2].inverseBaseMatrix;
+  }
+  _getSpaceRelativeTransform(space) {
+    if (!this._inverseBaseMatrix || !space._baseMatrix) {
+      return null;
+    }
+    let out = new Float32Array(16);
+    multiply(out, this._inverseBaseMatrix, space._baseMatrix);
+    return new XRRigidTransform$1(out);
+  }
+}
+
+const DEFAULT_EMULATION_HEIGHT = 1.6;
+const PRIVATE$3 = Symbol('@@webxr-polyfill/XRReferenceSpace');
+const XRReferenceSpaceTypes = [
+  'viewer',
+  'local',
+  'local-floor',
+  'bounded-floor',
+  'unbounded'
+];
+function isFloor(type) {
+  return type === 'bounded-floor' || type === 'local-floor';
+}
+class XRReferenceSpace extends XRSpace {
+  constructor(type, transform = null) {
+    if (!XRReferenceSpaceTypes.includes(type)) {
+      throw new Error(`XRReferenceSpaceType must be one of ${XRReferenceSpaceTypes}`);
+    }
+    super(type);
+    if (type === 'bounded-floor' && !transform) {
+      throw new Error(`XRReferenceSpace cannot use 'bounded-floor' type if the platform does not provide the floor level`);
+    }
+    if (isFloor(type) && !transform) {
+      transform = identity(new Float32Array(16));
+      transform[13] = DEFAULT_EMULATION_HEIGHT;
+    }
+    this._inverseBaseMatrix = transform || identity(new Float32Array(16));
+    this[PRIVATE$3] = {
+      type,
+      originOffset : identity(new Float32Array(16)),
+    };
+  }
+  _onPoseUpdate(device) {
+    switch(this[PRIVATE$3].type) {
+      case 'viewer':
+        this._baseMatrix = device.getBasePoseMatrix();
+        break;
+      default:
+        break;
+    }
+  }
+  _transformBasePoseMatrix(out, pose) {
+    multiply(out, this._inverseBaseMatrix, pose);
+  }
+  _originOffsetMatrix() {
+    return this[PRIVATE$3].originOffset;
+  }
+  _adjustForOriginOffset(transformMatrix) {
+    let inverseOriginOffsetMatrix = new Float32Array(16);
+    invert(inverseOriginOffsetMatrix, this[PRIVATE$3].originOffset);
+    multiply(transformMatrix, inverseOriginOffsetMatrix, transformMatrix);
+  }
+  _getSpaceRelativeTransform(space) {
+    let transform = super._getSpaceRelativeTransform(space);
+    this._adjustForOriginOffset(transform.matrix);
+    return new XRRigidTransform(transform.matrix);
+  }
+  getOffsetReferenceSpace(additionalOffset) {
+    let newSpace = new XRReferenceSpace(
+      this[PRIVATE$3].type,
+      this[PRIVATE$3].transform,
+      this[PRIVATE$3].bounds);
+    multiply(newSpace[PRIVATE$3].originOffset, this[PRIVATE$3].originOffset, additionalOffset.matrix);
+    return newSpace;
+  }
+}
+
+const PRIVATE$4 = Symbol('@@webxr-polyfill/XR');
+const XRSessionModes = ['inline', 'immersive-vr', 'immersive-ar'];
+const DEFAULT_SESSION_OPTIONS = {
+  'inline': {
+    requiredFeatures: ['viewer'],
+    optionalFeatures: [],
+  },
+  'immersive-vr': {
+    requiredFeatures: ['viewer', 'local'],
+    optionalFeatures: [],
+  },
+  'immersive-ar': {
+    requiredFeatures: ['viewer', 'local'],
+    optionalFeatures: [],
+  }
+};
+const POLYFILL_REQUEST_SESSION_ERROR =
+`Polyfill Error: Must call navigator.xr.isSessionSupported() with any XRSessionMode
+or navigator.xr.requestSession('inline') prior to requesting an immersive
+session. This is a limitation specific to the WebXR Polyfill and does not apply
+to native implementations of the API.`;
+class XR$1 extends EventTarget {
+  constructor(devicePromise) {
+    super();
+    this[PRIVATE$4] = {
+      device: null,
+      devicePromise,
+      immersiveSession: null,
+      inlineSessions: new Set(),
+    };
+    devicePromise.then((device) => { this[PRIVATE$4].device = device; });
+  }
+  async isSessionSupported(mode) {
+    if (!this[PRIVATE$4].device) {
+      await this[PRIVATE$4].devicePromise;
+    }
+    if (mode != 'inline') {
+      return Promise.resolve(this[PRIVATE$4].device.isSessionSupported(mode));
+    }
+    return Promise.resolve(true);
+  }
+  async requestSession(mode, options) {
+    if (!this[PRIVATE$4].device) {
+      if (mode != 'inline') {
+        throw new Error(POLYFILL_REQUEST_SESSION_ERROR);
+      } else {
+        await this[PRIVATE$4].devicePromise;
+      }
+    }
+    if (!XRSessionModes.includes(mode)) {
+      throw new TypeError(
+          `The provided value '${mode}' is not a valid enum value of type XRSessionMode`);
+    }
+    const defaultOptions = DEFAULT_SESSION_OPTIONS[mode];
+    const requiredFeatures = defaultOptions.requiredFeatures.concat(
+        options && options.requiredFeatures ? options.requiredFeatures : []);
+    const optionalFeatures = defaultOptions.optionalFeatures.concat(
+        options && options.optionalFeatures ? options.optionalFeatures : []);
+    const enabledFeatures = new Set();
+    let requirementsFailed = false;
+    for (let feature of requiredFeatures) {
+      if (!this[PRIVATE$4].device.isFeatureSupported(feature)) {
+        console.error(`The required feature '${feature}' is not supported`);
+        requirementsFailed = true;
+      } else {
+        enabledFeatures.add(feature);
+      }
+    }
+    if (requirementsFailed) {
+      throw new DOMException('Session does not support some required features', 'NotSupportedError');
+    }
+    for (let feature of optionalFeatures) {
+      if (!this[PRIVATE$4].device.isFeatureSupported(feature)) {
+        console.log(`The optional feature '${feature}' is not supported`);
+      } else {
+        enabledFeatures.add(feature);
+      }
+    }
+    const sessionId = await this[PRIVATE$4].device.requestSession(mode, enabledFeatures);
+    const session = new XRSession(this[PRIVATE$4].device, mode, sessionId);
+    if (mode == 'inline') {
+      this[PRIVATE$4].inlineSessions.add(session);
+    } else {
+      this[PRIVATE$4].immersiveSession = session;
+    }
+    const onSessionEnd = () => {
+      if (mode == 'inline') {
+        this[PRIVATE$4].inlineSessions.delete(session);
+      } else {
+        this[PRIVATE$4].immersiveSession = null;
+      }
+      session.removeEventListener('end', onSessionEnd);
+    };
+    session.addEventListener('end', onSessionEnd);
+    return session;
+  }
+}
+
+let now;
+if ('performance' in _global === false) {
+  let startTime = Date.now();
+  now = () => Date.now() - startTime;
+} else {
+  now = () => performance.now();
+}
+var now$1 = now;
+
+const PRIVATE$5 = Symbol('@@webxr-polyfill/XRPose');
+class XRPose$1 {
+  constructor(transform, emulatedPosition) {
+    this[PRIVATE$5] = {
+      transform,
+      emulatedPosition,
+    };
+  }
+  get transform() { return this[PRIVATE$5].transform; }
+  get emulatedPosition() { return this[PRIVATE$5].emulatedPosition; }
 }
 
 const PRIVATE$6 = Symbol('@@webxr-polyfill/XRViewerPose');
 class XRViewerPose extends XRPose$1 {
-  constructor(device, views) {
-    super(new XRRigidTransform$1(), false);
+  constructor(transform, views, emulatedPosition = false) {
+    super(transform, emulatedPosition);
     this[PRIVATE$6] = {
-      device,
-      views,
-      leftViewMatrix: identity(new Float32Array(16)),
-      rightViewMatrix: identity(new Float32Array(16)),
-      poseModelMatrix: identity(new Float32Array(16)),
+      views
     };
   }
-  get poseModelMatrix() { return this[PRIVATE$6].poseModelMatrix; }
   get views() {
     return this[PRIVATE$6].views;
-  }
-  _updateFromReferenceSpace(refSpace) {
-    const pose = this[PRIVATE$6].device.getBasePoseMatrix();
-    const leftViewMatrix = this[PRIVATE$6].device.getBaseViewMatrix('left');
-    const rightViewMatrix = this[PRIVATE$6].device.getBaseViewMatrix('right');
-    if (pose) {
-      refSpace._transformBasePoseMatrix(this[PRIVATE$6].poseModelMatrix, pose);
-      refSpace._adjustForOriginOffset(this[PRIVATE$6].poseModelMatrix);
-      super._setTransform(new XRRigidTransform$1(this[PRIVATE$6].poseModelMatrix));
-    }
-    if (leftViewMatrix) {
-      refSpace._transformBaseViewMatrix(
-        this[PRIVATE$6].leftViewMatrix,
-        leftViewMatrix);
-      multiply(
-        this[PRIVATE$6].leftViewMatrix,
-        this[PRIVATE$6].leftViewMatrix,
-        refSpace._originOffsetMatrix());
-    }
-    if (rightViewMatrix) {
-      refSpace._transformBaseViewMatrix(
-        this[PRIVATE$6].rightViewMatrix,
-        rightViewMatrix);
-      multiply(
-        this[PRIVATE$6].rightViewMatrix,
-        this[PRIVATE$6].rightViewMatrix,
-        refSpace._originOffsetMatrix());
-    }
-    for (let view of this[PRIVATE$6].views) {
-      if (view.eye == "left" || view.eye == "none") {
-        view._updateViewMatrix(this[PRIVATE$6].leftViewMatrix);
-      } else if (view.eye == "right") {
-        view._updateViewMatrix(this[PRIVATE$6].rightViewMatrix);
-      }
-    }
   }
 }
 
@@ -1210,7 +1221,7 @@ class XRViewport {
 const XREyes = ['left', 'right', 'none'];
 const PRIVATE$8 = Symbol('@@webxr-polyfill/XRView');
 class XRView {
-  constructor(device, eye, sessionId) {
+  constructor(device, transform, eye, sessionId) {
     if (!XREyes.includes(eye)) {
       throw new Error(`XREye must be one of: ${XREyes}`);
     }
@@ -1222,17 +1233,12 @@ class XRView {
       viewport,
       temp,
       sessionId,
-      transform: null,
+      transform,
     };
   }
   get eye() { return this[PRIVATE$8].eye; }
   get projectionMatrix() { return this[PRIVATE$8].device.getProjectionMatrix(this.eye); }
   get transform() { return this[PRIVATE$8].transform; }
-  _updateViewMatrix(viewMatrix) {
-    let invMatrix = identity(new Float32Array(16));
-    invert(invMatrix, viewMatrix);
-    this[PRIVATE$8].transform = new XRRigidTransform$1(invMatrix);
-  }
   _getViewport(layer) {
     if (this[PRIVATE$8].device.getViewport(this[PRIVATE$8].sessionId,
                                            this.eye,
@@ -1708,22 +1714,16 @@ var forEach$4 = function () {
 const PRIVATE$9 = Symbol('@@webxr-polyfill/XRFrame');
 const NON_ACTIVE_MSG = "XRFrame access outside the callback that produced it is invalid.";
 const NON_ANIMFRAME_MSG = "getViewerPose can only be called on XRFrame objects passed to XRSession.requestAnimationFrame callbacks.";
+let NEXT_FRAME_ID = 0;
 class XRFrame {
-  constructor(device, session, stereo, sessionId) {
-    const views = [];
-    if (stereo) {
-      views.push(new XRView(device, 'left', sessionId),
-                 new XRView(device, 'right', sessionId));
-    } else {
-      views.push(new XRView(device, 'none', sessionId));
-    }
+  constructor(device, session, sessionId) {
     this[PRIVATE$9] = {
+      id: ++NEXT_FRAME_ID,
       active: false,
       animationFrame: false,
       device,
-      viewerPose: new XRViewerPose(device, views),
-      views,
       session,
+      sessionId
     };
   }
   get session() { return this[PRIVATE$9].session; }
@@ -1734,22 +1734,35 @@ class XRFrame {
     if (!this[PRIVATE$9].active) {
       throw new DOMException(NON_ACTIVE_MSG, 'InvalidStateError');
     }
-    this[PRIVATE$9].viewerPose._updateFromReferenceSpace(space);
-    return this[PRIVATE$9].viewerPose;
+    const device = this[PRIVATE$9].device;
+    const session = this[PRIVATE$9].session;
+    session[PRIVATE$15].viewerSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
+    space._ensurePoseUpdated(device, this[PRIVATE$9].id);
+    let viewerTransform = space._getSpaceRelativeTransform(session[PRIVATE$15].viewerSpace);
+    const views = [];
+    for (let viewSpace of session[PRIVATE$15].viewSpaces) {
+      viewSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
+      let viewTransform = space._getSpaceRelativeTransform(viewSpace);
+      let view = new XRView(device, viewTransform, viewSpace.eye, this[PRIVATE$9].sessionId);
+      views.push(view);
+    }
+    let viewerPose = new XRViewerPose(viewerTransform, views, false                             );
+    return viewerPose;
   }
   getPose(space, baseSpace) {
     if (!this[PRIVATE$9].active) {
       throw new DOMException(NON_ACTIVE_MSG, 'InvalidStateError');
     }
-    if (space._specialType === "viewer") {
-      let viewerPose = this.getViewerPose(baseSpace);
-      return new XRPose(
-        new XRRigidTransform(viewerPose.poseModelMatrix),
-        viewerPose.emulatedPosition);
-    }
+    const device = this[PRIVATE$9].device;
     if (space._specialType === "target-ray" || space._specialType === "grip") {
-      return this[PRIVATE$9].device.getInputPose(
+      return device.getInputPose(
         space._inputSource, baseSpace, space._specialType);
+    } else {
+      space._ensurePoseUpdated(device, this[PRIVATE$9].id);
+      baseSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
+      let transform = baseSpace._getSpaceRelativeTransform(space);
+      if (!transform) { return null; }
+      return new XRPose(transform, false                             );
     }
     return null;
   }
@@ -1860,10 +1873,24 @@ class XRInputSourcesChangeEvent extends Event {
 }
 
 const PRIVATE$15 = Symbol('@@webxr-polyfill/XRSession');
+class XRViewSpace extends XRSpace {
+  constructor(eye) {
+    super(eye);
+  }
+  get eye() {
+    return this._specialType;
+  }
+  _onPoseUpdate(device) {
+    this._inverseBaseMatrix = device.getBaseViewMatrix(this._specialType);
+  }
+}
 class XRSession$1 extends EventTarget {
   constructor(device, mode, id) {
     super();
     let immersive = mode != 'inline';
+    let initialRenderState = new XRRenderState({
+      inlineVerticalFieldOfView: immersive ? null : Math.PI * 0.5
+    });
     this[PRIVATE$15] = {
       device,
       mode,
@@ -1875,10 +1902,18 @@ class XRSession$1 extends EventTarget {
       frameHandle: 0,
       deviceFrameHandle: null,
       id,
-      activeRenderState: new XRRenderState(),
+      activeRenderState: initialRenderState,
       pendingRenderState: null,
+      viewerSpace: new XRReferenceSpace("viewer"),
+      viewSpaces: [],
       currentInputSources: []
     };
+    if (immersive) {
+      this[PRIVATE$15].viewSpaces.push(new XRViewSpace('left'),
+                                    new XRViewSpace('right'));
+    } else {
+      this[PRIVATE$15].viewSpaces.push(new XRViewSpace('none'));
+    }
     this[PRIVATE$15].onDeviceFrame = () => {
       if (this[PRIVATE$15].ended || this[PRIVATE$15].suspended) {
         return;
@@ -1897,7 +1932,7 @@ class XRSession$1 extends EventTarget {
       if (this[PRIVATE$15].activeRenderState.baseLayer === null) {
         return;
       }
-      const frame = new XRFrame(device, this, immersive, this[PRIVATE$15].id);
+      const frame = new XRFrame(device, this, this[PRIVATE$15].id);
       const callbacks = this[PRIVATE$15].currentFrameCallbacks = this[PRIVATE$15].frameCallbacks;
       this[PRIVATE$15].frameCallbacks = [];
       frame[PRIVATE$9].active = true;
@@ -1973,7 +2008,7 @@ class XRSession$1 extends EventTarget {
     };
     device.addEventListener('@@webxr-polyfill/input-select-end', this[PRIVATE$15].onSelectEnd);
     this[PRIVATE$15].dispatchInputSourceEvent = (type, inputSource) => {
-      const frame = new XRFrame(device, this, this[PRIVATE$15].immersive, this[PRIVATE$15].id);
+      const frame = new XRFrame(device, this, this[PRIVATE$15].id);
       const event = new XRInputSourceEvent(type, { frame, inputSource });
       frame[PRIVATE$9].active = true;
       this.dispatchEvent(type, event);
@@ -2002,6 +2037,9 @@ class XRSession$1 extends EventTarget {
     if (!this[PRIVATE$15].device.doesSessionSupportReferenceSpace(this[PRIVATE$15].id, type)) {
       throw new DOMException(`The ${type} reference space is not supported by this session.`, 'NotSupportedError');
     }
+    if (type === 'viewer') {
+      return this[PRIVATE$15].viewerSpace;
+    }
     let transform = await this[PRIVATE$15].device.requestFrameOfReferenceTransform(type);
     if (type === 'bounded-floor') {
       if (!transform) {
@@ -2013,7 +2051,7 @@ class XRSession$1 extends EventTarget {
       }
       throw new DOMException(`The WebXR polyfill does not support the ${type} reference space yet.`, 'NotSupportedError');
     }
-    return new XRReferenceSpace(this[PRIVATE$15].device, type, transform);
+    return new XRReferenceSpace(type, transform);
   }
   requestAnimationFrame(callback) {
     if (this[PRIVATE$15].ended) {
@@ -3898,8 +3936,8 @@ function CardboardViewer(params) {
 }
 DeviceInfo.Viewers = Viewers;
 var format = 1;
-var last_updated = "2019-11-09T17:36:14Z";
-var devices = [{"type":"android","rules":[{"mdmh":"asus/*/Nexus 7/*"},{"ua":"Nexus 7"}],"dpi":[320.8,323],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"asus/*/ASUS_X00PD/*"},{"ua":"ASUS_X00PD"}],"dpi":245,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"asus/*/ASUS_X008D/*"},{"ua":"ASUS_X008D"}],"dpi":282,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"asus/*/ASUS_Z00AD/*"},{"ua":"ASUS_Z00AD"}],"dpi":[403,404.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 2 XL/*"},{"ua":"Pixel 2 XL"}],"dpi":537.9,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 3 XL/*"},{"ua":"Pixel 3 XL"}],"dpi":[558.5,553.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel XL/*"},{"ua":"Pixel XL"}],"dpi":[537.9,533],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 3/*"},{"ua":"Pixel 3"}],"dpi":442.4,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 2/*"},{"ua":"Pixel 2"}],"dpi":441,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"Google/*/Pixel/*"},{"ua":"Pixel"}],"dpi":[432.6,436.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"HTC/*/HTC6435LVW/*"},{"ua":"HTC6435LVW"}],"dpi":[449.7,443.3],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One XL/*"},{"ua":"HTC One XL"}],"dpi":[315.3,314.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"htc/*/Nexus 9/*"},{"ua":"Nexus 9"}],"dpi":289,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One M9/*"},{"ua":"HTC One M9"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One_M8/*"},{"ua":"HTC One_M8"}],"dpi":[449.7,447.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One/*"},{"ua":"HTC One"}],"dpi":472.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Huawei/*/Nexus 6P/*"},{"ua":"Nexus 6P"}],"dpi":[515.1,518],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Huawei/*/BLN-L24/*"},{"ua":"HONORBLN-L24"}],"dpi":480,"bw":4,"ac":500},{"type":"android","rules":[{"mdmh":"Huawei/*/BKL-L09/*"},{"ua":"BKL-L09"}],"dpi":403,"bw":3.47,"ac":500},{"type":"android","rules":[{"mdmh":"LENOVO/*/Lenovo PB2-690Y/*"},{"ua":"Lenovo PB2-690Y"}],"dpi":[457.2,454.713],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 5X/*"},{"ua":"Nexus 5X"}],"dpi":[422,419.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGMS345/*"},{"ua":"LGMS345"}],"dpi":[221.7,219.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/LG-D800/*"},{"ua":"LG-D800"}],"dpi":[422,424.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/LG-D850/*"},{"ua":"LG-D850"}],"dpi":[537.9,541.9],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/VS985 4G/*"},{"ua":"VS985 4G"}],"dpi":[537.9,535.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 5/*"},{"ua":"Nexus 5 B"}],"dpi":[442.4,444.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 4/*"},{"ua":"Nexus 4"}],"dpi":[319.8,318.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LG-P769/*"},{"ua":"LG-P769"}],"dpi":[240.6,247.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGMS323/*"},{"ua":"LGMS323"}],"dpi":[206.6,204.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGLS996/*"},{"ua":"LGLS996"}],"dpi":[403.4,401.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/4560MMX/*"},{"ua":"4560MMX"}],"dpi":[240,219.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/A250/*"},{"ua":"Micromax A250"}],"dpi":[480,446.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/Micromax AQ4501/*"},{"ua":"Micromax AQ4501"}],"dpi":240,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/G5/*"},{"ua":"Moto G (5) Plus"}],"dpi":[403.4,403],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/DROID RAZR/*"},{"ua":"DROID RAZR"}],"dpi":[368.1,256.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT830C/*"},{"ua":"XT830C"}],"dpi":[254,255.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1021/*"},{"ua":"XT1021"}],"dpi":[254,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1023/*"},{"ua":"XT1023"}],"dpi":[254,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1028/*"},{"ua":"XT1028"}],"dpi":[326.6,327.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1034/*"},{"ua":"XT1034"}],"dpi":[326.6,328.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1053/*"},{"ua":"XT1053"}],"dpi":[315.3,316.1],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1562/*"},{"ua":"XT1562"}],"dpi":[403.4,402.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/Nexus 6/*"},{"ua":"Nexus 6 B"}],"dpi":[494.3,489.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1063/*"},{"ua":"XT1063"}],"dpi":[295,296.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1064/*"},{"ua":"XT1064"}],"dpi":[295,295.6],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1092/*"},{"ua":"XT1092"}],"dpi":[422,424.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1095/*"},{"ua":"XT1095"}],"dpi":[422,423.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/G4/*"},{"ua":"Moto G (4)"}],"dpi":401,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/A0001/*"},{"ua":"A0001"}],"dpi":[403.4,401],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE E1001/*"},{"ua":"ONE E1001"}],"dpi":[442.4,441.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE E1003/*"},{"ua":"ONE E1003"}],"dpi":[442.4,441.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE E1005/*"},{"ua":"ONE E1005"}],"dpi":[442.4,441.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A2001/*"},{"ua":"ONE A2001"}],"dpi":[391.9,405.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A2003/*"},{"ua":"ONE A2003"}],"dpi":[391.9,405.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A2005/*"},{"ua":"ONE A2005"}],"dpi":[391.9,405.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A3000/*"},{"ua":"ONEPLUS A3000"}],"dpi":401,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A3003/*"},{"ua":"ONEPLUS A3003"}],"dpi":401,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A3010/*"},{"ua":"ONEPLUS A3010"}],"dpi":401,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A5000/*"},{"ua":"ONEPLUS A5000 "}],"dpi":[403.411,399.737],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A5010/*"},{"ua":"ONEPLUS A5010"}],"dpi":[403,400],"bw":2,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A6000/*"},{"ua":"ONEPLUS A6000"}],"dpi":401,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A6003/*"},{"ua":"ONEPLUS A6003"}],"dpi":401,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A6010/*"},{"ua":"ONEPLUS A6010"}],"dpi":401,"bw":2,"ac":500},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A6013/*"},{"ua":"ONEPLUS A6013"}],"dpi":401,"bw":2,"ac":500},{"type":"android","rules":[{"mdmh":"OPPO/*/X909/*"},{"ua":"X909"}],"dpi":[442.4,444.1],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9082/*"},{"ua":"GT-I9082"}],"dpi":[184.7,185.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G360P/*"},{"ua":"SM-G360P"}],"dpi":[196.7,205.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/Nexus S/*"},{"ua":"Nexus S"}],"dpi":[234.5,229.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300/*"},{"ua":"GT-I9300"}],"dpi":[304.8,303.9],"bw":5,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-T230NU/*"},{"ua":"SM-T230NU"}],"dpi":216,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SGH-T399/*"},{"ua":"SGH-T399"}],"dpi":[217.7,231.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SGH-M919/*"},{"ua":"SGH-M919"}],"dpi":[440.8,437.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N9005/*"},{"ua":"SM-N9005"}],"dpi":[386.4,387],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SAMSUNG-SM-N900A/*"},{"ua":"SAMSUNG-SM-N900A"}],"dpi":[386.4,387.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9500/*"},{"ua":"GT-I9500"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9505/*"},{"ua":"GT-I9505"}],"dpi":439.4,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G900F/*"},{"ua":"SM-G900F"}],"dpi":[415.6,431.6],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G900M/*"},{"ua":"SM-G900M"}],"dpi":[415.6,431.6],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G800F/*"},{"ua":"SM-G800F"}],"dpi":326.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G906S/*"},{"ua":"SM-G906S"}],"dpi":[562.7,572.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300/*"},{"ua":"GT-I9300"}],"dpi":[306.7,304.8],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-T535/*"},{"ua":"SM-T535"}],"dpi":[142.6,136.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920C/*"},{"ua":"SM-N920C"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920P/*"},{"ua":"SM-N920P"}],"dpi":[386.3655,390.144],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920W8/*"},{"ua":"SM-N920W8"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300I/*"},{"ua":"GT-I9300I"}],"dpi":[304.8,305.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9195/*"},{"ua":"GT-I9195"}],"dpi":[249.4,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SPH-L520/*"},{"ua":"SPH-L520"}],"dpi":[249.4,255.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SAMSUNG-SGH-I717/*"},{"ua":"SAMSUNG-SGH-I717"}],"dpi":285.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SPH-D710/*"},{"ua":"SPH-D710"}],"dpi":[217.7,204.2],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-N7100/*"},{"ua":"GT-N7100"}],"dpi":265.1,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SCH-I605/*"},{"ua":"SCH-I605"}],"dpi":265.1,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/Galaxy Nexus/*"},{"ua":"Galaxy Nexus"}],"dpi":[315.3,314.2],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N910H/*"},{"ua":"SM-N910H"}],"dpi":[515.1,518],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N910C/*"},{"ua":"SM-N910C"}],"dpi":[515.2,520.2],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G130M/*"},{"ua":"SM-G130M"}],"dpi":[165.9,164.8],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G928I/*"},{"ua":"SM-G928I"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G920F/*"},{"ua":"SM-G920F"}],"dpi":580.6,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G920P/*"},{"ua":"SM-G920P"}],"dpi":[522.5,577],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G925F/*"},{"ua":"SM-G925F"}],"dpi":580.6,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G925V/*"},{"ua":"SM-G925V"}],"dpi":[522.5,576.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G930F/*"},{"ua":"SM-G930F"}],"dpi":576.6,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G935F/*"},{"ua":"SM-G935F"}],"dpi":533,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G950F/*"},{"ua":"SM-G950F"}],"dpi":[562.707,565.293],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G955U/*"},{"ua":"SM-G955U"}],"dpi":[522.514,525.762],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G955F/*"},{"ua":"SM-G955F"}],"dpi":[522.514,525.762],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960F/*"},{"ua":"SM-G960F"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G9600/*"},{"ua":"SM-G9600"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960T/*"},{"ua":"SM-G960T"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960N/*"},{"ua":"SM-G960N"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960U/*"},{"ua":"SM-G960U"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G9608/*"},{"ua":"SM-G9608"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960FD/*"},{"ua":"SM-G960FD"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G960W/*"},{"ua":"SM-G960W"}],"dpi":[569.575,571.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G965F/*"},{"ua":"SM-G965F"}],"dpi":529,"bw":2,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/C6903/*"},{"ua":"C6903"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"Sony/*/D6653/*"},{"ua":"D6653"}],"dpi":[428.6,427.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/E6653/*"},{"ua":"E6653"}],"dpi":[428.6,425.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/E6853/*"},{"ua":"E6853"}],"dpi":[403.4,401.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/SGP321/*"},{"ua":"SGP321"}],"dpi":[224.7,224.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"TCT/*/ALCATEL ONE TOUCH Fierce/*"},{"ua":"ALCATEL ONE TOUCH Fierce"}],"dpi":[240,247.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"THL/*/thl 5000/*"},{"ua":"thl 5000"}],"dpi":[480,443.3],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Fly/*/IQ4412/*"},{"ua":"IQ4412"}],"dpi":307.9,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"ZTE/*/ZTE Blade L2/*"},{"ua":"ZTE Blade L2"}],"dpi":240,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"BENEVE/*/VR518/*"},{"ua":"VR518"}],"dpi":480,"bw":3,"ac":500},{"type":"ios","rules":[{"res":[640,960]}],"dpi":[325.1,328.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[640,1136]}],"dpi":[317.1,320.2],"bw":3,"ac":1000},{"type":"ios","rules":[{"res":[750,1334]}],"dpi":326.4,"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1242,2208]}],"dpi":[453.6,458.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1125,2001]}],"dpi":[410.9,415.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1125,2436]}],"dpi":458,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"Huawei/*/EML-L29/*"},{"ua":"EML-L29"}],"dpi":428,"bw":3.45,"ac":500},{"type":"android","rules":[{"mdmh":"Nokia/*/Nokia 7.1/*"},{"ua":"Nokia 7.1"}],"dpi":[432,431.9],"bw":3,"ac":500},{"type":"ios","rules":[{"res":[1242,2688]}],"dpi":458,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G570M/*"},{"ua":"SM-G570M"}],"dpi":320,"bw":3.684,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G970F/*"},{"ua":"SM-G970F"}],"dpi":438,"bw":2.281,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G973F/*"},{"ua":"SM-G973F"}],"dpi":550,"bw":2.002,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G975F/*"},{"ua":"SM-G975F"}],"dpi":522,"bw":2.054,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G977F/*"},{"ua":"SM-G977F"}],"dpi":505,"bw":2.334,"ac":500},{"type":"ios","rules":[{"res":[828,1792]}],"dpi":326,"bw":5,"ac":500}];
+var last_updated = "2018-12-10T17:01:42Z";
+var devices = [{"type":"android","rules":[{"mdmh":"asus/*/Nexus 7/*"},{"ua":"Nexus 7"}],"dpi":[320.8,323],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"asus/*/ASUS_Z00AD/*"},{"ua":"ASUS_Z00AD"}],"dpi":[403,404.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 2 XL/*"},{"ua":"Pixel 2 XL"}],"dpi":537.9,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 3 XL/*"},{"ua":"Pixel 3 XL"}],"dpi":[558.5,553.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel XL/*"},{"ua":"Pixel XL"}],"dpi":[537.9,533],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 3/*"},{"ua":"Pixel 3"}],"dpi":442.4,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Google/*/Pixel 2/*"},{"ua":"Pixel 2"}],"dpi":441,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"Google/*/Pixel/*"},{"ua":"Pixel"}],"dpi":[432.6,436.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"HTC/*/HTC6435LVW/*"},{"ua":"HTC6435LVW"}],"dpi":[449.7,443.3],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One XL/*"},{"ua":"HTC One XL"}],"dpi":[315.3,314.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"htc/*/Nexus 9/*"},{"ua":"Nexus 9"}],"dpi":289,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One M9/*"},{"ua":"HTC One M9"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One_M8/*"},{"ua":"HTC One_M8"}],"dpi":[449.7,447.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"HTC/*/HTC One/*"},{"ua":"HTC One"}],"dpi":472.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Huawei/*/Nexus 6P/*"},{"ua":"Nexus 6P"}],"dpi":[515.1,518],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Huawei/*/BLN-L24/*"},{"ua":"HONORBLN-L24"}],"dpi":480,"bw":4,"ac":500},{"type":"android","rules":[{"mdmh":"Huawei/*/BKL-L09/*"},{"ua":"BKL-L09"}],"dpi":403,"bw":3.47,"ac":500},{"type":"android","rules":[{"mdmh":"LENOVO/*/Lenovo PB2-690Y/*"},{"ua":"Lenovo PB2-690Y"}],"dpi":[457.2,454.713],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 5X/*"},{"ua":"Nexus 5X"}],"dpi":[422,419.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGMS345/*"},{"ua":"LGMS345"}],"dpi":[221.7,219.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/LG-D800/*"},{"ua":"LG-D800"}],"dpi":[422,424.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/LG-D850/*"},{"ua":"LG-D850"}],"dpi":[537.9,541.9],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"LGE/*/VS985 4G/*"},{"ua":"VS985 4G"}],"dpi":[537.9,535.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 5/*"},{"ua":"Nexus 5 B"}],"dpi":[442.4,444.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/Nexus 4/*"},{"ua":"Nexus 4"}],"dpi":[319.8,318.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LG-P769/*"},{"ua":"LG-P769"}],"dpi":[240.6,247.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGMS323/*"},{"ua":"LGMS323"}],"dpi":[206.6,204.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"LGE/*/LGLS996/*"},{"ua":"LGLS996"}],"dpi":[403.4,401.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/4560MMX/*"},{"ua":"4560MMX"}],"dpi":[240,219.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/A250/*"},{"ua":"Micromax A250"}],"dpi":[480,446.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Micromax/*/Micromax AQ4501/*"},{"ua":"Micromax AQ4501"}],"dpi":240,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/G5/*"},{"ua":"Moto G (5) Plus"}],"dpi":[403.4,403],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/DROID RAZR/*"},{"ua":"DROID RAZR"}],"dpi":[368.1,256.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT830C/*"},{"ua":"XT830C"}],"dpi":[254,255.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1021/*"},{"ua":"XT1021"}],"dpi":[254,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1023/*"},{"ua":"XT1023"}],"dpi":[254,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1028/*"},{"ua":"XT1028"}],"dpi":[326.6,327.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1034/*"},{"ua":"XT1034"}],"dpi":[326.6,328.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1053/*"},{"ua":"XT1053"}],"dpi":[315.3,316.1],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1562/*"},{"ua":"XT1562"}],"dpi":[403.4,402.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/Nexus 6/*"},{"ua":"Nexus 6 B"}],"dpi":[494.3,489.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1063/*"},{"ua":"XT1063"}],"dpi":[295,296.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/XT1064/*"},{"ua":"XT1064"}],"dpi":[295,295.6],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1092/*"},{"ua":"XT1092"}],"dpi":[422,424.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"motorola/*/XT1095/*"},{"ua":"XT1095"}],"dpi":[422,423.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"motorola/*/G4/*"},{"ua":"Moto G (4)"}],"dpi":401,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/A0001/*"},{"ua":"A0001"}],"dpi":[403.4,401],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE E1005/*"},{"ua":"ONE E1005"}],"dpi":[442.4,441.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A2005/*"},{"ua":"ONE A2005"}],"dpi":[391.9,405.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONEPLUS A5000/*"},{"ua":"ONEPLUS A5000 "}],"dpi":[403.411,399.737],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"OnePlus/*/ONE A5010/*"},{"ua":"ONEPLUS A5010"}],"dpi":[403,400],"bw":2,"ac":1000},{"type":"android","rules":[{"mdmh":"OPPO/*/X909/*"},{"ua":"X909"}],"dpi":[442.4,444.1],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9082/*"},{"ua":"GT-I9082"}],"dpi":[184.7,185.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G360P/*"},{"ua":"SM-G360P"}],"dpi":[196.7,205.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/Nexus S/*"},{"ua":"Nexus S"}],"dpi":[234.5,229.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300/*"},{"ua":"GT-I9300"}],"dpi":[304.8,303.9],"bw":5,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-T230NU/*"},{"ua":"SM-T230NU"}],"dpi":216,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SGH-T399/*"},{"ua":"SGH-T399"}],"dpi":[217.7,231.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SGH-M919/*"},{"ua":"SGH-M919"}],"dpi":[440.8,437.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N9005/*"},{"ua":"SM-N9005"}],"dpi":[386.4,387],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SAMSUNG-SM-N900A/*"},{"ua":"SAMSUNG-SM-N900A"}],"dpi":[386.4,387.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9500/*"},{"ua":"GT-I9500"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9505/*"},{"ua":"GT-I9505"}],"dpi":439.4,"bw":4,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G900F/*"},{"ua":"SM-G900F"}],"dpi":[415.6,431.6],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G900M/*"},{"ua":"SM-G900M"}],"dpi":[415.6,431.6],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G800F/*"},{"ua":"SM-G800F"}],"dpi":326.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G906S/*"},{"ua":"SM-G906S"}],"dpi":[562.7,572.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300/*"},{"ua":"GT-I9300"}],"dpi":[306.7,304.8],"bw":5,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-T535/*"},{"ua":"SM-T535"}],"dpi":[142.6,136.4],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920C/*"},{"ua":"SM-N920C"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920P/*"},{"ua":"SM-N920P"}],"dpi":[386.3655,390.144],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N920W8/*"},{"ua":"SM-N920W8"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9300I/*"},{"ua":"GT-I9300I"}],"dpi":[304.8,305.8],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-I9195/*"},{"ua":"GT-I9195"}],"dpi":[249.4,256.7],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SPH-L520/*"},{"ua":"SPH-L520"}],"dpi":[249.4,255.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SAMSUNG-SGH-I717/*"},{"ua":"SAMSUNG-SGH-I717"}],"dpi":285.8,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SPH-D710/*"},{"ua":"SPH-D710"}],"dpi":[217.7,204.2],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/GT-N7100/*"},{"ua":"GT-N7100"}],"dpi":265.1,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SCH-I605/*"},{"ua":"SCH-I605"}],"dpi":265.1,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/Galaxy Nexus/*"},{"ua":"Galaxy Nexus"}],"dpi":[315.3,314.2],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N910H/*"},{"ua":"SM-N910H"}],"dpi":[515.1,518],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-N910C/*"},{"ua":"SM-N910C"}],"dpi":[515.2,520.2],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G130M/*"},{"ua":"SM-G130M"}],"dpi":[165.9,164.8],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G928I/*"},{"ua":"SM-G928I"}],"dpi":[515.1,518.4],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G920F/*"},{"ua":"SM-G920F"}],"dpi":580.6,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G920P/*"},{"ua":"SM-G920P"}],"dpi":[522.5,577],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G925F/*"},{"ua":"SM-G925F"}],"dpi":580.6,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G925V/*"},{"ua":"SM-G925V"}],"dpi":[522.5,576.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G930F/*"},{"ua":"SM-G930F"}],"dpi":576.6,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G935F/*"},{"ua":"SM-G935F"}],"dpi":533,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G950F/*"},{"ua":"SM-G950F"}],"dpi":[562.707,565.293],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G955U/*"},{"ua":"SM-G955U"}],"dpi":[522.514,525.762],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"samsung/*/SM-G955F/*"},{"ua":"SM-G955F"}],"dpi":[522.514,525.762],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"Sony/*/C6903/*"},{"ua":"C6903"}],"dpi":[442.5,443.3],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"Sony/*/D6653/*"},{"ua":"D6653"}],"dpi":[428.6,427.6],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/E6653/*"},{"ua":"E6653"}],"dpi":[428.6,425.7],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/E6853/*"},{"ua":"E6853"}],"dpi":[403.4,401.9],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Sony/*/SGP321/*"},{"ua":"SGP321"}],"dpi":[224.7,224.1],"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"TCT/*/ALCATEL ONE TOUCH Fierce/*"},{"ua":"ALCATEL ONE TOUCH Fierce"}],"dpi":[240,247.5],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"THL/*/thl 5000/*"},{"ua":"thl 5000"}],"dpi":[480,443.3],"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"Fly/*/IQ4412/*"},{"ua":"IQ4412"}],"dpi":307.9,"bw":3,"ac":1000},{"type":"android","rules":[{"mdmh":"ZTE/*/ZTE Blade L2/*"},{"ua":"ZTE Blade L2"}],"dpi":240,"bw":3,"ac":500},{"type":"android","rules":[{"mdmh":"BENEVE/*/VR518/*"},{"ua":"VR518"}],"dpi":480,"bw":3,"ac":500},{"type":"ios","rules":[{"res":[640,960]}],"dpi":[325.1,328.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[640,1136]}],"dpi":[317.1,320.2],"bw":3,"ac":1000},{"type":"ios","rules":[{"res":[750,1334]}],"dpi":326.4,"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1242,2208]}],"dpi":[453.6,458.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1125,2001]}],"dpi":[410.9,415.4],"bw":4,"ac":1000},{"type":"ios","rules":[{"res":[1125,2436]}],"dpi":458,"bw":4,"ac":1000}];
 var DPDB_CACHE = {
 	format: format,
 	last_updated: last_updated,
@@ -5327,10 +5365,7 @@ CardboardVRDisplay.prototype.submitFrame = function (pose) {
     this.updateBounds_();
     this.distorter_.submitFrame();
   } else if (this.cardboardUI_ && this.layer_) {
-    var gl = this.layer_.source.getContext('webgl');
-    if (!gl) gl = this.layer_.source.getContext('experimental-webgl');
-    if (!gl) gl = this.layer_.source.getContext('webgl2');
-    var canvas = gl.canvas;
+    var canvas = this.layer_.source.getContext('webgl').canvas;
     if (canvas.width != this.lastWidth || canvas.height != this.lastHeight) {
       this.cardboardUI_.onResize();
     }
@@ -5349,8 +5384,6 @@ CardboardVRDisplay.prototype.onOrientationChange_ = function (e) {
 CardboardVRDisplay.prototype.onResize_ = function (e) {
   if (this.layer_) {
     var gl = this.layer_.source.getContext('webgl');
-    if (!gl) gl = this.layer_.source.getContext('experimental-webgl');
-    if (!gl) gl = this.layer_.source.getContext('webgl2');
     var cssProperties = ['position: absolute', 'top: 0', 'left: 0',
     'width: 100vw', 'height: 100vh', 'border: 0', 'margin: 0',
     'padding: 0px', 'box-sizing: content-box'];
