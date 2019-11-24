@@ -118,17 +118,17 @@ export class Scene extends Node {
       } else {
         // Statically render the cursor 1 meters down the ray since we didn't
         // hit anything selectable.
-        let targetRay = new Ray(targetRayPose.transform);
+        let targetRay = new Ray(targetRayPose.transform.matrix);
         let cursorDistance = 1.0;
         let cursorPos = vec3.fromValues(
-            targetRay.origin.x,
-            targetRay.origin.y,
-            targetRay.origin.z
+            targetRay.origin[0], //x
+            targetRay.origin[1], //y
+            targetRay.origin[2]  //z
             );
         vec3.add(cursorPos, cursorPos, [
-            targetRay.direction.x * cursorDistance,
-            targetRay.direction.y * cursorDistance,
-            targetRay.direction.z * cursorDistance,
+            targetRay.direction[0] * cursorDistance,
+            targetRay.direction[1] * cursorDistance,
+            targetRay.direction[2] * cursorDistance,
             ]);
         // let cursorPos = vec3.fromValues(0, 0, -1.0);
         // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay);
