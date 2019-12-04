@@ -1727,7 +1727,7 @@ class XRFrame {
     };
   }
   get session() { return this[PRIVATE$9].session; }
-  getViewerPose(space) {
+  getViewerPose(referenceSpace) {
     if (!this[PRIVATE$9].animationFrame) {
       throw new DOMException(NON_ANIMFRAME_MSG, 'InvalidStateError');
     }
@@ -1737,12 +1737,12 @@ class XRFrame {
     const device = this[PRIVATE$9].device;
     const session = this[PRIVATE$9].session;
     session[PRIVATE$15].viewerSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
-    space._ensurePoseUpdated(device, this[PRIVATE$9].id);
-    let viewerTransform = space._getSpaceRelativeTransform(session[PRIVATE$15].viewerSpace);
+    referenceSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
+    let viewerTransform = referenceSpace._getSpaceRelativeTransform(session[PRIVATE$15].viewerSpace);
     const views = [];
     for (let viewSpace of session[PRIVATE$15].viewSpaces) {
       viewSpace._ensurePoseUpdated(device, this[PRIVATE$9].id);
-      let viewTransform = space._getSpaceRelativeTransform(viewSpace);
+      let viewTransform = referenceSpace._getSpaceRelativeTransform(viewSpace);
       let view = new XRView(device, viewTransform, viewSpace.eye, this[PRIVATE$9].sessionId);
       views.push(view);
     }
@@ -2007,6 +2007,21 @@ class XRSession$1 extends EventTarget {
       this[PRIVATE$15].dispatchInputSourceEvent('select',  evt.inputSource);
     };
     device.addEventListener('@@webxr-polyfill/input-select-end', this[PRIVATE$15].onSelectEnd);
+    this[PRIVATE$15].onSqueezeStart = evt => {
+      if (evt.sessionId !== this[PRIVATE$15].id) {
+        return;
+      }
+      this[PRIVATE$15].dispatchInputSourceEvent('squeezestart',  evt.inputSource);
+    };
+    device.addEventListener('@@webxr-polyfill/input-squeeze-start', this[PRIVATE$15].onSqueezeStart);
+    this[PRIVATE$15].onSqueezeEnd = evt => {
+      if (evt.sessionId !== this[PRIVATE$15].id) {
+        return;
+      }
+      this[PRIVATE$15].dispatchInputSourceEvent('squeezeend',  evt.inputSource);
+      this[PRIVATE$15].dispatchInputSourceEvent('squeeze',  evt.inputSource);
+    };
+    device.addEventListener('@@webxr-polyfill/input-squeeze-end', this[PRIVATE$15].onSqueezeEnd);
     this[PRIVATE$15].dispatchInputSourceEvent = (type, inputSource) => {
       const frame = new XRFrame(device, this, this[PRIVATE$15].id);
       const event = new XRInputSourceEvent(type, { frame, inputSource });
@@ -5457,6 +5472,16 @@ let daydream = {
     2: 0
   },
 };
+let viveFocus = {
+  mapping: 'xr-standard',
+  profiles: ['htc-vive-focus', 'generic-trigger-touchpad'],
+  buttons: {
+    length: 3,
+    0: 1,
+    1: null,
+    2: 0
+  },
+};
 let oculusGo = {
   mapping: 'xr-standard',
   profiles: ['oculus-go', 'generic-trigger-touchpad'],
@@ -5473,7 +5498,7 @@ let oculusGo = {
 let oculusTouch = {
   mapping: 'xr-standard',
   displayProfiles: {
-    'Oculus Quest': ['oculus-touch-s', 'oculus-touch', 'generic-trigger-squeeze-thumbstick']
+    'Oculus Quest': ['oculus-touch-v2', 'oculus-touch', 'generic-trigger-squeeze-thumbstick']
   },
   profiles: ['oculus-touch', 'generic-trigger-squeeze-thumbstick'],
   axes: {
@@ -5484,13 +5509,14 @@ let oculusTouch = {
     3: 1
   },
   buttons: {
-    length: 6,
+    length: 7,
     0: 1,
     1: 2,
     2: null,
     3: 0,
     4: 3,
-    5: 4
+    5: 4,
+    6: null
   },
   gripTransform: {
     position: [0, -0.02, 0.04, 1],
@@ -5564,6 +5590,7 @@ let windowsMixedReality = {
 let GamepadMappings = {
   'Daydream Controller': daydream,
   'Gear VR Controller': samsungGearVR,
+  'HTC Vive Focus Controller': viveFocus,
   'Oculus Go Controller': oculusGo,
   'Oculus Touch (Right)': oculusTouch,
   'Oculus Touch (Left)': oculusTouch,
@@ -5831,9 +5858,12 @@ class XRRemappedGamepad {
   get buttons() {
     return this[PRIVATE$18].buttons;
   }
+  get hapticActuators() {
+    return this[PRIVATE$18].gamepad.hapticActuators;
+  }
 }
 class GamepadXRInputSource {
-  constructor(polyfill, display, primaryButtonIndex = 0) {
+  constructor(polyfill, display, primaryButtonIndex = 0, primarySqueezeButtonIndex = -1) {
     this.polyfill = polyfill;
     this.display = display;
     this.nativeGamepad = null;
@@ -5845,6 +5875,8 @@ class GamepadXRInputSource {
     this.outputMatrix = create();
     this.primaryButtonIndex = primaryButtonIndex;
     this.primaryActionPressed = false;
+    this.primarySqueezeButtonIndex = primarySqueezeButtonIndex;
+    this.primarySqueezeActionPressed = false;
     this.handedness = '';
     this.targetRayMode = 'gaze';
     this.armModel = null;
@@ -6081,6 +6113,15 @@ class WebVRDevice extends XRDevice {
               this.dispatchEvent('@@webxr-polyfill/input-select-end', { sessionId: session.id, inputSource: inputSourceImpl.inputSource });
             }
             inputSourceImpl.primaryActionPressed = primaryActionPressed;
+          }
+          if (inputSourceImpl.primarySqueezeButtonIndex != -1) {
+            let primarySqueezeActionPressed = gamepad.buttons[inputSourceImpl.primarySqueezeButtonIndex].pressed;
+            if (primarySqueezeActionPressed && !inputSourceImpl.primarySqueezeActionPressed) {
+              this.dispatchEvent('@@webxr-polyfill/input-squeeze-start', { sessionId: session.id, inputSource: inputSourceImpl.inputSource });
+            } else if (!primarySqueezeActionPressed && inputSourceImpl.primarySqueezeActionPressed) {
+              this.dispatchEvent('@@webxr-polyfill/input-squeeze-end', { sessionId: session.id, inputSource: inputSourceImpl.inputSource });
+            }
+            inputSourceImpl.primarySqueezeActionPressed = primarySqueezeActionPressed;
           }
         }
       }
