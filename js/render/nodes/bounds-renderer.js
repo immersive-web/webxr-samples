@@ -31,6 +31,8 @@ import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 
 const GL = WebGLRenderingContext; // For enums
 
+const BOUNDS_HEIGHT = 0.5; // Meters
+
 class BoundsMaterial extends Material {
   constructor() {
     super();
@@ -62,7 +64,7 @@ class BoundsMaterial extends Material {
     precision mediump float;
     varying vec3 v_pos;
     vec4 fragment_main() {
-      return vec4(0.0, 1.0, 0.0, (2.0 - v_pos.y) * 0.5);
+      return vec4(0.25, 1.0, 0.5, (${BOUNDS_HEIGHT} - v_pos.y) / ${BOUNDS_HEIGHT});
     }`;
   }
 }
@@ -103,7 +105,7 @@ export class BoundsRenderer extends Node {
     for (let i = 0; i < pointCount; i++) {
       const point = geometry[i];
       verts.push(point.x, 0, point.z);
-      verts.push(point.x, 2.0, point.z);
+      verts.push(point.x, BOUNDS_HEIGHT, point.z);
 
       lastIndex += 2;
       if (i > 0) {

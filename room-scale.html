@@ -96,6 +96,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onRequestSession() {
         return navigator.xr.requestSession('immersive-vr', {
+            // Our standing experience will require at least a local-floor
+            // reference space (which will be available even on 3DoF device)
+            // but can optionally make use of bounded-floor reference spaces
+            // when available.
             requiredFeatures: ['local-floor'],
             optionalFeatures: ['bounded-floor']
         }).then((session) => {
@@ -134,8 +138,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
 
-        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
-        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+        function onRefSpaceCreated(refSpace) {
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
           } else {
@@ -151,16 +154,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // refSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({y: -1.6}));
           }
           session.requestAnimationFrame(onXRFrame);
-        });
-
-        /*function onRefSpaceCreated(refSpace) {
-          if (session.isImmersive) {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            xrInlineRefSpace = refSpace;
-          }
-
-          session.requestAnimationFrame(onXRFrame);
         }
 
         if (session.isImmersive) {
@@ -168,15 +161,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // the user's physical floor with Y=0 and provide boundaries that
           // indicate where the user can safely walk.
           session.requestReferenceSpace('bounded-floor').then((refSpace) => {
+            onRefSpaceCreated(refSpace);
+
             if (!boundsRenderer) {
               boundsRenderer = new BoundsRenderer(refSpace);
               scene.addNode(boundsRenderer);
             } else {
               boundsRenderer.boundedRefSpace = refSpace;
             }
-            onRefSpaceCreated(refSpace);
-          })
-          .catch(() => {
+          }).catch(() => {
             // If a bounded reference space isn't supported, fall back to a
             // local-floor reference space. This still provides a floor-relative
             // space and will always be supported for immersive sessions. It
@@ -190,15 +183,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             session.requestReferenceSpace('local-floor').then(onRefSpaceCreated);
           });
         } else {
-          session.requestReferenceSpace('viewer').then((refSpace) => {
-            // If we're using a viewer reference space we need to scoot the
-            // origin down a bit to put the camera at approximately the right
-            // level. (Here we're moving it 1.6 meters, which is *very* roughly
-            // the eye height of an "average" adult human.)
-            onRefSpaceCreated(refSpace.getOffsetReferenceSpace(
-                new XRRigidTransform({y: -1.6})));
-          });
-        }*/
+          session.requestReferenceSpace('viewer').then(onRefSpaceCreated);
+        }
       }
 
       function onEndSession(session) {
