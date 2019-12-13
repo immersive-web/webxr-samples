@@ -1037,17 +1037,9 @@ class XRReferenceSpace extends XRSpace {
     this._inverseBaseMatrix = transform || identity(new Float32Array(16));
     this[PRIVATE$3] = {
       type,
+      transform,
       originOffset : identity(new Float32Array(16)),
     };
-  }
-  _onPoseUpdate(device) {
-    switch(this[PRIVATE$3].type) {
-      case 'viewer':
-        this._baseMatrix = device.getBasePoseMatrix();
-        break;
-      default:
-        break;
-    }
   }
   _transformBasePoseMatrix(out, pose) {
     multiply(out, this._inverseBaseMatrix, pose);
@@ -1096,7 +1088,7 @@ const POLYFILL_REQUEST_SESSION_ERROR =
 or navigator.xr.requestSession('inline') prior to requesting an immersive
 session. This is a limitation specific to the WebXR Polyfill and does not apply
 to native implementations of the API.`;
-class XR$1 extends EventTarget {
+class XR extends EventTarget {
   constructor(devicePromise) {
     super();
     this[PRIVATE$4] = {
@@ -1249,467 +1241,6 @@ class XRView {
     return undefined;
   }
 }
-
-var EPSILON$1 = 0.000001;
-var ARRAY_TYPE$1 = typeof Float32Array !== 'undefined' ? Float32Array : Array;
-
-
-var degree$1 = Math.PI / 180;
-
-function create$7() {
-  var out = new ARRAY_TYPE$1(9);
-  if (ARRAY_TYPE$1 != Float32Array) {
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[5] = 0;
-    out[6] = 0;
-    out[7] = 0;
-  }
-  out[0] = 1;
-  out[4] = 1;
-  out[8] = 1;
-  return out;
-}
-
-function create$9() {
-  var out = new ARRAY_TYPE$1(3);
-  if (ARRAY_TYPE$1 != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-  }
-  return out;
-}
-
-function length$3(a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  return Math.sqrt(x * x + y * y + z * z);
-}
-function fromValues$9(x, y, z) {
-  var out = new ARRAY_TYPE$1(3);
-  out[0] = x;
-  out[1] = y;
-  out[2] = z;
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function normalize$3(out, a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  var len = x * x + y * y + z * z;
-  if (len > 0) {
-    len = 1 / Math.sqrt(len);
-    out[0] = a[0] * len;
-    out[1] = a[1] * len;
-    out[2] = a[2] * len;
-  }
-  return out;
-}
-function dot$3(a, b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-function cross$1(out, a, b) {
-  var ax = a[0],
-      ay = a[1],
-      az = a[2];
-  var bx = b[0],
-      by = b[1],
-      bz = b[2];
-  out[0] = ay * bz - az * by;
-  out[1] = az * bx - ax * bz;
-  out[2] = ax * by - ay * bx;
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var len$3 = length$3;
-
-var forEach$2 = function () {
-  var vec = create$9();
-  return function (a, stride, offset, count, fn, arg) {
-    var i = void 0,
-        l = void 0;
-    if (!stride) {
-      stride = 3;
-    }
-    if (!offset) {
-      offset = 0;
-    }
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];vec[1] = a[i + 1];vec[2] = a[i + 2];
-      fn(vec, vec, arg);
-      a[i] = vec[0];a[i + 1] = vec[1];a[i + 2] = vec[2];
-    }
-    return a;
-  };
-}();
-
-function create$10() {
-  var out = new ARRAY_TYPE$1(4);
-  if (ARRAY_TYPE$1 != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-  }
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function normalize$4(out, a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  var w = a[3];
-  var len = x * x + y * y + z * z + w * w;
-  if (len > 0) {
-    len = 1 / Math.sqrt(len);
-    out[0] = x * len;
-    out[1] = y * len;
-    out[2] = z * len;
-    out[3] = w * len;
-  }
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var forEach$3 = function () {
-  var vec = create$10();
-  return function (a, stride, offset, count, fn, arg) {
-    var i = void 0,
-        l = void 0;
-    if (!stride) {
-      stride = 4;
-    }
-    if (!offset) {
-      offset = 0;
-    }
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];vec[1] = a[i + 1];vec[2] = a[i + 2];vec[3] = a[i + 3];
-      fn(vec, vec, arg);
-      a[i] = vec[0];a[i + 1] = vec[1];a[i + 2] = vec[2];a[i + 3] = vec[3];
-    }
-    return a;
-  };
-}();
-
-function create$11() {
-  var out = new ARRAY_TYPE$1(4);
-  if (ARRAY_TYPE$1 != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-  }
-  out[3] = 1;
-  return out;
-}
-
-function setAxisAngle$1(out, axis, rad) {
-  rad = rad * 0.5;
-  var s = Math.sin(rad);
-  out[0] = s * axis[0];
-  out[1] = s * axis[1];
-  out[2] = s * axis[2];
-  out[3] = Math.cos(rad);
-  return out;
-}
-
-
-
-
-
-
-function slerp$1(out, a, b, t) {
-  var ax = a[0],
-      ay = a[1],
-      az = a[2],
-      aw = a[3];
-  var bx = b[0],
-      by = b[1],
-      bz = b[2],
-      bw = b[3];
-  var omega = void 0,
-      cosom = void 0,
-      sinom = void 0,
-      scale0 = void 0,
-      scale1 = void 0;
-  cosom = ax * bx + ay * by + az * bz + aw * bw;
-  if (cosom < 0.0) {
-    cosom = -cosom;
-    bx = -bx;
-    by = -by;
-    bz = -bz;
-    bw = -bw;
-  }
-  if (1.0 - cosom > EPSILON$1) {
-    omega = Math.acos(cosom);
-    sinom = Math.sin(omega);
-    scale0 = Math.sin((1.0 - t) * omega) / sinom;
-    scale1 = Math.sin(t * omega) / sinom;
-  } else {
-    scale0 = 1.0 - t;
-    scale1 = t;
-  }
-  out[0] = scale0 * ax + scale1 * bx;
-  out[1] = scale0 * ay + scale1 * by;
-  out[2] = scale0 * az + scale1 * bz;
-  out[3] = scale0 * aw + scale1 * bw;
-  return out;
-}
-
-
-
-function fromMat3$1(out, m) {
-  var fTrace = m[0] + m[4] + m[8];
-  var fRoot = void 0;
-  if (fTrace > 0.0) {
-    fRoot = Math.sqrt(fTrace + 1.0);
-    out[3] = 0.5 * fRoot;
-    fRoot = 0.5 / fRoot;
-    out[0] = (m[5] - m[7]) * fRoot;
-    out[1] = (m[6] - m[2]) * fRoot;
-    out[2] = (m[1] - m[3]) * fRoot;
-  } else {
-    var i = 0;
-    if (m[4] > m[0]) i = 1;
-    if (m[8] > m[i * 3 + i]) i = 2;
-    var j = (i + 1) % 3;
-    var k = (i + 2) % 3;
-    fRoot = Math.sqrt(m[i * 3 + i] - m[j * 3 + j] - m[k * 3 + k] + 1.0);
-    out[i] = 0.5 * fRoot;
-    fRoot = 0.5 / fRoot;
-    out[3] = (m[j * 3 + k] - m[k * 3 + j]) * fRoot;
-    out[j] = (m[j * 3 + i] + m[i * 3 + j]) * fRoot;
-    out[k] = (m[k * 3 + i] + m[i * 3 + k]) * fRoot;
-  }
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var normalize$5 = normalize$4;
-
-
-var rotationTo$1 = function () {
-  var tmpvec3 = create$9();
-  var xUnitVec3 = fromValues$9(1, 0, 0);
-  var yUnitVec3 = fromValues$9(0, 1, 0);
-  return function (out, a, b) {
-    var dot = dot$3(a, b);
-    if (dot < -0.999999) {
-      cross$1(tmpvec3, xUnitVec3, a);
-      if (len$3(tmpvec3) < 0.000001) cross$1(tmpvec3, yUnitVec3, a);
-      normalize$3(tmpvec3, tmpvec3);
-      setAxisAngle$1(out, tmpvec3, Math.PI);
-      return out;
-    } else if (dot > 0.999999) {
-      out[0] = 0;
-      out[1] = 0;
-      out[2] = 0;
-      out[3] = 1;
-      return out;
-    } else {
-      cross$1(tmpvec3, a, b);
-      out[0] = tmpvec3[0];
-      out[1] = tmpvec3[1];
-      out[2] = tmpvec3[2];
-      out[3] = 1 + dot;
-      return normalize$5(out, out);
-    }
-  };
-}();
-var sqlerp$1 = function () {
-  var temp1 = create$11();
-  var temp2 = create$11();
-  return function (out, a, b, c, d, t) {
-    slerp$1(temp1, a, d, t);
-    slerp$1(temp2, b, c, t);
-    slerp$1(out, temp1, temp2, 2 * t * (1 - t));
-    return out;
-  };
-}();
-var setAxes$1 = function () {
-  var matr = create$7();
-  return function (out, view, right, up) {
-    matr[0] = right[0];
-    matr[3] = right[1];
-    matr[6] = right[2];
-    matr[1] = up[0];
-    matr[4] = up[1];
-    matr[7] = up[2];
-    matr[2] = -view[0];
-    matr[5] = -view[1];
-    matr[8] = -view[2];
-    return normalize$5(out, fromMat3$1(out, matr));
-  };
-}();
-
-function create$13() {
-  var out = new ARRAY_TYPE$1(2);
-  if (ARRAY_TYPE$1 != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-  }
-  return out;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var forEach$4 = function () {
-  var vec = create$13();
-  return function (a, stride, offset, count, fn, arg) {
-    var i = void 0,
-        l = void 0;
-    if (!stride) {
-      stride = 2;
-    }
-    if (!offset) {
-      offset = 0;
-    }
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];vec[1] = a[i + 1];
-      fn(vec, vec, arg);
-      a[i] = vec[0];a[i + 1] = vec[1];
-    }
-    return a;
-  };
-}();
 
 const PRIVATE$9 = Symbol('@@webxr-polyfill/XRFrame');
 const NON_ACTIVE_MSG = "XRFrame access outside the callback that produced it is invalid.";
@@ -2218,7 +1749,7 @@ class XRReferenceSpaceEvent extends Event {
 }
 
 var API = {
-  XR: XR$1,
+  XR,
   XRSession: XRSession$1,
   XRSessionEvent,
   XRFrame,
@@ -5464,7 +4995,7 @@ class XRDevice extends EventTarget {
 
 let daydream = {
   mapping: '',
-  profiles: ['daydream', 'generic-trigger-touchpad'],
+  profiles: ['google-daydream', 'generic-trigger-touchpad'],
   buttons: {
     length: 3,
     0: null,
@@ -5525,7 +5056,7 @@ let oculusTouch = {
 };
 let openVr = {
   mapping: 'xr-standard',
-  profiles: ['openvr-controller', 'generic-trigger-squeeze-touchpad'],
+  profiles: ['htc-vive', 'generic-trigger-squeeze-touchpad'],
   displayProfiles: {
     'HTC Vive': ['htc-vive', 'generic-trigger-squeeze-touchpad'],
     'HTC Vive DVT': ['htc-vive', 'generic-trigger-squeeze-touchpad'],
@@ -5542,6 +5073,13 @@ let openVr = {
   },
   targetRayTransform: {
     orientation: [Math.PI * -0.08, 0, 0, 1]
+  },
+  userAgentOverrides: {
+    "Firefox": {
+      axes: {
+        invert: [1, 3]
+      }
+    }
   }
 };
 let samsungGearVR = {
@@ -5761,6 +5299,21 @@ class XRRemappedGamepad {
     if (!map) {
       map = {};
     }
+    if (map.userAgentOverrides) {
+      for (let agent in map.userAgentOverrides) {
+        if (navigator.userAgent.includes(agent)) {
+          let override = map.userAgentOverrides[agent];
+          for (let key in override) {
+            if (key in map) {
+              Object.assign(map[key], override[key]);
+            } else {
+              map[key] = override[key];
+            }
+          }
+          break;
+        }
+      }
+    }
     let axes = new Array(map.axes && map.axes.length ? map.axes.length : gamepad.axes.length);
     let buttons = new Array(map.buttons && map.buttons.length ? map.buttons.length : gamepad.buttons.length);
     let gripTransform = null;
@@ -5818,7 +5371,9 @@ class XRRemappedGamepad {
     }
     if (map.axes && map.axes.invert) {
       for (let axis of map.axes.invert) {
-        axes[axis] *= -1;
+        if (axis < axes.length) {
+          axes[axis] *= -1;
+        }
       }
     }
     let buttons = this[PRIVATE$18].buttons;
@@ -6513,7 +6068,7 @@ class WebXRPolyfill {
   }
   _patchNavigatorXR() {
     let devicePromise = requestXRDevice(this.global, this.config);
-    this.xr = new XR(devicePromise);
+    this.xr = new API.XR(devicePromise);
     Object.defineProperty(this.global.navigator, 'xr', {
       value: this.xr,
       configurable: true,
