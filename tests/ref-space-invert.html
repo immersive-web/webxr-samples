@@ -1,0 +1,196 @@
+<!doctype html>
+<!--
+Copyright 2019 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>Reference Space Invert</title>
+
+    <!-- Chrome Origin Trial token for https://immersive-web.github.io.
+    Enables WebXR for all visitors by default during the trial period -->
+    <meta http-equiv="origin-trial" content="Ai3OQL0dmGNhrOkQWS8ffWkjPqXrhzAejLV80DiBTIM5V5xTRleI9qOcdjK9+ILQmKqMamH3FtDKIeLsfjgYUQ8AAABfeyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZU03NiIsImV4cGlyeSI6MTU3NTQxNzU5OX0=">
+  </head>
+  <body>
+    <header>
+      <details id='details-panel' open>
+        <summary>Reference Space Invert</summary>
+        <p>
+          Tests creating an offset reference space with the viewer pose, which
+          should cancel out the pose. While a select event is engaged the viewer
+          should appear locked at the origin looking directly at a checkmark
+          image.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>Click 'Enter XR' to see content</p> 
+    </main>
+    <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
+      import {Scene} from '../js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext, RenderView} from '../js/render/core/renderer.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {UrlTexture} from '../js/render/core/texture.js';
+      import {ButtonNode} from '../js/render/nodes/button.js';
+      import {QueryArgs} from '../js/util/query-args.js';
+      import {mat4} from '../js/render/math/gl-matrix.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
+      // XR globals.
+      let xrButton = null;
+      let xrFloorSpace = null;
+      let useInvertedSpace = false;
+      let invertedReferenceSpace = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: '../media/gltf/cube-room/cube-room.gltf'}));
+      scene.standingStats(true);
+
+      let playButton = new ButtonNode(new UrlTexture('../media/textures/check-button.png'), () => {});
+      playButton.translation = [0, 0, -0.5];
+      scene.addNode(playButton);
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function initGL() {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          xrCompatible: true
+        });
+
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        // Set up a non-black clear color so that we can see if something renders wrong.
+        gl.clearColor(0.1, 0.2, 0.3, 1.0);
+
+        renderer = new Renderer(gl);
+        scene.setRenderer(renderer);
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}), 'right');
+        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller-left.gltf'}), 'left');
+      }
+
+      function onRequestSession() {
+        return navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor'],
+        }).then((session) => {
+          xrButton.setSession(session);
+          session.isImmersive = true;
+          onSessionStarted(session);
+        });
+      }
+
+      async function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+
+        initGL();
+
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        xrFloorSpace = await session.requestReferenceSpace('local-floor');
+
+        session.addEventListener('selectstart', () => {
+          useInvertedSpace = true;
+        });
+
+        session.addEventListener('selectend', () => {
+          useInvertedSpace = false;
+          invertedReferenceSpace = null;
+        });
+
+        session.requestAnimationFrame(onXRFrame);
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+      }
+
+      let tmpMat = mat4.create();
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+
+        let pose;
+
+        if (useInvertedSpace) {
+          pose = frame.getViewerPose(xrFloorSpace);
+          invertedReferenceSpace = xrFloorSpace.getOffsetReferenceSpace(pose.transform);
+          pose = frame.getViewerPose(invertedReferenceSpace);
+        } else {
+          pose = frame.getViewerPose(xrFloorSpace);
+        }
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.updateInputSources(frame, xrFloorSpace);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>

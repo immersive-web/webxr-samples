@@ -132,6 +132,10 @@
             { title: 'Composed Views', category: 'We Like Matrix Math',
               path: 'composed-views.html',
               description: 'Tests a scenario where views are composed from a combination of viewer and local-floor space.' },
+
+              { title: 'Reference Space Invert', category: 'We Hate Matrix Math',
+              path: 'ref-space-invert.html',
+              description: 'Tests creating an offset reference space with the viewer pose, which should cancel out the pose and report the viewer at the origin.' },
           ];
 
           let mainElement = document.getElementById("main");
@@ -169,8 +173,8 @@
 
             if (!page.noPolyfill) {
               let polyfillLink = document.createElement('a');
-              polyfillLink.href = page.path + '?usePolyfill=1';
-              polyfillLink.textContent = 'Run with Polyfill';
+              polyfillLink.href = page.path + '?usePolyfill=0';
+              polyfillLink.textContent = 'Run Without Polyfill';
               links.appendChild(polyfillLink);
             }
 
