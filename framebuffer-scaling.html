@@ -34,6 +34,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <!-- Chrome Origin Trial token for https://immersive-web.github.io.
     Enables WebXR for all visitors by default during the trial period -->
     <meta http-equiv="origin-trial" content="Ai3OQL0dmGNhrOkQWS8ffWkjPqXrhzAejLV80DiBTIM5V5xTRleI9qOcdjK9+ILQmKqMamH3FtDKIeLsfjgYUQ8AAABfeyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZU03NiIsImV4cGlyeSI6MTU3NTQxNzU5OX0=">
+    
+    <style>
+      :disabled, .disabled {
+        opacity: 0.6;
+      } 
+    </style>
   </head>
   <body>
     <header>
@@ -52,6 +58,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           <hr/>
           <input id='framebufferScaleSelect' value='1.0' min='0.25' max='2.0' step='0.125' type='range'/><br/>
           <span id='framebufferScaleLabel'></span>
+          <br/>
+          Use Native (1:1) scale: <input id='useNativeScale' type='checkbox'/>
         </p>
       </details>
     </header>
@@ -75,20 +83,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let scaleSelect = document.getElementById('framebufferScaleSelect');
       let scaleLabel = document.getElementById('framebufferScaleLabel');
+      let nativeScaleCheckbox = document.getElementById('useNativeScale');
 
-      function updateLabel() {
-        let value = parseFloat(scaleSelect.value);
-        let label = `Framebuffer scale: ${scaleSelect.value}`;
-        switch (value) {
-          case 0.5: label += ' - 50% recommended res'; break;
-          case 1.0: label += ' - Default, system recommendation'; break;
-          case 1.5: label += ' - 150% recommended res'; break;
-          case 2.0: label += ' - 200% recommended res'; break;
+      function updateLabel(label) {
+        let native = nativeScaleCheckbox.checked;
+        scaleSelect.disabled = native;
+        if (native) {
+          scaleLabel.classList.add('disabled');
+        } else {
+          scaleLabel.classList.remove('disabled');
+        }
+
+        if (!label) {
+          let value = parseFloat(scaleSelect.value);
+          label = `Framebuffer scale: ${scaleSelect.value}`;
+          switch (value) {
+            case 0.5: label += ' - 50% recommended res'; break;
+            case 1.0: label += ' - Default, system recommendation'; break;
+            case 1.5: label += ' - 150% recommended res'; break;
+            case 2.0: label += ' - 200% recommended res'; break;
+          }
         }
         scaleLabel.textContent = label;
       }
 
-      scaleSelect.addEventListener('change', updateLabel);
+      scaleSelect.addEventListener('change', () => { updateLabel(); });
+      nativeScaleCheckbox.addEventListener('change', () => { updateLabel(); });
       updateLabel();
 
       // XR globals.
@@ -138,9 +158,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}), 'right');
           scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller-left.gltf'}), 'left');
         }
+        
+        // These are the only meaningful change in this sample from xr-presentation.js.
 
-        // This is the only meaningful change in this sample from xr-presentation.js.
-        // It sets a requested scale to be applied to the framebuffer created
+        // If the native scale factor is requested, query it with the session
+        // just prior to creating the layer and override the user-set scale
+        // with it.
+        if (nativeScaleCheckbox.checked) {
+          let nativeScale = XRWebGLLayer.getNativeFramebufferScaleFactor(session);
+          scaleSelect.value = `${nativeScale}`;
+          updateLabel(`Native Scale: ${nativeScale}`);
+        }
+
+        // This sets a requested scale to be applied to the framebuffer created
         // for the layer. The UA is allowed to ignore the request or adjust it
         // as needed. The scale of the framebuffer cannot be changed after the
         // layer is created, though the UA is allowed to resize the framebuffer

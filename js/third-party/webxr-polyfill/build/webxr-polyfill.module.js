@@ -1362,6 +1362,13 @@ class XRWebGLLayer {
   getViewport(view) {
     return view._getViewport(this);
   }
+  static getNativeFramebufferScaleFactor(session) {
+    if (!session) {
+      throw new TypeError('getNativeFramebufferScaleFactor must be passed a session.')
+    }
+    if (session[PRIVATE$15].ended) { return 0.0; }
+    return 1.0;
+  }
 }
 
 const PRIVATE$12 = Symbol('@@webxr-polyfill/XRInputSourceEvent');
@@ -6094,23 +6101,6 @@ class WebXRPolyfill {
         "call navigator.xr.isSessionSupported() instead and check the boolean " +
         "value returned when the promise resolves.");
         return originalSupportsSession.call(this, mode);
-      };
-    }
-    if (global.XRWebGLLayer) {
-      let originalRequestSession = global.navigator.xr.requestSession;
-      global.navigator.xr.requestSession = function(mode, options) {
-        return originalRequestSession.call(this, mode, options).then((session) => {
-          session._session_mode = mode;
-          return session;
-        });
-      };
-      var originalXRLayer = global.XRWebGLLayer;
-      global.XRWebGLLayer = function(session, gl, options) {
-        if (!options) {
-          options = {};
-        }
-        options.compositionDisabled = (session._session_mode === "inline");
-        return new originalXRLayer(session, gl, options);
       };
     }
   }
