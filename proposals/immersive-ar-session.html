@@ -175,14 +175,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onEndSession(session) {
         session.end();
-
-        // if this was immersive session stopping, restart the inlineSession
-        if (session != inlineSession) {
-          rAFHandle = inlineSession.requestAnimationFrame(onXRFrame);
-        } else {
-          console.warn("inline session unexpectedly ended");
-          inlineSession = null;
-        }
       }
 
       function onSessionEnded(event) {
@@ -190,6 +182,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrButton.setSession(null);
           // Turn the background back on when we go back to the inlive view.
           skybox.visible = true;
+
+          // if this was immersive session stopping, restart the inlineSession
+          rAFHandle = inlineSession.requestAnimationFrame(onXRFrame);
+        } else {
+          console.warn("inline session unexpectedly ended");
+          inlineSession = null;
         }
       }
 
