@@ -69,6 +69,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
       let inlineViewerHelper = null;
+      let rAFHandle = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -113,6 +114,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             .then((session) => {
               xrButton.setSession(session);
               session.isImmersive = true;
+
+              if (rAFHandle) {
+                xrButton.session.cancelAnimationFrame(rAFHandle);
+                rAFHandle = null
+              }
+
               onSessionStarted(session);
             });
       }
@@ -158,7 +165,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           } else {
             inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
           }
-          session.requestAnimationFrame(onXRFrame);
+          rAFHandle = session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -184,7 +191,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         scene.startFrame();
 
-        session.requestAnimationFrame(onXRFrame);
+        rAFHandle = session.requestAnimationFrame(onXRFrame);
 
         scene.drawXRFrame(frame, pose);
 
