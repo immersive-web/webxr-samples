@@ -70,6 +70,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrImmersiveRefSpace = null;
       let inlineViewerHelper = null;
       let rAFHandle = null;
+      let inlineSession = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -115,11 +116,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               xrButton.setSession(session);
               session.isImmersive = true;
 
-              if (rAFHandle) {
-                xrButton.session.cancelAnimationFrame(rAFHandle);
-                rAFHandle = null
-              }
-
               onSessionStarted(session);
             });
       }
@@ -152,6 +148,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // When in 'immersive-ar' mode don't draw an opaque background because
           // we want the real world to show through.
           skybox.visible = false;
+
+          // stop the inline session rendering
+          if (inlineSession && rAFHandle) {
+            inlineSession.cancelAnimationFrame(rAFHandle);
+            rAFHandle = null;
+          }
+        } else {
+          inlineSession = session;
         }
 
         initGL();
@@ -171,6 +175,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onEndSession(session) {
         session.end();
+
+        // if this was immersive session stopping, restart the inlineSession
+        if (session != inlineSession) {
+          rAFHandle = inlineSession.requestAnimationFrame(onXRFrame);
+        } else {
+          console.warn("inline session unexpectedly ended");
+          inlineSession = null;
+        }
       }
 
       function onSessionEnded(event) {
