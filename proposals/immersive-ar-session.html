@@ -69,6 +69,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
       let inlineViewerHelper = null;
+      let rAFHandle = null;
+      let inlineSession = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -113,6 +115,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             .then((session) => {
               xrButton.setSession(session);
               session.isImmersive = true;
+
               onSessionStarted(session);
             });
       }
@@ -145,6 +148,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // When in 'immersive-ar' mode don't draw an opaque background because
           // we want the real world to show through.
           skybox.visible = false;
+
+          // stop the inline session rendering
+          if (inlineSession && rAFHandle) {
+            inlineSession.cancelAnimationFrame(rAFHandle);
+            rAFHandle = null;
+          }
+        } else {
+          inlineSession = session;
         }
 
         initGL();
@@ -158,7 +169,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           } else {
             inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
           }
-          session.requestAnimationFrame(onXRFrame);
+          rAFHandle = session.requestAnimationFrame(onXRFrame);
         });
       }
 
@@ -171,6 +182,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrButton.setSession(null);
           // Turn the background back on when we go back to the inlive view.
           skybox.visible = true;
+
+          // if this was immersive session stopping, restart the inlineSession
+          rAFHandle = inlineSession.requestAnimationFrame(onXRFrame);
+        } else {
+          console.warn("inline session unexpectedly ended");
+          inlineSession = null;
         }
       }
 
@@ -184,7 +201,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         scene.startFrame();
 
-        session.requestAnimationFrame(onXRFrame);
+        rAFHandle = session.requestAnimationFrame(onXRFrame);
 
         scene.drawXRFrame(frame, pose);
 
