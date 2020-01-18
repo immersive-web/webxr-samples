@@ -51,7 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {SkyboxNode} from './js/render/nodes/skybox.js';
       import {BoxBuilder} from './js/render/geometry/box-builder.js';
       import {PbrMaterial} from './js/render/materials/pbr.js';
-      import {mat4} from './js/render/math/gl-matrix.js';
+      import {vec3, mat4} from './js/render/math/gl-matrix.js';
       import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
       import {QueryArgs} from './js/util/query-args.js';
 
@@ -75,6 +75,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.standingStats(true);
 
       let boxes = [];
+      let currently_selected_boxes = [null, null];
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -128,7 +129,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           boxes.push({
             node: boxNode,
             renderPrimitive: boxRenderPrimitive,
-            position: [x, y, z]
+            position: [x, y, z],
+            scale: [1, 1, 1],
           });
           scene.addNode(boxNode);
         }
@@ -151,6 +153,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
 
+        session.addEventListener('selectstart', onSelectStart);
+        session.addEventListener('selectend', onSelectEnd);
         // By listening for the 'select' event we can find out when the user has
         // performed some sort of primary input action and respond to it.
         session.addEventListener('select', onSelect);
@@ -177,11 +181,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
       }
 
-      function onSelect(ev) {
+      function onSelectStart(ev) {
+        console.log("selectstart " + currently_selected_boxes);
         let refSpace = ev.frame.session.isImmersive ?
                          xrImmersiveRefSpace :
                          inlineViewerHelper.referenceSpace;
-
         let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
         if (!targetRayPose) {
           return;
@@ -192,11 +196,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Check to see if the hit result was one of our boxes.
           for (let box of boxes) {
             if (hitResult.node == box.node) {
-              // Change the box color to something random.
-              let uniforms = box.renderPrimitive.uniforms;
-              uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
+              let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+              currently_selected_boxes[i] = box;
+              box.scale = [1.25, 1.25, 1.25];
+              box.selected = false;
             }
           }
+        }
+      }
+      function onSelectEnd(ev) {
+        let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+        let currently_selected_box = currently_selected_boxes[i];  
+        console.log("selectend " + currently_selected_box);
+        if (currently_selected_box != null) {
+          if (currently_selected_box.selected) {
+            // it is expected that the scale is 0.75 (see onSelectStart). This should make the scale 1.0
+            vec3.add(currently_selected_box.scale, currently_selected_box.scale, [0.25, 0.25, 0.25]);
+            currently_selected_box.selected = false;
+          } else {
+            // there was no 'select' event: final cube's size will be smaller.
+            currently_selected_box.scale = [0.75, 0.75, 0.75];
+          }
+          currently_selected_boxes[i] = null;
+        }
+      }
+      function onSelect(ev) {
+        let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+        let currently_selected_box = currently_selected_boxes[i];  
+        console.log("select " + currently_selected_box);
+        if (currently_selected_box != null) {
+          // Change the box color to something random.
+          let uniforms = currently_selected_box.renderPrimitive.uniforms;
+          uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
+          // it is expected that the scale is 1.25 (see onSelectStart). This should make the scale 0.75
+          vec3.add(currently_selected_box.scale, currently_selected_box.scale, [-0.5, -0.5, -0.5]);
+          currently_selected_box.selected = true;
         }
       }
 
@@ -228,6 +262,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           mat4.translate(node.matrix, node.matrix, box.position);
           mat4.rotateX(node.matrix, node.matrix, time/1000);
           mat4.rotateY(node.matrix, node.matrix, time/1500);
+          mat4.scale(node.matrix, node.matrix, box.scale);
         }
 
         // In this sample and most samples after it we'll use a helper function
