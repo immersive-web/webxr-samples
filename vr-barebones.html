@@ -29,7 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Barebones WebXR</title>
+    <title>Barebones VR</title>
 
     <!-- Chrome Origin Trial token for https://immersive-web.github.io.
     Enables WebXR for all visitors by default during the trial period -->
@@ -38,18 +38,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <body>
     <header>
       <details open>
-        <summary>Barebones WebXR</summary>
+        <summary>Barebones VR</summary>
         <p>
-          This sample demonstrates extremely simple use of WebXR with no library
-          dependencies. It doesn't render anything exciting, just clears your
-          headset's display to a slowly changing color to prove it's working.
+          This sample demonstrates extremely simple use of an "immersive-vr"
+          session with no library dependencies. It doesn't render anything
+          exciting, just clears your headset's display to a slowly changing
+          color to prove it's working.
           <a class="back" href="./">Back</a>
         </p>
         <button id="xr-button" disabled>XR not found</button>
       </details>
     </header>
     <main style='text-align: center;'>
-      <p>Click 'Enter XR' to see content</p> 
+      <p>Click 'Enter VR' to see content</p> 
     </main>
     <script>
       (function () {
@@ -75,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (supported) {
               // Updates the button to start an XR session when clicked.
               xrButton.addEventListener('click', onButtonClicked);
-              xrButton.textContent = 'Enter XR';
+              xrButton.textContent = 'Enter VR';
               xrButton.disabled = false;
             }
           });
@@ -96,7 +97,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // will set up the necessary session state and kick off the frame loop.
       function onSessionStarted(session) {
         xrSession = session;
-        xrButton.textContent = 'Exit XR';
+        xrButton.textContent = 'Exit VR';
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.

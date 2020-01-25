@@ -90,7 +90,7 @@
       <header class='header'>
         <div id='nav'>
             <a href='./' class='selected'>Samples</a>
-            <a href='proposals/'>Proposals</a>
+            <!--a href='proposals/'>Proposals</a-->
             <a href='tests/'>Test Pages</a>
         </div>
 
@@ -139,7 +139,11 @@
           let pages = [
             { title: 'Immersive VR Session', category: 'Basics',
               path: 'immersive-vr-session.html',
-              description: 'Demonstrates use of an "immersive-vr" XRSession to present a WebGL scene on an XR device.' },
+              description: 'Demonstrates use of an "immersive-vr" XRSession to present a WebGL scene on an VR headset.' },
+
+            { title: 'Immersive AR Session', category: 'Basics',
+              path: 'immersive-ar-session.html',
+              description: 'Demonstrates use of an "immersive-ar" XRSession to present a WebGL scene on an AR-enabled phone or headset.' },
 
             { title: 'Inline Session', category: 'Basics',
               path: 'inline-session.html',
@@ -195,9 +199,21 @@
             { tag: 'hr' },
             { tag: 'br' },
 
-            { title: 'Barebones', category: 'WIN32_LEAN_AND_MEAN',
-              path: 'xr-barebones.html',
-              description: 'Extremely simple use of WebXR with no library dependencies. Doesn\'t render anything exciting.',
+            { title: 'Hit Test', category: 'AR Basics',
+              path: 'hit-test.html',
+              description: 'Demonstrates using the Hit Test API to place virtual objects on real-world surfaces.'},
+
+            { tag: 'hr' },
+            { tag: 'br' },
+
+            { title: 'Barebones VR', category: 'WIN32_LEAN_AND_MEAN',
+              path: 'vr-barebones.html',
+              description: 'Extremely simple use of "immersive-vr" sessions with no library dependencies. Doesn\'t render anything exciting.',
+              noPolyfill: true },
+
+            { title: 'Barebones AR', category: 'WIN32_LEAN_AND_MEAN',
+              path: 'ar-barebones.html',
+              description: 'Extremely simple use of "immersive-ar" sessions with no library dependencies. Doesn\'t render anything exciting.',
               noPolyfill: true },
           ];
 

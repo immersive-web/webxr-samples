@@ -25,9 +25,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
-    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
-    <link rel='stylesheet' href='../css/common.css'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
 
     <title>Immersive AR Session</title>
 
@@ -50,17 +50,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <script type="module">
-      import {WebXRButton} from '../js/util/webxr-button.js';
-      import {Scene} from '../js/render/scenes/scene.js';
-      import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
-      import {SkyboxNode} from '../js/render/nodes/skybox.js';
-      import {InlineViewerHelper} from '../js/util/inline-viewer-helper.js';
-      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
-      import {QueryArgs} from '../js/util/query-args.js';
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {QueryArgs} from './js/util/query-args.js';
 
       // If requested, use the polyfill to provide support for mobile devices
       // and devices which only support WebVR.
-      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
       if (QueryArgs.getBool('usePolyfill', true)) {
         let polyfill = new WebXRPolyfill();
       }
@@ -74,13 +74,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
-      let solarSystem = new Gltf2Node({url: '../media/gltf/space/space.gltf'});
+      let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
       // The solar system is big (citation needed). Scale it down so that users
       // can move around the planets more easily.
       solarSystem.scale = [0.1, 0.1, 0.1];
       scene.addNode(solarSystem);
       // Still adding a skybox, but only for the benefit of the inline view.
-      let skybox = new SkyboxNode({url: '../media/textures/milky-way-4k.png'});
+      let skybox = new SkyboxNode({url: 'media/textures/milky-way-4k.png'});
       scene.addNode(skybox);
 
       function initXR() {

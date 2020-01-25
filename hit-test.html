@@ -25,42 +25,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
-    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
-    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
-    <link rel='stylesheet' href='../css/common.css'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
 
-    <title>AR Hit Test</title>
+    <title>Hit Test</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>AR Hit Test</summary>
+        <summary>Hit Test</summary>
         <p>
-          This sample demonstrates use of hit testing to place AR objects on real-world surfaces.
+          This sample demonstrates use of hit testing to place virtual objects on real-world surfaces.
           <a class="back" href="./">Back</a>
-          <br/>
-          <hr/>
-          <input id="useReticle" type="checkbox" checked>
-          <label for="useReticle">Use reticle for placement</label>
         </p>
       </details>
     </header>
     <script type="module">
-      import {WebXRButton} from '../js/util/webxr-button.js';
-      import {Scene} from '../js/render/scenes/scene.js';
-      import {Renderer, createWebGLContext} from '../js/render/core/renderer.js';
-      import {Node} from '../js/render/core/node.js';
-      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
-      import {DropShadowNode} from '../js/render/nodes/drop-shadow.js';
-      import {vec3} from '../js/render/math/gl-matrix.js';
-      import {Ray} from '../js/render/math/ray.js';
-
-
-      let useReticle = document.getElementById('useReticle');
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Node} from './js/render/core/node.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {DropShadowNode} from './js/render/nodes/drop-shadow.js';
+      import {vec3} from './js/render/math/gl-matrix.js';
+      import {Ray} from './js/render/math/ray.js';
 
       // XR globals.
       let xrButton = null;
       let xrRefSpace = null;
+      let xrViewerSpace = null;
+      let xrHitTestSource = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -72,8 +67,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       arObject.visible = false;
       scene.addNode(arObject);
 
-      let flower = new Gltf2Node({url: '../media/gltf/sunflower/sunflower.gltf'});
+      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
       arObject.addNode(flower);
+
+      let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticle.visible = false;
+      scene.addNode(reticle);
 
       // Having a really simple drop shadow underneath an object helps ground
       // it in the world without adding much complexity.
@@ -128,13 +127,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
+        // In this sample we want to cast a ray straight out from the viewer's
+        // position and render a reticle where it intersects with a real world
+        // surface. To do this we first get the viewer space, then create a
+        // hitTestSource that tracks it.
+        session.requestReferenceSpace('viewer').then((refSpace) => {
+          xrViewerSpace = refSpace;
+          session.requestHitTestSource({ space: xrViewerSpace }).then((hitTestSource) => {
+            xrHitTestSource = hitTestSource;
+          });
+        });
+
         session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
+
           session.requestAnimationFrame(onXRFrame);
         });
       }
 
       function onEndSession(session) {
+        xrHitTestSource = null;
         session.end();
       }
 
@@ -164,33 +176,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let rayOrigin = vec3.create();
       let rayDirection = vec3.create();
       function onSelect(event) {
-        if (useReticle.checked && arObject.visible) {
-          // If we're using the reticle then we've already got a mesh positioned
-          // at the latest hit point and we should just use it's matrix to save
-          // an unnecessary requestHitTest call.
-          addARObjectAt(arObject.matrix);
-        } else {
-          // Otherwise we'll use the target ray from the input source that generated
-          // this event to fire off a new hit test.
-          let targetRayPose = event.frame.getPose(event.inputSource.targetRaySpace, xrRefSpace);
-          if (!targetRayPose) {
-            return;
-          }
-
-          let targetRay = new XRRay(targetRayPose.transform);
-          vec3.set(rayOrigin,
-              targetRay.origin.x,
-              targetRay.origin.y,
-              targetRay.origin.z);
-          vec3.set(rayDirection,
-              targetRay.direction.x,
-              targetRay.direction.y,
-              targetRay.direction.z);
-          event.frame.session.requestHitTest(targetRay, xrRefSpace).then((results) => {
-            if (results.length) {
-              addARObjectAt(results[0].hitMatrix);
-            }
-          });
+        if (reticle.visible) {
+          // The reticle should already be positioned at the latest hit point, 
+          // so we can just use it's matrix to save an unnecessary call to 
+          // event.frame.getHitTestResults.
+          addARObjectAt(reticle.matrix);
         }
       }
 
@@ -199,32 +189,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
 
-        // If requested, use the pose to cast a reticle into the scene using a
-        // continuous hit test. For the moment we're just using the flower
-        // as the "reticle".
-        if (useReticle.checked && pose) {
-          vec3.set(rayOrigin, 0, 0, 0);
-          vec3.transformMat4(rayOrigin, rayOrigin, pose.transform.matrix);
+        reticle.visible = false;
 
-          vec3.set(rayDirection, 0, 0, -1);
-          vec3.transformMat4(rayDirection, rayDirection, pose.transform.matrix);
-          vec3.sub(rayDirection, rayDirection, rayOrigin);
-          vec3.normalize(rayDirection, rayDirection);
-
-          let ray = new XRRay({x : rayOrigin[0], y : rayOrigin[1], z : rayOrigin[2]},
-            {x : rayDirection[0], y : rayDirection[1], z : rayDirection[2]});
-          session.requestHitTest(ray, xrRefSpace).then((results) => {
-            // When the hit test returns use it to place our proxy object.
-            if (results.length) {
-              let hitResult = results[0];
-              arObject.visible = true;
-              arObject.matrix = hitResult.hitMatrix;
-            } else {
-              arObject.visible = false;
-            }
-          });
-        } else {
-          arObject.visible = false;
+        // If we have a hit test source, get it's results for the frame
+        // and use the pose to display a reticle in the scene. For the moment
+        // we're just using the flower as the "reticle".
+        if (xrHitTestSource && pose) {
+          let hitTestResults = frame.getHitTestResults(xrHitTestSource);
+          if (hitTestResults.length > 0) {
+            let pose = hitTestResults[0].getPose(xrRefSpace);
+            reticle.visible = true;
+            reticle.matrix = pose.transform.matrix;
+          }
         }
 
         scene.startFrame();
