@@ -57,6 +57,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrViewerSpace = null;
       let xrHitTestSource = null;
 
+      const sessionInit = {requiredFeatures: ['local', 'hit-test']};
+
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -97,18 +99,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+          navigator.xr.isSessionSupported('immersive-ar', sessionInit)
+                      .then((supported) => {
             xrButton.enabled = supported;
           });
         }
       }
 
       function onRequestSession() {
-        return navigator.xr.requestSession('immersive-ar')
-            .then((session) => {
-              xrButton.setSession(session);
-              onSessionStarted(session);
-            });
+        return navigator.xr.requestSession('immersive-ar', sessionInit)
+                           .then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
       }
 
       function onSessionStarted(session) {
@@ -146,6 +149,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onEndSession(session) {
+        xrHitTestSource.cancel();
         xrHitTestSource = null;
         session.end();
       }
@@ -191,9 +195,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         reticle.visible = false;
 
-        // If we have a hit test source, get it's results for the frame
-        // and use the pose to display a reticle in the scene. For the moment
-        // we're just using the flower as the "reticle".
+        // If we have a hit test source, get its results for the frame
+        // and use the pose to display a reticle in the scene.
         if (xrHitTestSource && pose) {
           let hitTestResults = frame.getHitTestResults(xrHitTestSource);
           if (hitTestResults.length > 0) {
