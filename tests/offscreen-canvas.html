@@ -69,10 +69,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       };
 
-      let app = new CustomWebXRSampleApp({
-        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}),
-        leftControllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller-left.gltf'})
-      });
+      let app = new CustomWebXRSampleApp();
       document.querySelector('header').appendChild(app.xrButton.domElement);
 
       app.scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));

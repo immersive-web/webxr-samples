@@ -290,8 +290,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         renderer = new Renderer(gl);
         scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}), 'right');
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: '../media/gltf/controller/controller-left.gltf'}), 'left');
       }
 
       function onRequestSession() {
@@ -307,6 +305,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('end', onSessionEnded);
 
         initGL();
+        scene.inputRenderer.useProfileControllerMeshes(session);
 
         let glLayer = new XRWebGLLayer(session, gl, {
           framebufferScaleFactor: appSettings.framebufferScale,

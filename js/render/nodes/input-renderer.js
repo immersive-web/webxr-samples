@@ -22,6 +22,13 @@ import {Material, RENDER_ORDER} from '../core/material.js';
 import {Node} from '../core/node.js';
 import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 import {DataTexture} from '../core/texture.js';
+import {Gltf2Node} from '../nodes/gltf2.js';
+
+// This library matches XRInputSource profiles to available controller models for us.
+import { fetchProfile } from 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers@1.0/dist/motion-controllers.module.js';
+
+// The path of the CDN the sample will fetch controller models from.
+const DEFAULT_PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles';
 
 const GL = WebGLRenderingContext; // For enums
 
@@ -210,8 +217,7 @@ export class InputRenderer extends Node {
 
     this._maxInputElements = 32;
 
-    this._controllers = [];
-    this._controllerNodes = null;
+    this._controllers = null;
     this._lasers = null;
     this._cursors = null;
 
@@ -221,8 +227,7 @@ export class InputRenderer extends Node {
   }
 
   onRendererChanged(renderer) {
-    this._controllers = [];
-    this._controllerNodes = null;
+    this._controllers = null;
     this._lasers = null;
     this._cursors = null;
 
@@ -231,38 +236,49 @@ export class InputRenderer extends Node {
     this._activeCursors = 0;
   }
 
+  useProfileControllerMeshes(session) {
+    // As input sources are connected if they are tracked-pointer devices
+    // look up which meshes should be associated with their profile and
+    // load as the controller model for that hand.
+    session.addEventListener('inputsourceschange', (event) => {
+      for (let inputSource of event.added) {
+        if (inputSource.targetRayMode == 'tracked-pointer') {
+          fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
+            this.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness);
+          });
+        }
+      }
+    });
+  }
+
   setControllerMesh(controllerNode, handedness = 'right') {
-    if (!this._controllerNodes) {
-      this._controllerNodes = {};
+    if (!this._controllers) {
+      this._controllers = {};
     }
-    this._controllerNodes[handedness] = controllerNode;
-    this._controllerNodes[handedness].visible = false;
+    this._controllers[handedness] = { nodes: [controllerNode], activeCount: 0 };
+    controllerNode.visible = false;
     // FIXME: Temporary fix to initialize for cloning.
-    this.addNode(this._controllerNodes[handedness]);
+    this.addNode(controllerNode);
   }
 
   addController(gripMatrix, handedness = 'right') {
-    let controllerNode = this._controllerNodes[handedness];
-    if (!controllerNode) {
-      // in the case if we don't have a node for correct handedness - fall back to the 'right' one.
-      controllerNode = this._controllerNodes['right'];
-      if (!controllerNode) {
-        return;
-      }
-    }
+    if (!this._controllers) { return; }
+    let controller = this._controllers[handedness];
 
-    let controller = null;
-    if (this._activeControllers < this._controllers.length) {
-      controller = this._controllers[this._activeControllers];
+    if (!controller) { return; }
+
+    let controllerNode = null;
+    if (controller.activeCount < controller.nodes.length) {
+      controllerNode = controller.nodes[controller.activeCount];
     } else {
-      controller = controllerNode.clone();
-      this.addNode(controller);
-      this._controllers.push(controller);
+      controllerNode = controller.nodes[0].clone();
+      this.addNode(controllerNode);
+      controller.nodes.push(controllerNode);
     }
-    this._activeControllers = (this._activeControllers + 1) % this._maxInputElements;
+    controller.activeCount = (controller.activeCount + 1) % this._maxInputElements;
 
-    controller.matrix = gripMatrix;
-    controller.visible = true;
+    controllerNode.matrix = gripMatrix;
+    controllerNode.visible = true;
   }
 
   addLaserPointer(rigidTransform) {
@@ -312,10 +328,13 @@ export class InputRenderer extends Node {
       options = DEFAULT_RESET_OPTIONS;
     }
     if (this._controllers && options.controllers) {
-      for (let controller of this._controllers) {
-        controller.visible = false;
+      for (let handedness in this._controllers) {
+        let controller = this._controllers[handedness];
+        controller.activeCount = 0;
+        for (let controllerNode of controller.nodes) {
+          controllerNode.visible = false;
+        }
       }
-      this._activeControllers = 0;
     }
     if (this._lasers && options.lasers) {
       for (let laser of this._lasers) {

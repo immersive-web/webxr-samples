@@ -84,7 +84,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         video: video,
         displayMode: 'stereoTopBottom'
       });
-      
+
       // When the video is clicked we'll pause it if it's playing.
       videoNode.onSelect(() => {
         if (!video.paused) {
@@ -165,8 +165,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         renderer = new Renderer(gl);
         scene.setRenderer(renderer);
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}), 'right');
-        scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller-left.gltf'}), 'left');
       }
 
       function onRequestSession() {
@@ -178,7 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // If we want the video to autoplay when the session has fully started
           // (which may be several seconds after the original requestSession
           // call due to clicking through consent prompts or similar) then we
-          // need to start the video within a user activiation event first 
+          // need to start the video within a user activiation event first
           // (which this function is.) Once it's been started successfully we
           // pause it, at which point we can resume it pretty much whenever we'd
           // like.
@@ -188,7 +186,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         return navigator.xr.requestSession('immersive-vr', {
-            requiredFeatures: ['local-floor'] 
+            requiredFeatures: ['local-floor']
         }).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
@@ -212,6 +210,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
 
         initGL();
+        scene.inputRenderer.useProfileControllerMeshes(session);
 
         let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });

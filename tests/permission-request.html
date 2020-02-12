@@ -65,9 +65,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // WebXR sample app setup
       let app = new WebXRSampleApp({
-        referenceSpace: 'local-floor',
-        controllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller.gltf'}),
-        leftControllerMesh: new Gltf2Node({url: '../media/gltf/controller/controller-left.gltf'})
+        referenceSpace: 'local-floor'
       });
       document.querySelector('header').appendChild(app.xrButton.domElement);
 

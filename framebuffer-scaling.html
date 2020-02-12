@@ -30,11 +30,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='stylesheet' href='css/common.css'>
 
     <title>Framebuffer Scaling</title>
-    
+
     <style>
       :disabled, .disabled {
         opacity: 0.6;
-      } 
+      }
     </style>
   </head>
   <body>
@@ -48,7 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           buffer sizes)
 
           Framebuffer scaling should be used to make a performance/memory/quality
-          tradeoff for the lifetime of the session. 
+          tradeoff for the lifetime of the session.
           <a class="back" href="./">Back</a>
           <br/>
           <hr/>
@@ -60,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <main style='text-align: center;'>
-      <p>Click 'Enter XR' to see content</p> 
+      <p>Click 'Enter XR' to see content</p>
     </main>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
@@ -151,10 +151,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           renderer = new Renderer(gl);
 
           scene.setRenderer(renderer);
-          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller.gltf'}), 'right');
-          scene.inputRenderer.setControllerMesh(new Gltf2Node({url: 'media/gltf/controller/controller-left.gltf'}), 'left');
+          scene.inputRenderer.useProfileControllerMeshes(session);
         }
-        
+
         // These are the only meaningful change in this sample from xr-presentation.js.
 
         // If the native scale factor is requested, query it with the session

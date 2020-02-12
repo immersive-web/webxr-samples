@@ -32,9 +32,7 @@ export class WebXRSampleApp {
       inline: 'inline' in options ? options.inline : true,
       immersiveMode: options.immersiveMode || 'immersive-vr',
       referenceSpace: options.referenceSpace || 'local',
-      defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true,
-      controllerMesh: options.controllerMesh,
-      leftControllerMesh: options.leftControllerMesh
+      defaultInputHandling: 'defaultInputHandling' in options ? options.defaultInputHandling : true
     };
 
     this.gl = null;
@@ -55,7 +53,7 @@ export class WebXRSampleApp {
 
       session.requestAnimationFrame(this.frameCallback);
       this.scene.startFrame();
-      
+
       this.onXRFrame(time, frame, refSpace);
 
       this.scene.endFrame();
@@ -111,13 +109,6 @@ export class WebXRSampleApp {
 
       this.renderer = new Renderer(this.gl);
       this.scene.setRenderer(this.renderer);
-
-      if (this.options.controllerMesh) {
-        this.scene.inputRenderer.setControllerMesh(this.options.controllerMesh);
-      }
-      if (this.options.leftControllerMesh) {
-        this.scene.inputRenderer.setControllerMesh(this.options.leftControllerMesh, 'left');
-      }
     }
   }
 
@@ -150,7 +141,9 @@ export class WebXRSampleApp {
 
     this.onInitRenderer();
 
-    session.updateRenderState({ 
+    this.scene.inputRenderer.useProfileControllerMeshes(session);
+
+    session.updateRenderState({
       baseLayer: new XRWebGLLayer(session, this.gl)
     });
 
