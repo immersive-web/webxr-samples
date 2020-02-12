@@ -20,6 +20,8 @@
 
 const GL = WebGLRenderingContext; // For enums
 
+let nextDataTextureIndex = 0;
+
 export class TextureSampler {
   constructor() {
     this.minFilter = null;
@@ -59,6 +61,7 @@ export class ImageTexture extends Texture {
 
     this._img = img;
     this._imgBitmap = null;
+    this._manualKey = null;
 
     if (img.src && img.complete) {
       if (img.naturalWidth) {
@@ -102,11 +105,16 @@ export class ImageTexture extends Texture {
   }
 
   get textureKey() {
-    return this._img.src;
+    return this._manualKey || this._img.src;
   }
 
   get source() {
     return this._imgBitmap || this._img;
+  }
+
+  genDataKey() {
+    this._manualKey = `DATA_${nextDataTextureIndex}`;
+    nextDataTextureIndex++;
   }
 }
 
@@ -169,8 +177,6 @@ export class VideoTexture extends Texture {
     return this._video;
   }
 }
-
-let nextDataTextureIndex = 0;
 
 export class DataTexture extends Texture {
   constructor(data, width, height, format = GL.RGBA, type = GL.UNSIGNED_BYTE) {

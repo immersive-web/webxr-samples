@@ -189,13 +189,13 @@ export class Gltf2Loader {
           pbr.roughnessFactor || 1.0,
         ];
         glMaterial.metallicRoughness.texture = getTexture(pbr.metallicRoughnessTexture);
-        glMaterial.normal.texture = getTexture(json.normalTexture);
-        glMaterial.occlusion.texture = getTexture(json.occlusionTexture);
-        glMaterial.occlusionStrength.value = (json.occlusionTexture && json.occlusionTexture.strength) ?
-                                              json.occlusionTexture.strength : 1.0;
+        glMaterial.normal.texture = getTexture(material.normalTexture);
+        glMaterial.occlusion.texture = getTexture(material.occlusionTexture);
+        glMaterial.occlusionStrength.value = (material.occlusionTexture && material.occlusionTexture.strength) ?
+                                              material.occlusionTexture.strength : 1.0;
         glMaterial.emissiveFactor.value = material.emissiveFactor || [0, 0, 0];
-        glMaterial.emissive.texture = getTexture(json.emissiveTexture);
-        if (!glMaterial.emissive.texture && json.emissiveFactor) {
+        glMaterial.emissive.texture = getTexture(material.emissiveTexture);
+        if (!glMaterial.emissive.texture && material.emissiveFactor) {
           glMaterial.emissive.texture = new ColorTexture(1.0, 1.0, 1.0, 1.0);
         }
 
@@ -415,6 +415,7 @@ class Gltf2Resource {
           img.src = `${this.baseUrl}${this.json.uri}`;
         }
       } else {
+        this._texture.genDataKey();
         let view = bufferViews[this.json.bufferView];
         view.dataView().then((dataView) => {
           let blob = new Blob([dataView], {type: this.json.mimeType});
