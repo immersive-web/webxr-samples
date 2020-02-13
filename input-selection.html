@@ -54,6 +54,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {vec3, mat4} from './js/render/math/gl-matrix.js';
       import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
       import {QueryArgs} from './js/util/query-args.js';
+      import {Ray} from './js/render/math/ray.js';
 
       // If requested, use the polyfill to provide support for mobile devices
       // and devices which only support WebVR.
@@ -76,6 +77,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       let boxes = [];
       let currently_selected_boxes = [null, null];
+      let currently_grabbed_boxes = [null, null];
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -159,6 +161,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // performed some sort of primary input action and respond to it.
         session.addEventListener('select', onSelect);
 
+        session.addEventListener('squeezestart', onSqueezeStart);
+        session.addEventListener('squeezeend', onSqueezeEnd);
+        session.addEventListener('squeeze', onSqueeze);
+
         initGL();
 
         // This and all future samples that visualize controllers will use this
@@ -234,6 +240,53 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
+      function onSqueezeStart(ev) {
+        console.log("squeezestart " + currently_grabbed_boxes);
+        let refSpace = ev.frame.session.isImmersive ?
+                         xrImmersiveRefSpace :
+                         inlineViewerHelper.referenceSpace;
+        let targetRayPose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
+        if (!targetRayPose) {
+          return;
+        }
+
+        let hitResult = scene.hitTest(targetRayPose.transform);
+        if (hitResult) {
+          // Check to see if the hit result was one of our boxes.
+          for (let box of boxes) {
+            if (hitResult.node == box.node && !box.grabbed) {
+              let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+              currently_grabbed_boxes[i] = box;
+              box.scale = [0.1, 0.1, 0.1];
+              box.originalPos = box.position;
+              box.grabbed = true;
+            }
+          }
+        }
+      }
+      function onSqueezeEnd(ev) {
+        let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+        let currently_grabbed_box = currently_grabbed_boxes[i];  
+        console.log("squeezeend " + currently_grabbed_box);
+        if (currently_grabbed_box != null && currently_grabbed_box.grabbed) {
+          // the scale of 'grabbed' box is 0.1. Restore the original scale.
+          vec3.add(currently_grabbed_box.scale, currently_grabbed_box.scale, [1, 1, 1]);
+          currently_grabbed_box.position = currently_grabbed_box.originalPos;
+          currently_grabbed_box.grabbed = false;
+          currently_grabbed_boxes[i] = null;
+        }
+      }
+      function onSqueeze(ev) {
+        let i = (ev.inputSource.handedness == "left") ? 0 : 1;
+        let currently_grabbed_box = currently_grabbed_boxes[i];  
+        console.log("squeeze " + currently_grabbed_box);
+        if (currently_grabbed_box != null && currently_grabbed_box.grabbed) {
+          // Change the box color to something random, so we can see that 'squeeze' was invoked.
+          let uniforms = currently_grabbed_box.renderPrimitive.uniforms;
+          uniforms.baseColorFactor.value = [Math.random(), Math.random(), Math.random(), 1.0];
+        }
+      }
+
       function onEndSession(session) {
         session.end();
       }
@@ -254,6 +307,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.startFrame();
 
         session.requestAnimationFrame(onXRFrame);
+
+        // check if we can move grabbed objects
+        for (let inputSource of frame.session.inputSources) {
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+
+          if (!targetRayPose) {
+            continue;
+          }
+          let i = (inputSource.handedness == "left") ? 0 : 1;
+          if (currently_grabbed_boxes[i] != null && currently_grabbed_boxes[i].grabbed) {
+            let targetRay = new Ray(targetRayPose.transform.matrix);
+            let grabDistance = 0.1; // 10 cm
+            let grabPos = vec3.fromValues(
+                targetRay.origin[0], //x
+                targetRay.origin[1], //y
+                targetRay.origin[2]  //z
+                );
+            vec3.add(grabPos, grabPos, [
+                targetRay.direction[0] * grabDistance,
+                targetRay.direction[1] * grabDistance + 0.06, // 6 cm up to avoid collision with a ray
+                targetRay.direction[2] * grabDistance,
+                ]);
+            currently_grabbed_boxes[i].position = grabPos;
+          }
+        }
 
         // Update the matrix for each box
         for (let box of boxes) {
