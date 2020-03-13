@@ -29,24 +29,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Barebones VR</title>
+    <title>Barebones AR</title>
   </head>
   <body>
-    <header>
-      <details open>
-        <summary>Barebones WebXR DOM Overlay</summary>
-        <p>
-          This sample demonstrates extremely simple use of an "immersive-ar"
-          session with no library dependencies, with an optional DOM overlay.
-          It doesn't render anything exciting, just draws a square with a slowly
-          changing color to prove it's working.
-          <a class="back" href="./index.html">Back</a>
-        </p>
-        <div id="session-info"></div>
-        <div id="warning-zone"></div>
-        <button id="xr-button" class="barebones-button" disabled>XR not found</button>
-      </details>
-    </header>
+    <div id="overlay">
+      <header>
+        <details open>
+          <summary>Barebones WebXR DOM Overlay</summary>
+          <p>
+            This sample demonstrates extremely simple use of an "immersive-ar"
+            session with no library dependencies, with an optional DOM overlay.
+            It doesn't render anything exciting, just draws a rectangle with a
+            slowly changing color to prove it's working.
+            <a class="back" href="./index.html">Back</a>
+          </p>
+          <div id="session-info"></div>
+          <div id="warning-zone"></div>
+          <button id="xr-button" class="barebones-button" disabled>XR not found</button>
+        </details>
+      </header>
+    </div>
     <main style='text-align: center;'>
       <p>Click 'Enter AR' to see content</p>
     </main>
@@ -87,10 +89,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onButtonClicked() {
         if (!xrSession) {
             // Ask for an optional DOM Overlay, see https://immersive-web.github.io/dom-overlays/
-            // Use BODY as the root element.
             navigator.xr.requestSession('immersive-ar', {
                 optionalFeatures: ['dom-overlay'],
-                domOverlay: {root: document.body}
+                domOverlay: {root: document.getElementById('overlay')}
             }).then(onSessionStarted, onRequestSessionError);
         } else {
           xrSession.end();
