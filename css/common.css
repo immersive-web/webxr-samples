@@ -62,3 +62,20 @@ canvas {
   margin-right: 0.2em;
   margin-left: 0.2em;
 }
+
+/* Used for the 'barebones' samples */
+.barebones-button {
+  font-family: "Karla", sans-serif;
+  border: rgb(80, 168, 252) 2px solid;
+  border-radius: 2px;
+  box-sizing: border-box;
+  background: none;
+  height: 55px;
+  min-width: 176px;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  font-size: 18px;
+  color: rgb(80, 168, 252);
+  background-color: rgba(255, 255, 255, 0.7);
+}
