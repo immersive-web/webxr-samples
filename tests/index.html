@@ -133,9 +133,13 @@
               path: 'composed-views.html',
               description: 'Tests a scenario where views are composed from a combination of viewer and local-floor space.' },
 
-              { title: 'Reference Space Invert', category: 'We Hate Matrix Math',
+            { title: 'Reference Space Invert', category: 'We Hate Matrix Math',
               path: 'ref-space-invert.html',
               description: 'Tests creating an offset reference space with the viewer pose, which should cancel out the pose and report the viewer at the origin.' },
+
+            { title: 'Interrupted AR', category: 'Exceptions!',
+              path: 'interrupted-ar.html',
+              description: 'Tests what happens when an exception is thrown in promise resolve of an `immersive-ar` session request.' },
           ];
 
           let mainElement = document.getElementById("main");
