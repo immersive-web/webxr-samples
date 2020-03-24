@@ -103,7 +103,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.innerHTML = 'Exit AR';
 
         // Show which type of DOM Overlay got enabled (if any)
-        document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
+        if (session.domOverlayState) {
+          document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
+        }
 
         session.addEventListener('end', onSessionEnded);
         let canvas = document.createElement('canvas');
