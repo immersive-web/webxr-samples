@@ -62,12 +62,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new Scene();
       scene.enableStats(false);
 
-      let arObject = new Node();
-      arObject.visible = false;
-      scene.addNode(arObject);
+      let shadowedARObject = new Node();
+      shadowedARObject.visible = false;
+      scene.addNode(shadowedARObject);
+
+      let unShadowedARObject = new Node();
+      unShadowedARObject.visible = false;
+      scene.addNode(unShadowedARObject);
 
       let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-      arObject.addNode(flower);
+      shadowedARObject.addNode(flower);
+      unShadowedARObject.addNode(flower);
 
       let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
       reticle.visible = false;
@@ -77,7 +82,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // it in the world without adding much complexity.
       let shadow = new DropShadowNode();
       vec3.set(shadow.scale, 0.15, 0.15, 0.15);
-      arObject.addNode(shadow);
+      shadowedARObject.addNode(shadow);
 
       const MAX_ANCHORED_OBJECTS = 30;
       let anchoredObjects = [];
@@ -104,9 +109,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        // TODO use unbounded space over local?
-        // TODO what should this be for anchors?
-        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['viewer', 'unbounded', 'anchors']})
+        return navigator.xr.requestSession('immersive-ar',
+                                           {requiredFeatures: ['viewer', 'unbounded', 'anchors']})
                            .then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
@@ -155,49 +159,49 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
 
-      // Adds a new object to the scene at the
-      // specificed transform.
-      function addAnchorAndObjectAt(frame, matrix) {
+      function addAnchoredObjectsToScene(anchor) {
+        // Add an object tied to the anchor, and another object not tied to the anchor.
+        // These objects may drift apart over time, as the anchor is used to lock only one
+        // of the objects to real world coordinate.
+        let anchoredObject = shadowedARObject.clone();
+        anchoredObject.visible = true;
+        anchoredObject.matrix = matrix;
+        scene.addNode(anchoredObject);
+
+        // The unanchored object is differentiated by its lack of shadow.
+        let unAnchoredObject = unShadowedARObject.clone();
+        unAnchoredObject.visible = true;
+        unAnchoredObject.matrix = matrix;
+
+        scene.addNode(unAnchoredObject);
+        anchoredObjects.push({
+          anchoredObject: anchoredObject,
+          unAnchoredObject: unAnchoredObject,
+          anchor: anchor
+        });
+
+        // For performance reasons if we add too many objects start
+        // removing the oldest ones to keep the scene complexity
+        // from growing too much.
+        if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
+          let objectToRemove = anchoredObjects.shift();
+          scene.removeNode(objectToRemove.anchoredObject);
+          scene.removeNode(objectToRemove.unAnchoredObject);
+          objectToRemove.anchor.detach();
+        }
+      }
+
+      function onSelect(event) {
+        let frame = event.frame;
+        let matrix = reticle.matrix;
+
         let anchorPose = new XRRigidTransform();
         // Create a free-floating anchor.
         frame.createAnchor(anchorPose, referenceSpace).then((anchor) => {
-          // Add an object tied to the anchor, and another object not tied to the anchor.
-          // These objects may drift apart over time, as the anchor is used to lock only one
-          // of the objects to real world coordinate.
-          let anchoredObject = arObject.clone();
-          anchoredObject.visible = true;
-          anchoredObject.matrix = matrix;
-          scene.addNode(anchoredObject);
-
-          let unAnchoredObject = arObject.clone();
-          unAnchoredObject.visible = true;
-          unAnchoredObject.matrix = matrix;
-
-          scene.addNode(unAnchoredObject);
-          anchoredObjects.push({
-            anchoredObject: anchoredObject,
-            unAnchoredObject: unAnchoredObject,
-            anchor: anchor
-          });
-
-          // For performance reasons if we add too many objects start
-          // removing the oldest ones to keep the scene complexity
-          // from growing too much.
-          if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
-            let objectToRemove = anchoredObjects.shift();
-            scene.removeNode(objectToRemove.anchoredObject);
-            scene.removeNode(objectToRemove.unAnchoredObject);
-            objectToRemove.anchor.detach();
-          }
+          addAnchoredObjectsToScene(anchor);
         }, (error) => {
           console.error("Could not create anchor: " + error);
         });
-      }
-
-      let rayOrigin = vec3.create();
-      let rayDirection = vec3.create();
-      function onSelect(event) {
-          addAnchorAndObjectAt(reticle.matrix);
       }
 
       // Called every time a XRSession requests that a new frame be drawn.
