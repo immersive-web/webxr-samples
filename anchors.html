@@ -1,0 +1,229 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+
+    <title>Anchors</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Anchors</summary>
+        <p>
+          This sample demonstrates use of anchors place virtual objects in stable, real world locations.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Node} from './js/render/core/node.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {DropShadowNode} from './js/render/nodes/drop-shadow.js';
+      import {vec3} from './js/render/math/gl-matrix.js';
+      import {Ray} from './js/render/math/ray.js';
+
+      // XR globals.
+      let xrButton = null;
+      let xrRefSpace = null;
+      let xrViewerSpace = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      scene.enableStats(false);
+
+      let arObject = new Node();
+      arObject.visible = false;
+      scene.addNode(arObject);
+
+      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      arObject.addNode(flower);
+
+      let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticle.visible = false;
+      scene.addNode(reticle);
+
+      // Having a really simple drop shadow underneath an object helps ground
+      // it in the world without adding much complexity.
+      let shadow = new DropShadowNode();
+      vec3.set(shadow.scale, 0.15, 0.15, 0.15);
+      arObject.addNode(shadow);
+
+      const MAX_ANCHORED_OBJECTS = 30;
+      let anchoredObjects = [];
+
+      // Ensure the background is transparent for AR.
+      scene.clear = false;
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXRTitle: "START AR",
+          textXRNotFoundTitle: "AR NOT FOUND",
+          textExitXRTitle: "EXIT  AR",
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-ar')
+                      .then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        // TODO use unbounded space over local?
+        // TODO what should this be for anchors?
+        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['viewer', 'unbounded', 'anchors']})
+                           .then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelect);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            xrCompatible: true
+          });
+
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        // The reticle will sit 1 meter in front of the viewer space
+        let viewerSpaceReticleOffset = new XRRigidTransform({x: 0, y: 0, z: -1.0}, {x:0, y:0, z:1.0, w: 1.0});
+        session.requestReferenceSpace('viewer').then((refSpace) => {
+          xrViewerSpace = refSpace.getOffsetReferenceSpace(viewerSpaceReticleOffset);
+        });
+
+        session.requestReferenceSpace('unbounded').then((refSpace) => {
+          xrRefSpace = refSpace;
+
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        for(const {anchor} of anchoredObjects) {
+          anchor.detach();
+        }
+
+        allAnchors.clear();
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+      }
+
+      // Adds a new object to the scene at the
+      // specificed transform.
+      function addAnchorAndObjectAt(frame, matrix) {
+        let anchorPose = new XRRigidTransform();
+        // Create a free-floating anchor.
+        frame.createAnchor(anchorPose, referenceSpace).then((anchor) => {
+          // Add an object tied to the anchor, and another object not tied to the anchor.
+          // These objects may drift apart over time, as the anchor is used to lock only one
+          // of the objects to real world coordinate.
+          let anchoredObject = arObject.clone();
+          anchoredObject.visible = true;
+          anchoredObject.matrix = matrix;
+          scene.addNode(anchoredObject);
+
+          let unAnchoredObject = arObject.clone();
+          unAnchoredObject.visible = true;
+          unAnchoredObject.matrix = matrix;
+
+          scene.addNode(unAnchoredObject);
+          anchoredObjects.push({
+            anchoredObject: anchoredObject,
+            unAnchoredObject: unAnchoredObject,
+            anchor: anchor
+          });
+
+          // For performance reasons if we add too many objects start
+          // removing the oldest ones to keep the scene complexity
+          // from growing too much.
+          if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
+            let objectToRemove = anchoredObjects.shift();
+            scene.removeNode(objectToRemove.anchoredObject);
+            scene.removeNode(objectToRemove.unAnchoredObject);
+            objectToRemove.anchor.detach();
+          }
+        }, (error) => {
+          console.error("Could not create anchor: " + error);
+        });
+      }
+
+      let rayOrigin = vec3.create();
+      let rayDirection = vec3.create();
+      function onSelect(event) {
+          addAnchorAndObjectAt(reticle.matrix);
+      }
+
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let pose = frame.getPose(xrViewerSpace, xrRefSpace);
+
+        reticle.matrix = pose.transform.matrix;
+
+        // Update the position of all the anchored objects based on the currently reported positions of their anchors
+        for (const {anchoredObject, anchor} of anchoredObjects) {
+          const anchorPose = xrFrame.getPose(anchor.anchorSpace, referenceSpace)
+          anchoredObject.matrix = anchorPose.matrix;
+        }
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>
