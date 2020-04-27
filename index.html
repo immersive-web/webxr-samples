@@ -107,6 +107,7 @@
         <div>
           <img id='canhazimg' style='width: 32px; float: left;'></img>
           <p id='canhazwebxr' style='margin-left: 48px;'></p>
+          <button id='request-permissions' style='display: none; padding: 4px 8px;'>Request Permissions</button>
         </div>
         <script>
           function isMobile(global) {
@@ -115,9 +116,41 @@
             return check;
           };
 
+          function isiOS() {
+            return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          }
+
+          async function requestPermissions() {
+            let motionPermission = 'granted';
+
+            try {
+              if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                motionPermission = await DeviceMotionEvent.requestPermission();
+              }
+            } catch (error) {
+              console.log("Waiting user to grant permissions");
+            }
+
+            if (motionPermission === 'granted') {
+              canhazElement.innerText = "Your granted motion permissions and should be able to use this demo on Safari for iOS"
+              canhazImg.src = "media/textures/check-button.png";
+              permsButton.style.display = "none";
+              document.querySelectorAll("article").forEach(l => l.classList.remove("warning"));
+            } else {
+              console.log("Could not get permissions");
+            }
+          }
+
+          let permsButton = document.getElementById('request-permissions');
           let canhazElement = document.getElementById('canhazwebxr');
           let canhazImg = document.getElementById('canhazimg');
-          if ('xr' in navigator) {
+          if (isMobile(window) && isiOS()) {
+            canhazElement.innerText = "Safari for iOS requires manually grant motion permissions to use WebXR"
+            canhazImg.src = "media/textures/info-button.png";
+            permsButton.style.display = "block";
+            permsButton.addEventListener('click', requestPermissions);
+            document.querySelectorAll("article").forEach(l => l.classList.add("warning"));
+          } else if ('xr' in navigator) {
             canhazElement.innerText = "Yes! Your browser supports WebXR and can run Virtual Reality and Augment Reality experiences if you have the appropriate hardware."
             canhazImg.src = "media/textures/check-button.png";
           } else if ('getVRDisplays' in navigator) {
