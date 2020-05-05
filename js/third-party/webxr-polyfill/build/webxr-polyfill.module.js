@@ -1944,6 +1944,13 @@ var isChromeWithoutDeviceMotion = function () {
     return value;
   };
 }();
+var isSafariWithoutDeviceMotion = function () {
+  var value = false;
+  value = isIOS() && isSafari() && navigator.userAgent.indexOf('13_4') !== -1;
+  return function () {
+    return value;
+  };
+}();
 var isR7 = function () {
   var isR7 = navigator.userAgent.indexOf('R7 Build') !== -1;
   return function () {
@@ -3737,7 +3744,7 @@ function FusionPoseSensor(kFilter, predictionTime, yawOnly, isDebug) {
   this.isIOS = isIOS();
   var chromeVersion = getChromeVersion();
   this.isDeviceMotionInRadians = !this.isIOS && chromeVersion && chromeVersion < 66;
-  this.isWithoutDeviceMotion = isChromeWithoutDeviceMotion();
+  this.isWithoutDeviceMotion = isChromeWithoutDeviceMotion() || isSafariWithoutDeviceMotion();
   this.filterToWorldQ = new Quaternion();
   if (isIOS()) {
     this.filterToWorldQ.setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 2);
