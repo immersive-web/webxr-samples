@@ -67,7 +67,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       arObject.visible = false;
       scene.addNode(arObject);
 
-      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      // Black Rose mesh purchased from https://sketchfab.com/3d-models/black-rose-5f22553c205d44768e2a76e7c3fbfa43.
+      // Please do not use in other projects without purchasing your own license.
+      let flower = new Gltf2Node({url: 'media/gltf/black-rose/black-rose.glb'});
+
+      // Alternative, CC-BY 3.0 licensed flower
+      //let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+
       arObject.addNode(flower);
 
       let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
@@ -179,8 +185,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let rayDirection = vec3.create();
       function onSelect(event) {
         if (reticle.visible) {
-          // The reticle should already be positioned at the latest hit point, 
-          // so we can just use it's matrix to save an unnecessary call to 
+          // The reticle should already be positioned at the latest hit point,
+          // so we can just use it's matrix to save an unnecessary call to
           // event.frame.getHitTestResults.
           addARObjectAt(reticle.matrix);
         }
