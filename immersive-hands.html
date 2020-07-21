@@ -98,7 +98,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function initHands() {
-        if (XRHand && boxes_left.length === 0) {
+        for (const box of boxes_left) {
+          scene.removeNode(box.node);
+        }
+        for (const box of boxes_right) {
+          scene.removeNode(box.node);
+        }
+        boxes_left = [];
+        boxes_right = [];
+        boxes = { left: boxes_left, right: boxes_right};
+        if (XRHand) {
           for (let i = 0; i <= XRHand.LITTLE_PHALANX_TIP; i++) {
             const r = .6 + Math.random() * .4;
             const g = .6 + Math.random() * .4;
@@ -133,7 +142,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Called when the user selects a device to present to. In response we
       // will request an exclusive session from that device.
       function onRequestSession() {
-        return navigator.xr.requestSession('immersive-vr', {optionalFeatures: ["hand-tracking"]}).then(onSessionStarted);
+        return navigator.xr.requestSession('immersive-vr', {optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']}).then(onSessionStarted);
       }
 
       // Called when we've successfully acquired a XRSession. In response we
@@ -171,7 +180,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // this case an 'local' frame of reference means that all poses will
         // be relative to the location where the XRDevice was first detected.
         session.requestReferenceSpace('local').then((refSpace) => {
-          xrRefSpace = refSpace;
+          xrRefSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({x: 0, y: 1.5, z: 0}));
 
           // Inform the session that we're ready to begin drawing.
           session.requestAnimationFrame(onXRFrame);
@@ -199,11 +208,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function updateInputSources(session, frame, refSpace) {
         for (let inputSource of session.inputSources) {
           if (!inputSource.hand) {
-            for (const box of boxes[inputSource.handedness]) {
-              scene.removeNode(box.node);
-            }
+            continue;
           } else {
-            let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
             for (const box of boxes[inputSource.handedness]) {
               let jointPose = null;
               if (inputSource.hand[box.offset] !== null) {
