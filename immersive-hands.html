@@ -107,7 +107,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         boxes_left = [];
         boxes_right = [];
         boxes = { left: boxes_left, right: boxes_right};
-        if (XRHand) {
+        if (typeof XRHand !== 'undefined') {
           for (let i = 0; i <= XRHand.LITTLE_PHALANX_TIP; i++) {
             const r = .6 + Math.random() * .4;
             const g = .6 + Math.random() * .4;
