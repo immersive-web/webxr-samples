@@ -219,7 +219,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 scene.addNode(box.node);
                 box.node.translation = [jointPose.transform.position.x, jointPose.transform.position.y, jointPose.transform.position.z, jointPose.transform.position.w];
                 box.node.rotation = [jointPose.transform.orientation.x, jointPose.transform.orientation.y, jointPose.transform.orientation.z, jointPose.transform.orientation.w];
-                box.node.scale = [jointPose.radius, jointPose.radius, jointPose.radius];
+                if (jointPose.radius !== null) {
+                  box.node.scale = [jointPose.radius, jointPose.radius, jointPose.radius];
+                } else {
+                  // for fingertips
+                  box.node.scale = [0.005f, 0.005f, 0.005f];
+                }
               } else {
                 scene.removeNode(box.node);
               }
