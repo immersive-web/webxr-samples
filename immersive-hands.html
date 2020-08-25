@@ -210,7 +210,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (!inputSource.hand) {
             continue;
           } else {
-            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP);
+            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP*2);
             if (frame.fillRadii(inputSource.hand, radii)) {
               console.log(radii);
             } else {
