@@ -210,6 +210,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (!inputSource.hand) {
             continue;
           } else {
+            var radii = new Array();
+            for (let i = 0; i <= XRHand.LITTLE_PHALANX_TIP; i++) radii[i] = 0;
+            if (frame.fillRadii(inputSource.hand, radii)) {
+              console.log(radii);
+            } else {
+              continue;
+            }
             for (const box of boxes[inputSource.handedness]) {
               let jointPose = null;
               if (inputSource.hand[box.offset] !== null) {
