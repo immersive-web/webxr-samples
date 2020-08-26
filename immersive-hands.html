@@ -210,12 +210,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (!inputSource.hand) {
             continue;
           } else {
-            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP*2);
-            if (frame.fillRadii(inputSource.hand, radii)) {
-              console.log(radii);
-            } else {
-              continue;
-            }
+            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP);
+            // if (frame.fillRadii(inputSource.hand, radii)) {
+            //   console.log(radii);
+            // } else {
+            //   continue;
+            // }
             for (const box of boxes[inputSource.handedness]) {
               let jointPose = null;
               if (inputSource.hand[box.offset] !== null) {
