@@ -213,7 +213,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           continue;
         } else {
           try {
-            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP);
+            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
             if (frame.fillRadii(inputSource.hand, radii)) {
               console.log(radii);
             } else {
