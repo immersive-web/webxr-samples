@@ -212,17 +212,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!inputSource.hand) {
           continue;
         } else {
-          try {
-            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
-            if (frame.fillRadii(inputSource.hand, radii)) {
-              console.log(radii);
-            } else {
-              console.log(false);
-            }
-          }
-          catch (err) {
-            console.log(err.message);
-          }
+          // try {
+          //   var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
+          //   if (frame.fillRadii(inputSource.hand, radii)) {
+          //     console.log(radii);
+          //   } else {
+          //     console.log(false);
+          //   }
+          // }
+          // catch (err) {
+          //   console.log(err.message);
+          // }
 
           for (const box of boxes[inputSource.handedness]) {
             let jointPose = null;
@@ -230,6 +230,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               jointPose = frame.getJointPose(inputSource.hand[box.offset], refSpace);
             }
             if (jointPose !== null) {
+              console.log('true');
               scene.addNode(box.node);
               box.node.translation = [jointPose.transform.position.x, jointPose.transform.position.y, jointPose.transform.position.z, jointPose.transform.position.w];
               box.node.rotation = [jointPose.transform.orientation.x, jointPose.transform.orientation.y, jointPose.transform.orientation.z, jointPose.transform.orientation.w];
@@ -240,6 +241,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 box.node.scale = [0.005, 0.005, 0.005];
               }
             } else {
+              console.log('false');
               scene.removeNode(box.node);
             }
           }
