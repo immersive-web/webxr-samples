@@ -212,16 +212,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!inputSource.hand) {
           continue;
         } else {
-          try {
-            var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
-            if (frame.fillRadii(inputSource.hand, radii)) {
-              console.log(radii);
-            } else {
-              console.log(false);
+          for (const box of boxes[inputSource.handedness]) {
+            if (inputSource.hand[box.offset] == null) {
+              console.log('bad joint, moving on');
+              continue;
             }
           }
-          catch (err) {
-            console.log(err.message);
+
+          var radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
+          if (frame.fillRadii(inputSource.hand, radii)) {
+            console.log(radii);
+          } else {
+            console.log(false);
           }
 
           for (const box of boxes[inputSource.handedness]) {
