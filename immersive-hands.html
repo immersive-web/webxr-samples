@@ -212,6 +212,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!inputSource.hand) {
           continue;
         } else {
+          print(inputSource.hand);
           for (const box of boxes[inputSource.handedness]) {
             if (inputSource.hand[box.offset] == null) {
               console.log('bad joint, moving on');
