@@ -238,7 +238,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               box.node.translation = [jointPose.transform.position.x, jointPose.transform.position.y, jointPose.transform.position.z, jointPose.transform.position.w];
               box.node.rotation = [jointPose.transform.orientation.x, jointPose.transform.orientation.y, jointPose.transform.orientation.z, jointPose.transform.orientation.w];
               if (jointPose.radius !== null) {
-                console.log('ah ha');
+                console.log(jointPose.radius);
                 box.node.scale = [jointPose.radius, jointPose.radius, jointPose.radius];
               } else {
                 // for fingertips
