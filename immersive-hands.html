@@ -237,9 +237,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               scene.addNode(box.node);
               box.node.translation = [jointPose.transform.position.x, jointPose.transform.position.y, jointPose.transform.position.z, jointPose.transform.position.w];
               box.node.rotation = [jointPose.transform.orientation.x, jointPose.transform.orientation.y, jointPose.transform.orientation.z, jointPose.transform.orientation.w];
-              if (jointPose.radius !== null) {
-                console.log(jointPose.radius);
-                box.node.scale = [jointPose.radius, jointPose.radius, jointPose.radius];
+              let jointRadius = radii[box.offset];
+              if (jointRadius !== null) {
+                box.node.scale = [jointRadius, jointRadius, jointRadius];
               } else {
                 // for fingertips
                 box.node.scale = [0.005, 0.005, 0.005];
