@@ -224,9 +224,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // if (!goodjoints) {
           //   continue;
           // }
-          // if (!frame.fillRadii(inputSource.hand, radii)) {
-          //   continue;
-          // }
+          if (!frame.fillRadii(inputSource.hand, radii)) {
+            continue;
+          }
 
           for (const box of boxes[inputSource.handedness]) {
             let jointPose = null;
