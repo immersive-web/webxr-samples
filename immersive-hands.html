@@ -213,21 +213,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!inputSource.hand) {
           continue;
         } else {
-          // var goodjoints = true;
-          // for (const box of boxes[inputSource.handedness]) {
-          //   if (inputSource.hand[box.offset] == null) {
-          //     console.log('bad joint, moving on');
-          //     goodjoints = false;
-          //   }
-          // }
-
-          // if (!goodjoints) {
-          //   continue;
-          // }
           if (!frame.fillRadii(inputSource.hand, radii)) {
             continue;
           }
-
           for (const box of boxes[inputSource.handedness]) {
             let jointPose = null;
             if (inputSource.hand[box.offset] !== null) {
