@@ -214,7 +214,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           continue;
         } else {
 
-          pose = frame.getPose(inputSource.targetRaySpace, refSpace);
+          let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
           if (pose) {
             console.log(pose.transform.position);
           } else {
