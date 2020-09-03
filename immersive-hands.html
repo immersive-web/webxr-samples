@@ -213,6 +213,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!inputSource.hand) {
           continue;
         } else {
+          console.log(inputSource.handedness);
+          console.log(inputSource.targetRaySpace);
+          console.log(inputSource.targetRayMode);
+          console.log(inputSource.gamepad);
+          console.log(inputSource.hand);
+          console.log(inputSource.gripSpace);
+          console.log(inputSource.profiles);
+
           if (!frame.fillRadii(inputSource.hand, radii)) {
             continue;
           }
