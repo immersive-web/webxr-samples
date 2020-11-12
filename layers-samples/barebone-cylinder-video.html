@@ -1,0 +1,228 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+  <title>Barebone Video with Cylinder Layer</title>
+
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Barebone Video with Cylinder Layer</summary>
+      <p>
+        This sample demonstrates extremely simple use of an "immersive-ar"
+        session with no library dependencies, and showcase how to use a
+        cylinder layer to display a mono or stereo video.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <input type="checkbox" id="stereo_layer" value="Bike">Stereo cylinder layer</input>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    'use strict';
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let xrReadFramebuffer = null;
+    let videoTexture = null;
+    let updatevideo = false;
+
+    let renderer = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let cylinder_layer = null;
+    let stereo_layer = document.getElementById("stereo_layer");
+
+    let video = document.createElement('video');
+    video.loop = true;
+    video.src = '../media/video/bbb-sunflower-540p2-1min.webm';
+
+    video.ontimeupdate = () => {
+      updatevideo = true;
+    };
+
+
+    // Checks to see if WebXR is available and, if so, requests an XRDevice
+    // that is connected to the system and tests it to ensure it supports the
+    // desired session options.
+    function initXR() {
+      if (!xrButton) {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+      }
+      if (navigator.xr) {
+        // If the device allows creation of exclusive sessions set it as the
+        // target of the 'Enter XR' button.
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    // Called when the user clicks the button to enter XR. If we don't have a
+    // session we'll request one, and if we do have a session we'll end it.
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+        video.play();
+      } else {
+        onEndSession();
+      }
+    }
+
+    // Called when we've successfully acquired a XRSession. In response we
+    // will set up the necessary session state and kick off the frame loop.
+    function onSessionStarted(session) {
+      xrSession = session;
+
+      // Listen for the sessions 'end' event so we can respond if the user
+      // or UA ends the session for any reason.
+      session.addEventListener('end', onSessionEnded);
+
+      // Create a WebGL context to render with, initialized to be compatible
+      // with the XRDisplay we're presenting to.
+      let canvas = document.createElement('canvas');
+      gl = canvas.getContext('webgl2', { xrCompatible: true, webgl2: true });
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrReadFramebuffer = gl.createFramebuffer();
+      videoTexture = gl.createTexture();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+
+        cylinder_layer = xrGLFactory.createCylinderLayer({ space: refSpace, viewPixelWidth: 480, viewPixelHeight: 270, stereo: (stereo_layer.checked ? "stereo" : "mono") });
+        session.updateRenderState({ layers: [cylinder_layer] });
+
+        // Inform the session that we're ready to begin drawing.
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    // Called either when the user has explicitly ended the session by calling
+    // session.end() or when the UA has ended the session for any reason.
+    // At this point the session object is no longer usable and should be
+    // discarded.
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      video.pause();
+
+      // In this simple case discard the WebGL context too, since we're not
+      // rendering anything else to the screen with it.
+      gl = null;
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    // Called every time the XRSession requests that a new frame be drawn.
+    function onXRFrame(time, frame) {
+      let session = frame.session;
+
+      // Inform the session that we're ready for the next frame.
+      session.requestAnimationFrame(onXRFrame);
+
+      //if (!updatevideo )
+      //  return;
+
+      updatevideo = false;
+
+      // Get the XRDevice pose relative to the reference space we created
+      // earlier.
+      let pose = frame.getViewerPose(xrRefSpace);
+
+      // Getting the pose may fail if, for example, tracking is lost. So we
+      // have to check to make sure that we got a valid pose before attempting
+      // to render with it. If not in this case we'll just leave the
+      // framebuffer cleared, so tracking loss means the scene will simply
+      // disappear.
+      if (pose) {
+        let arraylength = session.renderState.layers.length;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        session.renderState.layers.forEach(glLayer => {
+          let cnt = 0;
+          let eyes = ["none"];
+          if (glLayer.layout !== "mono") {
+            eyes = ["left", "right"];
+          }
+          eyes.forEach(eye => {
+            let subimage = null;
+
+            subimage = xrGLFactory.getSubImage(glLayer, frame, eye);
+
+            let x1offset = subimage.viewport.x;
+            let y1offset = subimage.viewport.y;
+            let x2offset = subimage.viewport.x + subimage.viewport.width;
+            let y2offset = subimage.viewport.y + subimage.viewport.height;
+
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, subimage.colorTexture, 0);
+
+            gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, xrReadFramebuffer);
+            gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, videoTexture, 0);
+            gl.blitFramebuffer(0, video.videoHeight / 2 * cnt, video.videoWidth, video.videoHeight / 2 * (cnt + 1), x1offset, y1offset, x2offset, y2offset, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+            cnt++;
+          });
+        });
+      }
+    }
+
+    // Start the XR application.
+    video.addEventListener('loadeddata', (event) => {
+      if (video.readyState >= 2) {
+        initXR();
+      }
+    });
+  </script>
+</body>
+
+</html>

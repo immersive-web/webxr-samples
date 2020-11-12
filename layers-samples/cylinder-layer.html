@@ -1,0 +1,548 @@
+<!doctype html>
+<!--
+Copyright 2019 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Teleportation Layers</title>
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Teleportation</summary>
+      <p>
+        This sample demonstrates teleporting the viewer by updating the
+        XRSession reference space. Select a point on the floor with a
+        controller to teleport to it. It's also possible to rotate the
+        viewer or reset the viewer's orientation by interacting with the
+        menubar included in the scene.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <input type="checkbox" id="stereo_layer">stereo layer</input>
+      <p>Trigger to select<br />A/X to summon menu<br /></p>
+    </details>
+  </header>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { MenuSystem } from '../js/render/nodes/menu-system.js';
+    import { Node } from '../js/render/core/node.js';
+    import { Gltf2Node } from '../js/render/nodes/gltf2.js';
+    import { SkyboxNode } from '../js/render/nodes/skybox.js';
+    import { BoxBuilder } from '../js/render/geometry/box-builder.js';
+    import { PbrMaterial } from '../js/render/materials/pbr.js';
+    import { mat4, vec3, quat } from '../js/render/math/gl-matrix.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+    import { loadTexture } from '../js/util/texture-loader.js';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // If requested, don't display the frame rate info.
+    let hideStats = QueryArgs.getBool('hideStats', false);
+    let stereoUtil = null;
+    let stereo_layer = document.getElementById("stereo_layer");
+
+    // XR globals. Several additional reference spaces are required because of
+    // how the teleportation mechanic in onSelect works.
+    let xrButton = null;
+    let xrSession = null;
+    let xrImmersiveRefSpaceBase = null;
+    let xrImmersiveRefSpaceOffset = null;
+    let xrInlineRefSpaceBase = null;
+    let xrInlineRefSpaceOffset = null;
+    let xrViewerSpaces = {};
+    let xrGLFactory = null;
+    let proj_layer = null;
+    let cyl_layer = null;
+    let quad_layer = null;
+    let texture_copied = false;
+
+    let trackingSpaceOriginInWorldSpace = vec3.create();
+    let trackingSpaceHeadingDegrees = 0;  // around +Y axis, positive angles rotate left
+    let floorSize = 10;
+    let floorPosition = [0, -floorSize / 2 + 0.01, 0];
+    let floorNode = null;
+    let cyl_texture = null;
+    let cyl_texture_width = 0;
+    let cyl_texture_height = 0;
+
+    // WebGL scene globals.
+    let xrFramebuffer = null;
+    let xrDepthBuffer = null;
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+    if (hideStats) {
+      scene.enableStats(false);
+    }
+    scene.addNode(new Gltf2Node({ url: '../media/gltf/cube-room/cube-room.gltf' }));
+    scene.standingStats(true);
+
+
+    let menuSystem = new MenuSystem(false);
+    menuSystem.createButton('../media/textures/left30-button.png', () => { rotationDelta = 30; });
+    menuSystem.createButton('../media/textures/reset-button.png', () => { rotationDelta = -trackingSpaceHeadingDegrees; });
+    menuSystem.createButton('../media/textures/right30-button.png', () => { rotationDelta = -30; });
+    menuSystem.createButton('../media/textures/x-button.png', () => { xrSession.end() });
+    scene.addNode(menuSystem.getMenuBarNode());
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+
+        navigator.xr.requestSession('inline').then(onSessionStarted);
+      }
+    }
+
+    function addFloorBox() {
+      let boxBuilder = new BoxBuilder();
+      boxBuilder.pushCube([0, 0, 0], floorSize);
+      let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+
+      let boxMaterial = new PbrMaterial();
+      boxMaterial.baseColorFactor.value = [0.3, 0.3, 0.3, 1.0];
+      let boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+
+      floorNode = new Node();
+      floorNode.addRenderPrimitive(boxRenderPrimitive);
+      floorNode.selectable = true;
+      scene.addNode(floorNode);
+      mat4.identity(floorNode.matrix);
+      mat4.translate(floorNode.matrix, floorNode.matrix, floorPosition);
+    }
+
+    function initGL() {
+      if (gl)
+        return;
+
+      gl = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+      document.body.appendChild(gl.canvas);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+
+      scene.setRenderer(renderer);
+
+      // Represent the floor as a box so that we can perform a hit test
+      // against it onSelect so that we can teleport the user to that
+      // particular location.
+      addFloorBox();
+
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    function onRequestSession() {
+      return navigator.xr.requestSession('immersive-vr', {
+        requiredFeatures: ['local-floor', 'layers']
+      }).then((session) => {
+        xrButton.setSession(session);
+        session.isImmersive = true;
+        onSessionStarted(session);
+      });
+    }
+
+    function onSessionStarted(session) {
+      xrSession = session;
+
+      scene.inputRenderer.useProfileControllerMeshes(session);
+
+      // Listen for the sessions 'end' event so we can respond if the user
+      // or UA ends the session for any reason.
+      session.addEventListener('end', onSessionEnded);
+
+      // By listening for the 'select' event we can find out when the user has
+      // performed some sort of primary input action and respond to it.
+      session.addEventListener('select', onSelect);
+
+      initGL();
+
+
+      if (session.isImmersive) {
+        texture_copied = false;
+        cyl_layer = null;
+        cyl_texture = null;
+        xrFramebuffer = gl.createFramebuffer();
+        xrGLFactory = new XRWebGLBinding(session, gl);
+      } else {
+        let glLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: glLayer });
+      }
+
+      session.requestReferenceSpace('local-floor').then((refSpace) => {
+        console.log("created local-floor reference space");
+        if (session.isImmersive) {
+          proj_layer = xrGLFactory.createProjectionLayer({
+            space: refSpace,
+            depth: true
+          });
+
+          session.updateRenderState({ layers: [proj_layer] });
+          if (!stereo_layer.checked) {
+            cyl_texture = loadTexture(gl, '../media/textures/eilenriede-park-2k.png', (w, h) => {
+              cyl_texture_width = w;
+              cyl_texture_height = h;
+              //onImageLoaded(session);
+            });
+          } else {
+            cyl_texture = loadTexture(gl, '../media/textures/stereo-top-bottom-image.png', (w, h) => {
+              cyl_texture_width = w;
+              cyl_texture_height = h;
+              //onImageLoaded(session);
+            });
+          }
+        }
+        return refSpace;
+      }, (e) => {
+        if (!session.isImmersive) {
+          // If we're in inline mode, our underlying platform may not support
+          // the local-floor reference space, but a viewer space is guaranteed.
+          console.log("falling back to viewer reference space");
+          return session.requestReferenceSpace('viewer').then((viewerRefSpace) => {
+            // Adjust the viewer space for an estimated user height. Otherwise,
+            // the poses queried with this space will originate from the floor.
+            let xform = new XRRigidTransform({ x: 0, y: -1.5, z: 0 });
+            return viewerRefSpace.getOffsetReferenceSpace(xform);
+          });
+        } else {
+          throw e;
+        }
+      }).then((refSpace) => {
+        // Save the session-specific base reference space, and apply the current
+        // player orientation/position as originOffset. This reference space
+        // won't change for the duration of the session and is used when
+        // updating the player position and/or orientation in onSelect.
+        setRefSpace(session, refSpace, false);
+        updateOriginOffset(session);
+
+        session.requestReferenceSpace('viewer').then(function (viewerSpace) {
+          // Save a separate reference space that represents the tracking space
+          // origin, which does not change for the duration of the session.
+          // This is used when updating the player position and/or orientation
+          // in onSelect.
+          xrViewerSpaces[session.mode] = viewerSpace;
+          session.requestAnimationFrame(onXRFrame);
+        });
+      });
+    }
+
+    // Used for updating the origin offset.
+    let playerInWorldSpaceOld = vec3.create();
+    let playerInWorldSpaceNew = vec3.create();
+    let playerOffsetInWorldSpaceOld = vec3.create();
+    let playerOffsetInWorldSpaceNew = vec3.create();
+    let rotationDeltaQuat = quat.create();
+    let rotationDelta = 0;
+    let invPosition = vec3.create();
+    let invOrientation = quat.create();
+
+    // If the user selected a point on the floor, teleport them to that
+    // position while keeping their orientation the same.
+    function onSelect(ev) {
+      let session = ev.frame.session;
+      let refSpace = getRefSpace(session, true);
+
+      let headPose = ev.frame.getPose(xrViewerSpaces[session.mode], refSpace);
+      if (!headPose) return;
+
+      // Get the position offset in world space from the tracking space origin
+      // to the player's feet. The headPose position is the head position in world space.
+      // Subtract the tracking space origin position in world space to get a relative world space vector.
+      vec3.set(playerInWorldSpaceOld, headPose.transform.position.x, 0, headPose.transform.position.z);
+      vec3.sub(
+        playerOffsetInWorldSpaceOld,
+        playerInWorldSpaceOld,
+        trackingSpaceOriginInWorldSpace);
+
+      // based on https://github.com/immersive-web/webxr/blob/master/input-explainer.md#targeting-ray-pose
+      let inputSourcePose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
+      if (!inputSourcePose) {
+        return;
+      }
+
+      vec3.copy(playerInWorldSpaceNew, playerInWorldSpaceOld);
+
+
+      // Hit test results can change teleport position and orientation.
+      let hitResult = scene.hitTest(inputSourcePose.transform);
+      if (hitResult) {
+        if (hitResult.node == floorNode) {
+          // New position uses x/z values of the hit test result, keeping y at 0 (floor level)
+          playerInWorldSpaceNew[0] = hitResult.intersection[0];
+          playerInWorldSpaceNew[1] = 0;
+          playerInWorldSpaceNew[2] = hitResult.intersection[2];
+          console.log('teleport to', playerInWorldSpaceNew);
+        }
+      }
+
+      console.log(rotationDelta);
+
+      relocate();
+      rotationDelta = 0;
+    }
+
+    function relocate() {
+      // Get the new world space offset vector from tracking space origin
+      // to the player's feet, for the updated tracking space rotation.
+      // Formally, this is the old world-space player offset transformed
+      // into tracking space using the old originOffset's rotation component,
+      // then transformed back into world space using the inverse of the
+      // new originOffset. This simplifies to a rotation of the old player
+      // offset by (new angle - old angle):
+      //   worldOffsetNew = inv(rot_of(originoffsetNew)) * rot_of(originoffsetOld) * worldOffsetOld
+      //       = inv(rotY(-angleNew)) * rotY(-angleOld) * worldOffsetOld
+      //       = rotY(angleNew) * rotY(-angleOld) * worldOffsetOld
+      //       = rotY(angleNew - angleOld) * worldOffsetOld
+      quat.identity(rotationDeltaQuat);
+      quat.rotateY(rotationDeltaQuat, rotationDeltaQuat, rotationDelta * Math.PI / 180);
+      vec3.transformQuat(playerOffsetInWorldSpaceNew, playerOffsetInWorldSpaceOld, rotationDeltaQuat);
+      trackingSpaceHeadingDegrees += rotationDelta;
+
+      // Update tracking space origin so that origin + playerOffset == player location in world space
+      vec3.sub(
+        trackingSpaceOriginInWorldSpace,
+        playerInWorldSpaceNew,
+        playerOffsetInWorldSpaceNew);
+
+      updateOriginOffset(xrSession);
+    }
+
+    function updateOriginOffset(session) {
+      // Compute the origin offset based on player position/orientation.
+      quat.identity(invOrientation);
+      quat.rotateY(invOrientation, invOrientation, -trackingSpaceHeadingDegrees * Math.PI / 180);
+      vec3.negate(invPosition, trackingSpaceOriginInWorldSpace);
+      vec3.transformQuat(invPosition, invPosition, invOrientation);
+      let xform = new XRRigidTransform(
+        { x: invPosition[0], y: invPosition[1], z: invPosition[2] },
+        { x: invOrientation[0], y: invOrientation[1], z: invOrientation[2], w: invOrientation[3] });
+
+      // Update offset reference to use a new originOffset with the teleported
+      // player position and orientation.
+      // This new offset needs to be applied to the base ref space.
+      let refSpace = getRefSpace(session, false).getOffsetReferenceSpace(xform);
+      setRefSpace(session, refSpace, true);
+
+      console.log('teleport to', trackingSpaceOriginInWorldSpace);
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+        if (cyl_texture) {
+          gl.deleteTexture(cyl_texture);
+          cyl_texture = null;
+          cyl_texture_width = cyl_texture_height = 0;
+        }
+      }
+      xrSession = null;
+    }
+
+    function getRefSpace(session, isOffset) {
+      return session.isImmersive ?
+        (isOffset ? xrImmersiveRefSpaceOffset : xrImmersiveRefSpaceBase) :
+        (isOffset ? xrInlineRefSpaceOffset : xrInlineRefSpaceBase);
+    }
+
+    function setRefSpace(session, refSpace, isOffset) {
+      if (session.isImmersive) {
+        if (isOffset) {
+          xrImmersiveRefSpaceOffset = refSpace;
+        } else {
+          xrImmersiveRefSpaceBase = refSpace;
+        }
+      } else {
+        if (isOffset) {
+          xrInlineRefSpaceOffset = refSpace;
+        } else {
+          xrInlineRefSpaceBase = refSpace;
+        }
+      }
+    }
+
+    function onXRFrame(time, frame) {
+      let session = frame.session;
+      let refSpace = getRefSpace(session, true);
+
+      if (session.isImmersive) {
+        if (!cyl_layer) {
+          if (cyl_texture_width != 0 && cyl_texture_height != 0) {
+            cyl_layer = xrGLFactory.createCylinderLayer({
+              space: refSpace,
+              viewPixelWidth: cyl_texture_width,
+              viewPixelHeight: cyl_texture_height / ((stereo_layer.checked) ? 2 : 1),
+              layout: ((stereo_layer.checked) ? "stereo-top-bottom" : "mono")
+            });
+            cyl_layer.centralAngle = 60 * Math.PI / 180;
+            cyl_layer.aspectRatio = cyl_layer.viewPixelWidth / cyl_layer.viewPixelHeight;
+            cyl_layer.radius = 2;
+            quad_layer = xrGLFactory.createQuadLayer({
+              space: refSpace,
+              viewPixelWidth: cyl_texture_width,
+              viewPixelHeight: cyl_texture_height / ((stereo_layer.checked) ? 2 : 1),
+              layout: ((stereo_layer.checked) ? "stereo-top-bottom" : "mono")
+            });
+            quad_layer.width = 0.4;
+            quad_layer.height = 0.2;
+            session.updateRenderState({ layers: [proj_layer, cyl_layer, quad_layer] });
+
+            // position the cylinder layer
+            //let cyl_layer = session.renderState.layers[cyl_layer_idx];
+            cyl_layer.space = refSpace;
+            let pos = { x: -1.0, y: 2.0, z: -2.0 };
+            let orient = quat.create();//{x:0,y:0,z:0,w:1};
+            quat.fromEuler(orient, 60, 30, 0);
+            cyl_layer.transform = new XRRigidTransform(pos, { x: orient[0], y: orient[1], z: orient[2], w: orient[3] });
+
+            quad_layer.space = refSpace;
+            pos = { x: 1.5, y: 1.0, z: -2.0 };
+            orient = quat.create();//{x:0,y:0,z:0,w:1};
+            quat.fromEuler(orient, 0, 0, 30);
+            quad_layer.transform = new XRRigidTransform(pos, { x: orient[0], y: orient[1], z: orient[2], w: orient[3] });
+          }
+        }
+
+        if (cyl_layer) {
+          if (cyl_layer.needsRedraw) {
+            texture_copied = false;
+          }
+          cyl_layer.space = refSpace;
+          quad_layer.space = refSpace;
+          if (!texture_copied) {
+            let fb = gl.createFramebuffer();
+            let glayer = xrGLFactory.getSubImage(cyl_layer, frame);
+            //gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+            gl.disable(gl.SCISSOR_TEST);
+            gl.clearColor(0, 1, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            if (cyl_texture_width != 0 && cyl_texture_height != 0) {
+              stereoUtil.blit(false, cyl_texture, 0, 0, 1, 1, cyl_texture_width, cyl_texture_height);
+            }
+
+            glayer = xrGLFactory.getSubImage(quad_layer, frame);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+            gl.disable(gl.SCISSOR_TEST);
+            gl.clearColor(0.1, 1, 0.5, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            if (cyl_texture_width != 0 && cyl_texture_height != 0) {
+              stereoUtil.blit(false, cyl_texture, 0, 0, 1, 1, cyl_texture_width, cyl_texture_height);
+              texture_copied = true;
+            }
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.deleteFramebuffer(fb);
+          }
+        }
+      }
+
+      let pose = frame.getViewerPose(refSpace);
+      let glLayer = null;
+
+      if (session.isImmersive) {
+        gl.clearColor(0, 0, 0, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+      }
+      scene.startFrame();
+      session.requestAnimationFrame(onXRFrame);
+
+      menuSystem.processInput(frame, scene, refSpace);
+
+      scene.updateInputSources(frame, refSpace);
+      //        scene.drawXRFrame(frame, pose);
+      let views = [];
+      for (let view of pose.views) {
+        let viewport = null;
+        if (session.isImmersive) {
+
+          glLayer = xrGLFactory.getViewSubImage(proj_layer, view);
+
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+        } else {
+          glLayer = session.renderState.baseLayer;
+          viewport = glLayer.getViewport(view);
+        }
+        // Gather all the values needed for one view and push it into the
+        // array of views to be drawn. WebXRView is a utility class that
+        // holds all the necessary values for drawing a single view.
+
+        // In future samples we'll hide this part away as well by using the
+        // scene.drawXRViews() function, which handles gathering these
+        // values internally.
+        views.push(new WebXRView(view, glLayer, viewport));
+      }
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      scene.drawViewArray(views);
+      scene.endFrame();
+    }
+
+    // Start the XR application.
+    initXR();
+  </script>
+</body>
+
+</html>

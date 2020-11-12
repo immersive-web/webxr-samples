@@ -1,0 +1,463 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+  <title>Video Control with Equirect Layer</title>
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/stereo-util.js"></script>
+
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Video Control with Equirect Layer</summary>
+      <p>
+        This sample shows a stereo video on an equirect layer with a cubemap
+        background. The video playback can be easily controlled by the media
+        control menu bar included in the scene.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <label>Choose a video</label>
+      <select id="videoselect">
+        <option value="https://d25a56pc18k0co.cloudfront.net/sloths_binaural_3840_180_3D-injected.mp4"
+          data-video-width=3840 data-video-height=1920>side-by-side 180 3840x1920 30fps
+        </option>
+        <option value="https://d25a56pc18k0co.cloudfront.net/sloths_binaural_3840x2160_360_3D_v2_injected.mp4"
+          data-video-width=3840 data-video-height=2160>3840x2160 360 30fps
+        </option>
+      </select><br />
+      <label>Equirect layer radius</label>
+      <input type="number" id="radius_txt" value="10" /><br />
+      <input type="checkbox" id="update_every_frame">Update every frame</input><br />
+      <input type="checkbox" id="backdrop" checked>Show backdrop layer</input><br />
+      <input type="checkbox" id="lower_fps">60 fps</input><br />
+      <p>Trigger to select<br />Squeeze to grab<br />A/X to summon menu<br /></p>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { MenuSystem } from '../js/render/nodes/menu-system.js';
+    import { Gltf2Node } from '../js/render/nodes/gltf2.js';
+    import { SkyboxNode } from '../js/render/nodes/skybox.js';
+    import { BoxBuilder } from '../js/render/geometry/box-builder.js';
+    import { PbrMaterial } from '../js/render/materials/pbr.js';
+    import { mat4, vec3, quat } from '../js/render/math/gl-matrix.js';
+    import { InlineViewerHelper } from '../js/util/inline-viewer-helper.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+
+    'use strict';
+    //
+    // Initialize a texture and load an image.
+    // When the image finished loading copy it into the texture.
+    //
+    function loadTexture(gl, url, complete_callback) {
+      const texture = gl.createTexture();
+      loadIntoTexture(gl, texture, url, complete_callback);
+      return texture;
+    }
+    function isPowerOf2(value) {
+      return (value & (value - 1)) == 0;
+    }
+    function loadIntoTexture(gl, texture, url, complete_callback) {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      // Because images have to be download over the internet
+      // they might take a moment until they are ready.
+      // Until then put a single pixel in the texture so we can
+      // use it immediately. When the image has finished downloading
+      // we'll update the texture with the contents of the image.
+      const level = 0;
+      const internalFormat = gl.RGBA;
+      const width = 1;
+      const height = 1;
+      const border = 0;
+      const srcFormat = gl.RGBA;
+      const srcType = gl.UNSIGNED_BYTE;
+      const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+      gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+        width, height, border, srcFormat, srcType,
+        pixel);
+
+      const image = new Image();
+      image.onload = function () {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+          srcFormat, srcType, image);
+
+        // WebGL1 has different requirements for power of 2 images
+        // vs non power of 2 images so check if the image is a
+        // power of 2 in both dimensions.
+        if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+          // Yes, it's a power of 2. Generate mips.
+          gl.generateMipmap(gl.TEXTURE_2D);
+          //?gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          //?gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        } else {
+          // No, it's not a power of 2. Turn of mips and set
+          // wrapping to clamp to edge
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+        complete_callback(image.width, image.height);
+      };
+
+      image.src = url;
+    }
+
+    let backdrop = document.getElementById('backdrop');
+    let low_fps = document.getElementById('lower_fps');
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let xrReadFramebuffer = null;
+    let videoTexture = null;
+    let backgroundTexture = null;
+    let updatevideo = false;
+    let stereoUtil = null;
+    let renderer = null;
+    let eqr_pos = { x: 0.0, y: 0.0, z: 0.0 };
+    let eqr_orient = { yaw: 0.0, pitch: 0.0, roll: 0.0 };
+
+    // WebGL scene globals.
+    let gl = null;
+    let equirectlayer = null;
+    let equirectlayerbackdrop = null;
+    let proj_layer = null;
+
+    let videoWidth = -1;
+    let videoHeight = -1;
+
+    let texture_copied = false;
+
+    let video = document.createElement('video');
+    video.loop = true;
+    video.crossOrigin = "anonymous";
+    video.preload = 'auto';
+    video.autoload = true;
+
+    function videoSelect() {
+      let s = document.getElementById("videoselect");
+      video.src = s.options[s.selectedIndex].value;
+      videoWidth = s.options[s.selectedIndex].getAttribute("data-video-width");
+      videoHeight = s.options[s.selectedIndex].getAttribute("data-video-height");
+    }
+
+    videoSelect();
+    document.getElementById("videoselect").addEventListener('change', (event) => {
+      xrButton.disabled = true;
+      videoSelect();
+    });
+
+
+    let scene = new Scene();
+    //scene.enableStats(false);
+    //scene.standingStats(true);
+
+    setInterval(function () {
+      if (video.readyState >= video.HAVE_CURRENT_DATA) {
+        updatevideo = true;
+      }
+    }, 1000 / 60);
+
+
+    // Set up media control bar
+    let menuSystem = new MenuSystem();
+    menuSystem.createButton('../media/textures/backward-button.png', () => { video.currentTime -= 15; });
+    menuSystem.createButton('../media/textures/play-button.png', () => video.play());
+    menuSystem.createButton('../media/textures/pause-button.png', () => video.pause());
+    menuSystem.createButton('../media/textures/forward-button.png', () => { video.currentTime += 15; });
+    menuSystem.createButton('../media/textures/x-button.png', () => { xrSession.end() });
+    scene.addNode(menuSystem.getMenuBarNode());
+
+
+    // Checks to see if WebXR is available and, if so, requests an XRDevice
+    // that is connected to the system and tests it to ensure it supports the
+    // desired session options.
+    function initXR() {
+      if (!xrButton) {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+      }
+
+      if (navigator.xr) {
+        // If the device allows creation of exclusive sessions set it as the
+        // target of the 'Enter XR' button.
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    // Called when the user clicks the button to enter XR. If we don't have a
+    // session we'll request one, and if we do have a session we'll end it.
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+          optionalFeatures: [low_fps.checked ? 'low-refresh-rate' : '']
+        }).then(onSessionStarted);
+        video.play();
+      } else {
+        onEndSession();
+      }
+    }
+
+    function ProcessGamepad(source, frame, session, refSpace) {
+      let gamepad = source.gamepad;
+      let pose = frame.getPose(source.gripSpace, refSpace);
+
+      if (equirectlayer != null) {
+        if (gamepad.buttons[1].pressed) {
+          if (pose) {
+            let position = pose.transform.position;
+            let orientation = pose.transform.orientation;
+            equirectlayer.transform = new XRRigidTransform(
+              { x: position.x, y: position.y, z: position.z },
+              { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
+            );
+          }
+        }
+      }
+    }
+    // Called when we've successfully acquired a XRSession. In response we
+    // will set up the necessary session state and kick off the frame loop.
+    function onSessionStarted(session) {
+      xrSession = session;
+
+      scene.inputRenderer.useProfileControllerMeshes(session);
+
+      // Listen for the sessions 'end' event so we can respond if the user
+      // or UA ends the session for any reason.
+      session.addEventListener('end', onSessionEnded);
+
+      // Create a WebGL context to render with, initialized to be compatible
+      // with the XRDisplay we're presenting to.
+      let canvas = document.createElement('canvas');
+      gl = canvas.getContext('webgl2', { xrCompatible: true, webgl2: true });
+
+      xrFramebuffer = gl.createFramebuffer();
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      stereoUtil = new VRStereoUtil(gl);
+      xrFramebuffer = gl.createFramebuffer();
+      xrReadFramebuffer = gl.createFramebuffer();
+      //?      videoTexture = gl.createTexture();
+
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+
+        proj_layer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+
+        let sideBySide = video.src.includes("3840_180_3D");
+
+        equirectlayer = xrGLFactory.createEquirectLayer({
+          space: refSpace,
+          viewPixelWidth: sideBySide ? videoWidth / 2 : videoWidth,
+          viewPixelHeight: sideBySide ? videoHeight : videoHeight / 2,
+          layout: sideBySide ? "stereo-left-right" : "stereo-top-bottom"
+        });
+
+        if (sideBySide) {
+          equirectlayer.centralHorizontalAngle = Math.PI;
+          equirectlayer.upperVerticalAngle = Math.PI / 2.0;
+          equirectlayer.lowerVerticalAngle = -Math.PI / 2.0;
+        }
+        equirectlayer.radius = document.getElementById("radius_txt").value;
+
+        if (backdrop.checked) {
+          backgroundTexture = loadTexture(gl, '../media/textures/mono_equirect_test.png', (w, h) => {
+            equirectlayerbackdrop = xrGLFactory.createEquirectLayer({
+              space: refSpace,
+              viewPixelWidth: w,
+              viewPixelHeight: h,
+              layout: "mono"
+            });
+
+            equirectlayerbackdrop.centralHorizontalAngle = 2 * Math.PI;
+            equirectlayerbackdrop.upperVerticalAngle = Math.PI / 2.0;
+            equirectlayerbackdrop.lowerVerticalAngle = -Math.PI / 2.0;
+            equirectlayerbackdrop.radius = 0;
+            session.updateRenderState({ layers: [equirectlayerbackdrop, equirectlayer, proj_layer] });
+          });
+        }
+        session.updateRenderState({ layers: [equirectlayer, proj_layer] });
+        // Inform the session that we're ready to begin drawing.
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    // Called either when the user has explicitly ended the session by calling
+    // session.end() or when the UA has ended the session for any reason.
+    // At this point the session object is no longer usable and should be
+    // discarded.
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      video.pause();
+
+      // In this simple case discard the WebGL context too, since we're not
+      // rendering anything else to the screen with it.
+      gl = null;
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    // Called every time the XRSession requests that a new frame be drawn.
+    function onXRFrame(time, frame) {
+      let session = frame.session;
+
+      // Inform the session that we're ready for the next frame.
+      session.requestAnimationFrame(onXRFrame);
+
+      // Get the XRDevice pose relative to the reference space we created
+      // earlier.
+      let pose = frame.getViewerPose(xrRefSpace);
+
+      // Getting the pose may fail if, for example, tracking is lost. So we
+      // have to check to make sure that we got a valid pose before attempting
+      // to render with it. If not in this case we'll just leave the
+      // framebuffer cleared, so tracking loss means the scene will simply
+      // disappear.
+      if (pose) {
+        let arraylength = session.renderState.layers.length;
+
+        if (equirectlayerbackdrop && (!texture_copied || equirectlayerbackdrop.needsRedraw)) {
+          texture_copied = true;
+          let fb = gl.createFramebuffer();
+          let glayer = xrGLFactory.getSubImage(equirectlayerbackdrop, frame);
+
+          const eqr_texture_width = equirectlayerbackdrop.viewPixelWidth;
+          const eqr_texture_height = equirectlayerbackdrop.viewPixelHeight;
+
+          gl.viewport(0, 0, eqr_texture_width, eqr_texture_height);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+          gl.disable(gl.SCISSOR_TEST);
+
+          let xrReadFramebuffer = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, xrReadFramebuffer);
+          gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, backgroundTexture, 0);
+          gl.readBuffer(gl.COLOR_ATTACHMENT0);
+          gl.blitFramebuffer(0, 0, eqr_texture_width, eqr_texture_height,
+            0, 0, eqr_texture_width, eqr_texture_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+          gl.deleteFramebuffer(fb);
+          gl.deleteFramebuffer(xrReadFramebuffer);
+        }
+
+        if (updatevideo || update_every_frame.checked || equirectlayer.needsRedraw) {
+          updatevideo = false;
+          // draw video
+          let glayer = xrGLFactory.getSubImage(equirectlayer, frame);
+
+          gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, videoWidth, videoHeight, gl.RGBA, gl.UNSIGNED_BYTE, video);
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        // We need to invalidate the color (and depth, just in case) here to avoid
+        // loading from the previously bound color texture. It will save some GPU time.
+        gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_ATTACHMENT]);
+
+        let views = [];
+        if (session.renderState.layers.length == 3) {
+          for (let view of pose.views) {
+            let viewport = null;
+
+            let glLayer = xrGLFactory.getViewSubImage(proj_layer, view);
+
+            glLayer.framebuffer = xrFramebuffer;
+            viewport = glLayer.viewport;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.disable(gl.SCISSOR_TEST);
+
+            views.push(new WebXRView(view, glLayer, viewport));
+          }
+        }
+
+        // Check for and respond to any gamepad state changes.
+        for (let source of session.inputSources) {
+          if (source.gamepad) {
+            ProcessGamepad(source, frame, session, xrRefSpace);
+          }
+        }
+
+        menuSystem.processInput(frame, scene, xrRefSpace);
+
+
+        scene.updateInputSources(frame, equirectlayer.space);
+        scene.drawViewArray(views);
+
+        scene.endFrame();
+      }
+    }
+
+    // Start the XR application.
+    video.addEventListener('loadeddata', (event) => {
+      if (video.readyState >= 2) {
+        initXR();
+      }
+    });
+  </script>
+</body>
+
+</html>

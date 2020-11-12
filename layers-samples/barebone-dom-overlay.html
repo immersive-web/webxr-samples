@@ -1,0 +1,189 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Multilayer</title>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Barebones WebXR DOM Overlay</summary>
+      <p>
+        This sample demonstrates extremely simple use of an "immersive-ar"
+        session with no library dependencies, with an optional DOM overlay.
+        It doesn't render anything exciting, just draws a square with a slowly
+        changing color to prove it's working.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <div id="session-info"></div>
+      <div id="warning-zone"></div>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter AR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    'use strict';
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+
+    // WebGL scene globals.
+    let gl = null;
+
+    function initXR() {
+      if (!xrButton) {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+      }
+
+      if (navigator.xr) {
+        // If the device allows creation of exclusive sessions set it as the
+        // target of the 'Enter XR' button.
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: document.body }
+        }).then(onSessionStarted);
+        video.play();
+      } else {
+        onEndSession();
+      }
+    }
+
+    function onSessionStarted(session) {
+      xrSession = session;
+      xrButton.innerHTML = 'Exit AR';
+
+      // Show which type of DOM Overlay got enabled (if any)
+      //document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
+
+      session.addEventListener('end', onSessionEnded);
+      let canvas = document.createElement('canvas');
+      gl = canvas.getContext('webgl', {
+        alpha: true,
+        antialias: false,
+        xrCompatible: true
+      });
+      session.updateRenderState({
+        layers: [new XRWebGLLayer(session, gl, { alpha: true, antialias: false }),
+        new XRWebGLLayer(session, gl, { alpha: true, antialias: false })]
+      });
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onRequestSessionError(ex) {
+      alert("Failed to start immersive AR session.");
+      console.error(ex.message);
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      document.getElementById('session-info').innerHTML = '';
+      gl = null;
+    }
+
+    function onXRFrame(t, frame) {
+      let session = frame.session;
+      session.requestAnimationFrame(onXRFrame);
+      let pose = frame.getViewerPose(xrRefSpace);
+
+      if (pose) {
+        let layer0 = session.renderState.layers[0];
+        gl.bindFramebuffer(gl.FRAMEBUFFER, layer0.framebuffer);
+
+        // Update the clear color so that we can observe the color in the
+        // headset changing over time. Use a scissor rectangle to keep the AR
+        // scene visible.
+        const width = layer0.framebufferWidth;
+        const height = layer0.framebufferHeight;
+
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(width / 2 - width / 5, height / 2 - height / 3, width / 5 * 2, height / 3 * 2);
+        let time = Date.now();
+        gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 0.5);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let layer1 = session.renderState.layers[1];
+        gl.bindFramebuffer(gl.FRAMEBUFFER, layer1.framebuffer);
+
+        // Update the clear color so that we can observe the color in the
+        // headset changing over time. Use a scissor rectangle to keep the AR
+        // scene visible.
+        //const width = layer1.framebufferWidth;
+        //const height = layer1.framebufferHeight;
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(width / 2 - width / 4, height / 2 - height / 4, width / 2, height / 4 * 2);
+        let time1 = Date.now();
+        gl.clearColor(Math.cos(time1 / 4000), Math.cos(time1 / 6000), Math.cos(time1 / 2000), 0.5);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      }
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

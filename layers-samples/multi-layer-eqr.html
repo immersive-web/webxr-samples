@@ -1,0 +1,701 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Multi-layer Equirect</title>
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Multi-layer Equirect</summary>
+      <p>
+        This sample shows how to take advantage of multiple layers
+        for different rendering tasks. Specifically, the sample showcases
+        how to create a 360-degree / 180-degree equirect layer to display
+        a mono / stereo background texture.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <label>Select equirect layer mode</label>
+      <select id="eqr_mode">
+        <option value="180">180 degree equirect layer</option>
+        <option value="360">360 degree equirect layer</option>
+      </select><br />
+      <label>Equirect layer radius</label>
+      <input type="number" id="radius_txt" value="0" /><br />
+      <input type="checkbox" id="do_stencil_buffer">stencil buffer</input><br />
+      <input type="checkbox" id="stereo_layer">stereo equirect layer</input><br />
+      <input type="checkbox" id="change_order">change order</input><br />
+      <input type="checkbox" id="update_cylinder_every_frame">Update cyl every frame</input><br />
+      <p>Squeeze to grab<br /></p>
+    </details>
+  </header>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Node } from '../js/render/core/node.js';
+    import { Gltf2Node } from '../js/render/nodes/gltf2.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { CubeSeaNode } from '../js/render/nodes/cube-sea.js';
+    import { InlineViewerHelper } from '../js/util/inline-viewer-helper.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+    import { BoxBuilder } from '../js/render/geometry/box-builder.js';
+    import { PbrMaterial } from '../js/render/materials/pbr.js';
+    import { mat4, vec3, quat } from '../js/render/math/gl-matrix.js';
+
+    const EQR_TEXTURE_MONO_PATH = '../media/textures/mono_equirect_test.png';
+    const EQR_180_TEXTURE_MONO_PATH = '../media/textures/mono-equirect180.png';
+    const EQR_TEXTURE_STEREO_PATH = '../media/textures/chess-pano-4k.jpg';
+    const EQR_180_TEXTURE_STEREO_PATH = '../media/textures/chess-pano-4k180.jpg';
+    const CYL_TEXTURE_MONO_PATH = '../media/textures/eilenriede-park-2k.png';
+    const CYL_TEXTURE_STEREO_PATH = '../media/textures/stereo-top-bottom-image.png';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    let noAlpha = WGLUUrl.getBool('noAlpha', false);
+    let eqr_pos = { x: 0.0, y: 0.0, z: 0.0 };
+    let eqr_orient = { yaw: 0.0, pitch: 0.0, roll: 0.0 };
+
+    // XR globals.
+    let do_stencil_buffer = document.getElementById('do_stencil_buffer');
+    let xrButton = null;
+    let xrSession = null;
+    let xrImmersiveRefSpace = null;
+    let inlineViewerHelper = null;
+    let xrGLFactory = null;
+    let xrFinalFramebuffer = null;
+    let xrDepthBuffer = null;
+    let gl_ext = null;
+    let max_samples = 0;
+    let xr_stencil = false;
+    let texture_copied = false;
+    let stereoUtil = null;
+    let number_of_images = 0;
+    let frame_index = 0;
+
+    // WebGL scene globals.
+    let isStereo = false;
+    let is180 = false;
+    let isChangeOrder = false;
+
+    let want_msaa = !WGLUUrl.getBool('no_msaa', false);
+    let gl = null;
+    let renderer = null;
+    let eqr_texture;
+    let eqr_texture_width;
+    let eqr_texture_height;
+    let eqr_layer = null;
+    let proj_layer = null;
+    let cyl_texture;
+    let cyl_texture_width;
+    let cyl_texture_height;
+    let cyl_layer = null;
+    let eqr_layer_idx = 0;
+    let proj_layer_idx = 1;
+    let cyl_layer_idx = 2;
+    let renderbuffers = [];
+    let framebuffers = [];
+
+
+    let scene = new Scene();
+    scene.addNode(new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png', cubeCount: 2, halfOnly: true, autoRotate: false }));
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+
+        navigator.xr.requestSession('inline').then(onSessionStarted);
+      }
+    }
+
+    //
+    // Initialize a texture and load an image.
+    // When the image finished loading copy it into the texture.
+    //
+    function loadTexture(gl, url, complete_callback) {
+      const texture = gl.createTexture();
+      loadIntoTexture(gl, texture, url, complete_callback);
+      return texture;
+    }
+    function isPowerOf2(value) {
+      return (value & (value - 1)) == 0;
+    }
+    function loadIntoTexture(gl, texture, url, complete_callback) {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      // Because images have to be download over the internet
+      // they might take a moment until they are ready.
+      // Until then put a single pixel in the texture so we can
+      // use it immediately. When the image has finished downloading
+      // we'll update the texture with the contents of the image.
+      const level = 0;
+      const internalFormat = gl.RGBA;
+      const width = 1;
+      const height = 1;
+      const border = 0;
+      const srcFormat = gl.RGBA;
+      const srcType = gl.UNSIGNED_BYTE;
+      const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+      gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+        width, height, border, srcFormat, srcType,
+        pixel);
+
+      const image = new Image();
+      image.onload = function () {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+          srcFormat, srcType, image);
+
+        // WebGL1 has different requirements for power of 2 images
+        // vs non power of 2 images so check if the image is a
+        // power of 2 in both dimensions.
+        if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+          // Yes, it's a power of 2. Generate mips.
+          gl.generateMipmap(gl.TEXTURE_2D);
+          //?gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          //?gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        } else {
+          // No, it's not a power of 2. Turn of mips and set
+          // wrapping to clamp to edge
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+        complete_callback(image.width, image.height);
+      };
+      eqr_texture_width = eqr_texture_height = undefined;
+      image.src = url;
+    }
+
+    function initGL() {
+      if (gl)
+        return;
+
+      gl = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true,
+        alpha: !noAlpha
+      });
+      document.body.appendChild(gl.canvas);
+      gl_ext = gl.getExtension('WEBGL_depth_texture');
+
+      if (want_msaa) {
+        max_samples = gl.getParameter(gl.MAX_SAMPLES);
+      }
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      // Set up a non-black clear color so that we can see if something renders wrong.
+      gl.clearColor(0.1, 0.2, 0.3, 1.0);
+
+      renderer = new Renderer(gl);
+
+      scene.setRenderer(renderer);
+
+      stereoUtil = new VRStereoUtil(gl);
+
+    }
+
+    function ProcessGamepad(source, frame, session, refSpace) {
+      let gamepad = source.gamepad;
+      let pose = frame.getPose(source.gripSpace, refSpace);
+
+      if (eqr_layer != null) {
+        if (gamepad.buttons[1].pressed) {
+          if (pose) {
+            let position = pose.transform.position;
+            let orientation = pose.transform.orientation;
+            eqr_layer.transform = new XRRigidTransform(
+              { x: position.x, y: position.y, z: position.z },
+              { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
+            );
+          }
+        }
+      }
+    }
+
+    function onRequestSession() {
+      return navigator.xr.requestSession('immersive-vr', {
+        requiredFeatures: ['layers']
+      }).then((session) => {
+        xrButton.setSession(session);
+        session.isImmersive = true;
+        onSessionStarted(session);
+      });
+    }
+
+    function onVisibilityChange(event) {
+      console.log("Visibility change for "
+        + (event.session.isImmersive ? "immersive" : "non-immersive")
+        + " session: "
+        + event.session.visibilityState);
+    }
+
+    async function loadAllTexture() {
+      if (isStereo) {
+        number_of_images = 2;
+        eqr_texture = loadTexture(gl, is180 ? EQR_180_TEXTURE_STEREO_PATH : EQR_TEXTURE_STEREO_PATH, (w, h) => {
+          eqr_texture_width = w;
+          eqr_texture_height = h;
+          onImageLoaded(xrSession);
+        });
+        cyl_texture = loadTexture(gl, CYL_TEXTURE_STEREO_PATH, (w, h) => {
+          cyl_texture_width = w;
+          cyl_texture_height = h;
+          onImageLoaded(xrSession);
+        });
+      } else {
+        number_of_images = 2;
+        eqr_texture = loadTexture(gl, is180 ? EQR_180_TEXTURE_MONO_PATH : EQR_TEXTURE_MONO_PATH, (w, h) => {
+          eqr_texture_width = w;
+          eqr_texture_height = h;
+          onImageLoaded(xrSession);
+        });
+        cyl_texture = loadTexture(gl, CYL_TEXTURE_MONO_PATH, (w, h) => {
+          cyl_texture_width = w;
+          cyl_texture_height = h;
+          onImageLoaded(xrSession);
+        });
+      }
+      texture_copied = false;
+    }
+
+    async function onSessionStarted(session) {
+      session.addEventListener('end', onSessionEnded);
+      session.addEventListener('visibilitychange', onVisibilityChange);
+
+      xrSession = session;
+      scene.inputRenderer.useProfileControllerMeshes(session);
+
+      initGL();
+
+      let stereo_layer = document.getElementById("stereo_layer");
+      isStereo = stereo_layer.checked;
+      let eqr_mode = document.getElementById("eqr_mode");
+      is180 = eqr_mode.value == '180';
+      let change_order = document.getElementById("change_order");
+      isChangeOrder = change_order.checked;
+
+      if (session.isImmersive) {
+        frame_index = 0;
+        // if (isStereo) {
+        //   number_of_images = 2;
+        //   eqr_texture = loadTexture(gl, is180 ? EQR_180_TEXTURE_STEREO_PATH : EQR_TEXTURE_STEREO_PATH, (w, h) => {
+        //     eqr_texture_width = w;
+        //     eqr_texture_height = h;
+        //     onImageLoaded(session);
+        //   });
+        //   cyl_texture = loadTexture(gl, CYL_TEXTURE_STEREO_PATH, (w, h) => {
+        //     cyl_texture_width = w;
+        //     cyl_texture_height = h;
+        //     onImageLoaded(session);
+        //   });
+        // } else {
+        //   number_of_images = 2;
+        //   eqr_texture = loadTexture(gl, is180 ? EQR_180_TEXTURE_MONO_PATH : EQR_TEXTURE_MONO_PATH, (w, h) => {
+        //     eqr_texture_width = w;
+        //     eqr_texture_height = h;
+        //     onImageLoaded(session);
+        //   });
+        //   cyl_texture = loadTexture(gl, CYL_TEXTURE_MONO_PATH, (w, h) => {
+        //     cyl_texture_width = w;
+        //     cyl_texture_height = h;
+        //     onImageLoaded(session);
+        //   });
+        // }
+        // texture_copied = false;
+        loadAllTexture();
+      } else {
+        let glLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: glLayer });
+        finalizeSessionStart(session);
+      }
+    }
+    function finalizeSessionStart(session) {
+      let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+      session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+        if (session.isImmersive) {
+          xrImmersiveRefSpace = refSpace;
+
+          // position the cylinder layer
+          //let cyl_layer = session.renderState.layers[cyl_layer_idx];
+          //cyl_layer.space = xrImmersiveRefSpace;
+          let pos = { x: -1.0, y: 0.0, z: -2.0 };
+          let orient = { x: 0, y: 0, z: 0, w: 1 };
+          cyl_layer.transform = new XRRigidTransform(pos, orient);
+        } else {
+          // In most samples moving forward we'll use this helper class rather
+          // than the reference space directly to inject the necessary logic
+          // for looking around an inline session with mouse and touch input.
+          inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+        }
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+    function onImageLoaded(session) {
+      if (--number_of_images != 0)
+        return;
+      xrFinalFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+      session.requestReferenceSpace('local').then((refSpace) => {
+        let projlayer = xrGLFactory.createProjectionLayer({ space: refSpace, depth: !want_msaa, alpha: !noAlpha });
+
+        let eqrlayer = xrGLFactory.createEquirectLayer({
+          space: refSpace,
+          viewPixelWidth: eqr_texture_width,
+          viewPixelHeight: eqr_texture_height / (isStereo ? 2 : 1),
+          layout: ((isStereo) ? "stereo-top-bottom" : "mono"),
+          isStatic: true
+        });
+        if (is180) {
+          eqrlayer.centralHorizontalAngle = Math.PI;
+          eqrlayer.upperVerticalAngle = Math.PI / 2.0;
+          eqrlayer.lowerVerticalAngle = -Math.PI / 2.0;
+          eqrlayer.radius = document.getElementById("radius_txt").value;
+        }
+
+        cyl_layer = xrGLFactory.createCylinderLayer({
+          space: refSpace,
+          viewPixelWidth: cyl_texture_width,
+          viewPixelHeight: cyl_texture_height / (isStereo ? 2 : 1),
+          layout: ((isStereo) ? "stereo-top-bottom" : "mono"),
+          isStatic: true
+        });
+        if (isChangeOrder) {
+          session.updateRenderState({ layers: [eqrlayer, cyl_layer, projlayer] });
+          eqr_layer_idx = 0;
+          cyl_layer_idx = 1;
+          proj_layer_idx = 2;
+        } else {
+          session.updateRenderState({ layers: [eqrlayer, projlayer, cyl_layer] });
+          eqr_layer_idx = 0;
+          proj_layer_idx = 1;
+          cyl_layer_idx = 2;
+        }
+        finalizeSessionStart(session);
+      });
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+        for (let rb of renderbuffers) {
+          gl.deleteRenderbuffer(rb.color_rb);
+          gl.deleteRenderbuffer(rb.depth_rb);
+        }
+        renderbuffers = [];
+        for (let fb of framebuffers) {
+          gl.deleteFramebuffer(fb);
+        }
+        framebuffers = [];
+      }
+      xrSession = null;
+    }
+
+    function createRBForLayer(glLayer) {
+      let color_rb = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, color_rb);
+      gl.renderbufferStorageMultisample(
+        gl.RENDERBUFFER, max_samples, gl.RGBA8, glLayer.textureWidth, glLayer.textureHeight);
+
+      let depth_rb = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, depth_rb);
+      gl.renderbufferStorageMultisample(
+        gl.RENDERBUFFER, max_samples, gl.DEPTH_COMPONENT24, glLayer.textureWidth, glLayer.textureHeight);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+
+      return {
+        colorTexture: glLayer.colorTexture,
+        textureWidth: glLayer.textureWidth,
+        textureHeight: glLayer.textureHeight,
+        color_rb: color_rb,
+        depth_rb: depth_rb
+      };
+    }
+
+    function doesRBExistForTheTexture(glLayer) {
+      for (let i = 0; i < renderbuffers.length; ++i) {
+        let rb = renderbuffers[i];
+        if (rb.colorTexture == glLayer.colorTexture) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function onXRFrame(t, frame) {
+      let session = frame.session;
+      let refSpace = session.isImmersive ?
+        xrImmersiveRefSpace :
+        inlineViewerHelper.referenceSpace;
+      let pose = frame.getViewerPose(refSpace);
+
+      scene.startFrame();
+
+      session.requestAnimationFrame(onXRFrame);
+
+      if (session.isImmersive) {
+        eqr_layer = session.renderState.layers[eqr_layer_idx];
+        proj_layer = session.renderState.layers[proj_layer_idx];
+        cyl_layer = session.renderState.layers[cyl_layer_idx];
+
+        if (want_msaa && pose && renderbuffers.length == 0) {
+          // setup renderbuffers
+          let glLayer;
+          for (let i = 0; i < pose.views.length; ++i) {
+            let view = pose.views[i];
+            glLayer = xrGLFactory.getViewSubImage(proj_layer, view);
+
+            if (!doesRBExistForTheTexture(glLayer)) {
+              let rb_desc = createRBForLayer(glLayer);
+              renderbuffers.push(rb_desc);
+            }
+          }
+        }
+
+        if (framebuffers.length == 0) {
+          if (proj_layer.layout != "stereo") {
+            framebuffers.push(gl.createFramebuffer());
+          } else {
+            // multi texture
+            for (let i = 0; i < pose.views.length; ++i) {
+              framebuffers.push(gl.createFramebuffer());
+            }
+          }
+        }
+
+        if (cyl_layer.needsRedraw || eqr_layer.needsRedraw || update_cylinder_every_frame.checked) {
+          texture_copied = false;
+        }
+      }
+      if (session.isImmersive && !texture_copied) {
+        texture_copied = true;
+        let fb = gl.createFramebuffer();
+        let glayer = xrGLFactory.getSubImage(eqr_layer, frame);
+
+        console.log("EQR Texture W = " + glayer.textureWidth + " H = " + glayer.textureHeight);
+
+        gl.viewport(0, 0, eqr_texture_width, eqr_texture_height);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearColor(1, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        stereoUtil.blit(false, eqr_texture, 0, 0, 1, 1, eqr_texture_width, eqr_texture_height);
+
+        glayer = xrGLFactory.getSubImage(cyl_layer, frame);
+        console.log("CYL Texture W = " + glayer.textureWidth + " H = " + glayer.textureHeight);
+        gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+        gl.disable(gl.SCISSOR_TEST);
+        gl.clearColor(0, 1, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        stereoUtil.blit(false, cyl_texture, 0, 0, 1, 1, cyl_texture_width, cyl_texture_height);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.deleteFramebuffer(fb);
+      }
+      if (!session.isImmersive) {
+        gl.clearColor(0.1, 0.2, 0.3, 1.0);
+      }
+
+      if (pose) {
+        let glLayer = null;
+
+        if (!session.isImmersive) {
+          glLayer = session.renderState.baseLayer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+        }
+
+        // This is a different rendering pattern than the previous samples
+        // used, but it should be more efficent. It's very common for apps
+        // being ported to XR to take existing 2D rendering code and call the
+        // top-level "drawScene" function once per XR view, effectively
+        // drawing a single eye at a time. However, this causes many state
+        // changes to be duplicated, which adds to the render loop's overhead.
+        // By providing the matrices and viewports as an array to the drawing
+        // function it can do all the necessary binding once and then call the
+        // actual draw commands in a tighter loop, only changing the matrices
+        // and viewport each time. This does mean that the viewport is changed
+        // much more frequently (N times per object instead of N times per
+        // scene) but it's typically a pretty cheap thing to change and will
+        // almost always be easily outweighed by the savings from not
+        // redundantly binding everything else.
+
+        // For example, a traditional draw loop would do this:
+
+        // Draw(views):
+        //   for each view in views:
+        //     setViewport();
+        //     for each object in scene:
+        //       bindProgram();
+        //       bindMatrices();
+        //       bindUniforms();
+        //       bindBuffers();
+        //       bindTextures();
+        //       draw();
+
+        // While this method results in a loop more like this:
+
+        // Draw(views):
+        //   for each object in scene:
+        //     bindProgram();
+        //     bindUniforms();
+        //     bindBuffers();
+        //     bindTextures();
+        //     for each view in views:
+        //       setViewport();
+        //       bindMatrices();
+        //       draw();
+
+        // Note that for the complexity of the scene in this samples this
+        // won't make much visible performance difference, but we're using the
+        // more efficient pattern anyway as a way of promoting best practices.
+
+        let views = [];
+        for (let i = 0; i < pose.views.length; ++i) {
+          let view = pose.views[i];
+          let viewport = null;
+          if (session.isImmersive) {
+
+            glLayer = xrGLFactory.getViewSubImage(proj_layer, view);
+            glLayer.framebuffer = (i < framebuffers.length) ? framebuffers[i] : framebuffers[0];
+            viewport = glLayer.viewport;
+            if (i < framebuffers.length) {
+              gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, glLayer.framebuffer);
+
+              if (!want_msaa) {
+                gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+
+                if (do_stencil_buffer.checked) {
+                  gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+                } else {
+                  gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+                }
+              } else if (i < renderbuffers.length) {
+                let rb_desc = renderbuffers[i];
+                if (rb_desc) {
+                  gl.framebufferRenderbuffer(
+                    gl.DRAW_FRAMEBUFFER,
+                    gl.COLOR_ATTACHMENT0,
+                    gl.RENDERBUFFER,
+                    rb_desc.color_rb);
+                  gl.framebufferRenderbuffer(
+                    gl.DRAW_FRAMEBUFFER,
+                    gl.DEPTH_ATTACHMENT,
+                    gl.RENDERBUFFER,
+                    rb_desc.depth_rb);
+                }
+              }
+              gl.clearColor(0, 0, 0, 0);
+              gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+            }
+          } else {
+            viewport = glLayer.getViewport(view);
+          }
+          // Gather all the values needed for one view and push it into the
+          // array of views to be drawn. WebXRView is a utility class that
+          // holds all the necessary values for drawing a single view.
+
+          // In future samples we'll hide this part away as well by using the
+          // scene.drawXRViews() function, which handles gathering these
+          // values internally.
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+
+        // Check for and respond to any gamepad state changes.
+        for (let source of session.inputSources) {
+          if (source.gamepad) {
+            ProcessGamepad(source, frame, session, refSpace);
+          }
+        }
+        scene.updateInputSources(frame, refSpace);
+        scene.drawViewArray(views);
+      }
+
+      scene.endFrame();
+
+      if (want_msaa && session.isImmersive) {
+        gl.invalidateFramebuffer(gl.DRAW_FRAMEBUFFER, [gl.DEPTH_ATTACHMENT]);
+        for (let i = 0; i < renderbuffers.length; ++i) {
+          let rb = renderbuffers[i];
+          let fb = framebuffers[i];
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
+          gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, [gl.DEPTH_ATTACHMENT]);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, xrFinalFramebuffer);
+          gl.invalidateFramebuffer(gl.DRAW_FRAMEBUFFER, [gl.DEPTH_ATTACHMENT]);
+
+          gl.bindTexture(gl.TEXTURE_2D, rb.colorTexture);
+          gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, rb.textureWidth, rb.textureHeight);
+
+          gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_ATTACHMENT]);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        }
+      }
+      ++frame_index;
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>
