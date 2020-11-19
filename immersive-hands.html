@@ -244,8 +244,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             console.log("no pose");
           }
 
-          if (!frame.fillRadii(inputSource.hand, radii)) {
-            console.log("no fillRadii");
+          if (!frame.fillJointRadii(inputSource.hand, radii)) {
+            console.log("no fillJointRadii");
             continue;
           }
           if (!frame.fillPoses(inputSource.hand, refSpace, positions)) {
