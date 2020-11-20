@@ -14,22 +14,58 @@ export class MenuSystem {
 
   createButton(path, action) {
     let button = new ButtonNode(new UrlTexture(path), () => {});
-    this.buttons.push({ node: button, action: action });
+    this.buttons.push({ node: button, action: action, state: null });
+  }
+
+  createSwitch(path1, action1, path2, action2) {
+    let button1 = new ButtonNode(new UrlTexture(path1), () => {});
+    let button2 = new ButtonNode(new UrlTexture(path2), () => {});
+    this.buttons.push({
+      node: [button1, button2],
+      action: [action1, action2],
+      state: 0,
+    });
   }
 
   getButtons() {
     return this.buttons;
   }
 
-  getMenuBarNode() {
-    this.menuBarNode = new Node();
+  getButtonNode(button) {
+    if (button.state != null) {
+      return button.node[button.state];
+    } else {
+      return button.node;
+    }
+  }
+
+  executeButtonAction(button) {
+    if (button.state != null) {
+      button.action[button.state]();
+    } else {
+      button.action();
+    }
+  }
+
+  createMenuLayout() {
     let numButtons = this.buttons.length;
     for (var i = 0; i < numButtons; i++) {
-      let button = this.buttons[i].node;
       let buttonX = (i + (1 - numButtons) / 2) * BUTTON_INTERVAL;
-      button.translation = [buttonX, -0.1, -0.1];
-      button.rotation = [-0.3826834, 0, 0, 0.9238795];
-      this.menuBarNode.addNode(button);
+      this.buttons[i]["translation"] = [buttonX, -0.1, -0.1];
+      this.buttons[i]["rotation"] = [-0.3826834, 0, 0, 0.9238795];
+    }
+  }
+
+  getMenuBarNode() {
+    this.menuBarNode = new Node();
+    this.createMenuLayout();
+    console.log(this.buttons);
+    for (let button of this.buttons) {
+      let buttonNode = this.getButtonNode(button);
+      buttonNode.translation = button.translation;
+      buttonNode.rotation = button.rotation;
+      this.menuBarNode.addNode(buttonNode);
+      console.log(buttonNode);
     }
     this.menuBarNode.translation = [0, -0.4, -0.2];
 
@@ -73,19 +109,27 @@ export class MenuSystem {
         }
       }
     }
-    if (this.highlightOverwrite) {
-      for (let button of this.buttons) {
-        button.node.scale = [1, 1, 1];
-      }
-    }
-    for (let hit of hits) {
-      for (let button of this.buttons) {
-        if (hit.hitResult && hit.hitResult.node == button.node) {
+
+    for (let button of this.buttons) {
+      for (let hit of hits) {
+        let buttonNode = this.getButtonNode(button);
+        if (this.highlightOverwrite) {
+          buttonNode.scale = [1, 1, 1];
+        }
+        if (hit.hitResult && hit.hitResult.node == buttonNode) {
           if (this.highlightOverwrite) {
-            button.node.scale = [1.2, 1.2, 1.2];
+            buttonNode.scale = [1.2, 1.2, 1.2];
           }
           if (hit.buttonPressed) {
-            button.action();
+            this.executeButtonAction(button);
+            if (button.state != null) {
+              this.menuBarNode.removeNode(buttonNode);
+              button.state = 1 - button.state;
+              let newButtonNode = this.getButtonNode(button);
+              newButtonNode.translation = button.translation;
+              newButtonNode.rotation = button.rotation;
+              this.menuBarNode.addNode(newButtonNode);
+            }
           }
           break;
         }

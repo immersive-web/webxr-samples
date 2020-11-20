@@ -526,14 +526,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if (session.isImmersive && !texture_copied) {
         texture_copied = true;
         let fb = gl.createFramebuffer();
+
+
         let glayer = xrGLFactory.getSubImage(eqr_layer, frame);
-
         console.log("EQR Texture W = " + glayer.textureWidth + " H = " + glayer.textureHeight);
-
         gl.viewport(0, 0, eqr_texture_width, eqr_texture_height);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
-
         gl.disable(gl.SCISSOR_TEST);
         gl.clearColor(1, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -544,7 +543,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
-
         gl.disable(gl.SCISSOR_TEST);
         gl.clearColor(0, 1, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
