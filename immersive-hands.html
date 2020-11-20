@@ -168,13 +168,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // or UA ends the session for any reason.
       session.addEventListener('end', onSessionEnded);
 
-      session.addEventListener('visibilitystate', e => {
+      session.addEventListener('visibilitychange', e => {
         // remove hand controller while blurred
-        if(e.session.visibilitystate === 'visible-blurred') {
-          for (const box of boxes["left"]) {
+        if(e.session.visibilityState === 'visible-blurred') {
+          for (const box of boxes['left']) {
             scene.removeNode(box.node);
           }
-          for (const box of boxes["right"]) {
+          for (const box of boxes['right']) {
             scene.removeNode(box.node);
           }
         }
@@ -230,6 +230,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function updateInputSources(session, frame, refSpace) {
+      if(session.visibilityState === 'visible-blurred') {
+        return;
+      }
       for (let inputSource of session.inputSources) {
         let offset = 0;
         if (!inputSource.hand) {
