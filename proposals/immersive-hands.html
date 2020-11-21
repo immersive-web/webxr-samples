@@ -26,9 +26,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
   <meta name='mobile-web-app-capable' content='yes'>
   <meta name='apple-mobile-web-app-capable' content='yes'>
-  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-  <link rel='stylesheet' href='css/common.css'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
 
   <title>Immersive Session with hands</title>
 </head>
@@ -49,23 +49,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <p>Click 'Enter XR' to see content</p>
   </main>
   <script type="module">
-    import { WebXRButton } from './js/util/webxr-button.js';
-    import { Scene } from './js/render/scenes/scene.js';
-    import { Node } from './js/render/core/node.js';
-    import { Renderer, createWebGLContext } from './js/render/core/renderer.js';
-    import { Gltf2Node } from './js/render/nodes/gltf2.js';
-    import { SkyboxNode } from './js/render/nodes/skybox.js';
-    import { BoxBuilder } from './js/render/geometry/box-builder.js';
-    import { PbrMaterial } from './js/render/materials/pbr.js';
-    import { QueryArgs } from './js/util/query-args.js';
-    import {mat4} from './js/render/math/gl-matrix.js';
-
-    // If requested, use the polyfill to provide support for mobile devices
-    // and devices which only support WebVR.
-    import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
-    if (QueryArgs.getBool('usePolyfill', true)) {
-      let polyfill = new WebXRPolyfill();
-    }
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene } from '../js/render/scenes/scene.js';
+    import { Node } from '../js/render/core/node.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { Gltf2Node } from '../js/render/nodes/gltf2.js';
+    import { SkyboxNode } from '../js/render/nodes/skybox.js';
+    import { BoxBuilder } from '../js/render/geometry/box-builder.js';
+    import { PbrMaterial } from '../js/render/materials/pbr.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+    import {mat4} from '../js/render/math/gl-matrix.js';
 
     // XR globals.
     let xrButton = null;
@@ -81,8 +74,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let gl = null;
     let renderer = null;
     let scene = new Scene();
-    scene.addNode(new Gltf2Node({ url: 'media/gltf/space/space.gltf' }));
-    scene.addNode(new SkyboxNode({ url: 'media/textures/milky-way-4k.png' }));
+    scene.addNode(new Gltf2Node({ url: '../media/gltf/space/space.gltf' }));
+    scene.addNode(new SkyboxNode({ url: '../media/textures/milky-way-4k.png' }));
 
     function addBox(x, y, z, r, g, b, box_list, offset) {
       let boxBuilder = new BoxBuilder();
