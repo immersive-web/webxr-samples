@@ -235,31 +235,53 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.removeNode(box.node);
           }
 
-          let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
-          if (pose === undefined) {
-            console.log("no pose");
-          }
+          if (typeof frame.fillJointRadii !== 'function' || typeof frame.fillPoses !== 'function') {
+            for (const box of boxes[inputSource.handedness]) {
+              let jointPose = null;
+              if (inputSource.hand[box.offset] !== null) {
+                jointPose = frame.getJointPose(inputSource.hand[box.offset], refSpace);
+              }
 
-          if (!frame.fillJointRadii(inputSource.hand, radii)) {
-            console.log("no fillJointRadii");
-            continue;
-          }
-          if (!frame.fillPoses(inputSource.hand, refSpace, positions)) {
-            console.log("no fillPoses");
-            continue;
-          }
-          for (const box of boxes[inputSource.handedness]) {
-            scene.addNode(box.node);
-            let matrix = positions.slice(offset, offset + 16);
-            offset += 16;
-            let jointRadius = radii[box.offset] * 100;
-            if (jointRadius === null) {
-              // for fingertips
-              jointRadius = 1;
+              if (jointPose !== null) {
+                scene.addNode(box.node);
+                box.node.translation = [jointPose.transform.position.x, jointPose.transform.position.y, jointPose.transform.position.z, jointPose.transform.position.w];
+                box.node.rotation = [jointPose.transform.orientation.x, jointPose.transform.orientation.y, jointPose.transform.orientation.z, jointPose.transform.orientation.w];
+                let jointRadius = jointPose.radius * 100;
+                if (jointRadius !== null) {
+                  box.node.scale = [jointRadius, jointRadius, jointRadius];
+                } else {
+                  // for fingertips
+                  box.node.scale = [0.5, 0.5, 0.5];
+                }
+              }
             }
-            mat4.getTranslation(box.node.translation, matrix);
-            mat4.getRotation(box.node.rotation, matrix);
-            box.node.scale = [jointRadius, jointRadius, jointRadius];
+          } else {
+            let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
+            if (pose === undefined) {
+              console.log("no pose");
+            }
+
+            if (!frame.fillJointRadii(inputSource.hand, radii)) {
+              console.log("no fillJointRadii");
+              continue;
+            }
+            if (!frame.fillPoses(inputSource.hand, refSpace, positions)) {
+              console.log("no fillPoses");
+              continue;
+            }
+            for (const box of boxes[inputSource.handedness]) {
+              scene.addNode(box.node);
+              let matrix = positions.slice(offset, offset + 16);
+              offset += 16;
+              let jointRadius = radii[box.offset] * 100;
+              if (jointRadius === null) {
+                // for fingertips
+                jointRadius = 1;
+              }
+              mat4.getTranslation(box.node.translation, matrix);
+              mat4.getRotation(box.node.rotation, matrix);
+              box.node.scale = [jointRadius, jointRadius, jointRadius];
+            }
           }
         }
       }
