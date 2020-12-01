@@ -60,6 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { Scene, WebXRView } from '../js/render/scenes/scene.js';
     import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
     import { QueryArgs } from '../js/util/query-args.js';
+    import { loadTexture } from '../js/util/texture-loader.js';
 
     import { QuadTexture } from '../js/render/nodes/quad-texture.js';
 
@@ -95,10 +96,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let projLayer = null;
     let quadLayer = null;
     let quadImageElement = null;
+    let quadTexture = null;
     let quadTextureWidth = 0;
     let quadTextureHeight = 0;
     let cyldLayer = null;
     let cyldImageElement = null;
+    let cyldTexture = null;
     let cyldTextureWidth = 0;
     let cyldTextureHeight = 0;
 
@@ -171,11 +174,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.updateRenderState({ layers: [projLayer] });
 
         // Loading texture is async, create layer and update render state when done
-        quadImageElement = document.createElement('img');
-        quadImageElement.src = QUAD_TEXTURE_MONO_PATH;
-        quadImageElement.onload = function () {
-          quadTextureWidth = quadImageElement.width;
-          quadTextureHeight = quadImageElement.height;
+        quadTexture = loadTexture(gl, QUAD_TEXTURE_MONO_PATH, (w, h) => {
+          quadTextureWidth = w;
+          quadTextureHeight = h;
           quadLayer = xrGLFactory.createQuadLayer({
             space: refSpace,
             viewPixelWidth: quadTextureWidth,
@@ -187,19 +188,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let pos = { x: -1, y: 0, z: -2 };
           let orient = { x: 0, y: 0, z: 0, w: 1 };
           quadLayer.transform = new XRRigidTransform(pos, orient);
+        });
 
-          if (cyldLayer) {
-            session.updateRenderState({ layers: [cyldLayer, quadLayer, projLayer] });
-          } else {
-            session.updateRenderState({ layers: [quadLayer, projLayer] });
-          }
-        }
-
-        let cyldImageElement = document.createElement('img');
-        cyldImageElement.src = CYLD_TEXTURE_MONO_PATH;
-        cyldImageElement.onload = function () {
-          cyldTextureWidth = cyldImageElement.width;
-          cyldTextureHeight = cyldImageElement.height;
+        cyldTexture = loadTexture(gl, CYLD_TEXTURE_MONO_PATH, (w, h) => {
+          cyldTextureWidth = w;
+          cyldTextureHeight = h;
           cyldLayer = xrGLFactory.createCylinderLayer({
             space: refSpace,
             viewPixelWidth: cyldTextureWidth,
@@ -208,19 +201,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           });
           cyldLayer.centralAngle = 60 * Math.PI / 180;
           cyldLayer.aspectRatio = cyldLayer.viewPixelWidth / cyldLayer.viewPixelHeight;
-          cyldLayer.radius = 2;
-          let pos = { x: 0, y: -1, z: -1 };
-          let orient = { x: 0, y: 0, z: 0, w: 1 };
+          cyldLayer.radius = 0.8;
+          let pos = { x: 0, y: 0.1, z: 0.3 };
+          let orient = { x: -0.3826834, y: 0, z: 0, w: 0.9238795 };
           cyldLayer.transform = new XRRigidTransform(pos, orient);
-
-          if (quadLayer) {
-            session.updateRenderState({ layers: [cyldLayer, quadLayer, projLayer] });
-          } else {
-            session.updateRenderState({ layers: [cyldLayer, projLayer] });
-          }
-
-          console.log(cyldImageElement);
-        }
+        });
 
         session.requestAnimationFrame(onXRFrame);
       });
@@ -245,31 +230,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let pose = frame.getViewerPose(xrRefSpace);
       xrSession.requestAnimationFrame(onXRFrame);
 
-      if (quadLayer && quadLayer.needsRedraw) {
-        let glayer = xrGLFactory.getSubImage(quadLayer, frame);
+      if (quadLayer && cyldLayer) {
+        xrSession.updateRenderState({ layers: [quadLayer, cyldLayer, projLayer] });
+        if (quadLayer.needsRedraw) {
+          let fb = gl.createFramebuffer();
+          let glayer = xrGLFactory.getSubImage(quadLayer, frame);
+          //gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
-        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
-        // is flipped in our texture image.
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0,
-          0, 0,
-          gl.RGBA, gl.UNSIGNED_BYTE, quadImageElement);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-      }
+          gl.disable(gl.SCISSOR_TEST);
+          gl.clearColor(0, 1, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          if (quadTextureWidth != 0 && quadTextureHeight != 0) {
+            stereoUtil.blit(false, quadTexture, 0, 0, 1, 1, quadTextureWidth, quadTextureHeight);
+          }
+        }
 
-      if (cyldLayer && cyldLayer.needsRedraw && cyldImageElement) {
-        let glayer = xrGLFactory.getSubImage(cyldLayer, frame);
+        if (cyldLayer.needsRedraw) {
+          let fb = gl.createFramebuffer();
+          let glayer = xrGLFactory.getSubImage(cyldLayer, frame);
+          //gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
-        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
-        // is flipped in our texture image.
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
-        console.log(cyldImageElement);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0,
-          0, 0,
-          gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+          gl.disable(gl.SCISSOR_TEST);
+          gl.clearColor(0, 1, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          if (cyldTextureWidth != 0 && cyldTextureHeight != 0) {
+            stereoUtil.blit(false, cyldTexture, 0, 0, 1, 1, cyldTextureWidth, cyldTextureHeight);
+          }
+        }
       }
 
       if (pose) {
