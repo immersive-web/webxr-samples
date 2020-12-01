@@ -1,0 +1,358 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Quad Layer</title>
+  <!-- Stereo layer dependency -->
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header style="max-width: 800px;">
+    <details open>
+      <summary>Quad Layer</summary>
+      <p>
+        This sample shows how to draw a scene into an quad layer.
+        Quad layers can be used for implementing small panels that
+        can be placed in front of the user containing text/image/video
+        information, its use cases are similar to those of cylinder
+        layer, but are generally favored when the panel is smaller,
+        like Library page/Messenger page in VR shell.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+
+    import { QuadTexture } from '../js/render/nodes/quad-texture.js';
+
+    const QUAD_TEXTURE_MONO_PATH = '../media/textures/eilenriede-park-2k.png';
+    const CYLD_TEXTURE_MONO_PATH = '../media/textures/annotation.png';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let stereoUtil = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+
+
+    let textureNode = new QuadTexture(QUAD_TEXTURE_MONO_PATH, 2);
+    textureNode.translation = [1, 0, -2];
+    scene.addNode(textureNode);
+
+    // Layer globals
+    let projLayer = null;
+    let quadLayer = null;
+    let quadImageElement = null;
+    let quadTextureWidth = 0;
+    let quadTextureHeight = 0;
+    let cyldLayer = null;
+    let cyldImageElement = null;
+    let cyldTextureWidth = 0;
+    let cyldTextureHeight = 0;
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+      } else {
+        onEndSession();
+      }
+    }
+
+    function initGL() {
+      if (gl) { return; }
+
+      // Create a WebGL context to render with, initialized to be compatible
+      // with the XRDisplay we're presenting to.
+      gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
+      document.body.appendChild(gl.canvas);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      // Util for rendering stereo layers
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    // Called when we've successfully acquired a XRSession. In response we
+    // will set up the necessary session state and kick off the frame loop.
+    function onSessionStarted(session) {
+      xrSession = session;
+
+      // Render correct controller models if supported by WebXR input profile
+      scene.inputRenderer.useProfileControllerMeshes(session);
+
+      // Listen for the sessions 'end' event so we can respond if the user
+      // or UA ends the session for any reason.
+      session.addEventListener('end', onSessionEnded);
+
+      initGL();
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        projLayer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        session.updateRenderState({ layers: [projLayer] });
+
+        // Loading texture is async, create layer and update render state when done
+        quadImageElement = document.createElement('img');
+        quadImageElement.src = QUAD_TEXTURE_MONO_PATH;
+        quadImageElement.onload = function () {
+          quadTextureWidth = quadImageElement.width;
+          quadTextureHeight = quadImageElement.height;
+          quadLayer = xrGLFactory.createQuadLayer({
+            space: refSpace,
+            viewPixelWidth: quadTextureWidth,
+            viewPixelHeight: quadTextureHeight,
+            layout: "mono",
+          });
+          quadLayer.width = 1;
+          quadLayer.height = 1;
+          let pos = { x: -1, y: 0, z: -2 };
+          let orient = { x: 0, y: 0, z: 0, w: 1 };
+          quadLayer.transform = new XRRigidTransform(pos, orient);
+
+          if (cyldLayer) {
+            session.updateRenderState({ layers: [cyldLayer, quadLayer, projLayer] });
+          } else {
+            session.updateRenderState({ layers: [quadLayer, projLayer] });
+          }
+        }
+
+        let cyldImageElement = document.createElement('img');
+        cyldImageElement.src = CYLD_TEXTURE_MONO_PATH;
+        cyldImageElement.onload = function () {
+          cyldTextureWidth = cyldImageElement.width;
+          cyldTextureHeight = cyldImageElement.height;
+          cyldLayer = xrGLFactory.createCylinderLayer({
+            space: refSpace,
+            viewPixelWidth: cyldTextureWidth,
+            viewPixelHeight: cyldTextureHeight,
+            layout: "mono",
+          });
+          cyldLayer.centralAngle = 60 * Math.PI / 180;
+          cyldLayer.aspectRatio = cyldLayer.viewPixelWidth / cyldLayer.viewPixelHeight;
+          cyldLayer.radius = 2;
+          let pos = { x: 0, y: -1, z: -1 };
+          let orient = { x: 0, y: 0, z: 0, w: 1 };
+          cyldLayer.transform = new XRRigidTransform(pos, orient);
+
+          if (quadLayer) {
+            session.updateRenderState({ layers: [cyldLayer, quadLayer, projLayer] });
+          } else {
+            session.updateRenderState({ layers: [cyldLayer, projLayer] });
+          }
+
+          console.log(cyldImageElement);
+        }
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession() {
+      xrSession.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+
+      // In this simple case discard the WebGL context too, since we're not
+      // rendering anything else to the screen with it.
+      gl = null;
+    }
+
+    function onXRFrame(time, frame) {
+      let pose = frame.getViewerPose(xrRefSpace);
+      xrSession.requestAnimationFrame(onXRFrame);
+
+      if (quadLayer && quadLayer.needsRedraw) {
+        let glayer = xrGLFactory.getSubImage(quadLayer, frame);
+
+        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
+        // is flipped in our texture image.
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0,
+          0, 0,
+          gl.RGBA, gl.UNSIGNED_BYTE, quadImageElement);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+
+      if (cyldLayer && cyldLayer.needsRedraw && cyldImageElement) {
+        let glayer = xrGLFactory.getSubImage(cyldLayer, frame);
+
+        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
+        // is flipped in our texture image.
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+        console.log(cyldImageElement);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0,
+          0, 0,
+          gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        // We need to invalidate the color (and depth, just in case) here to avoid
+        // loading from the previously bound color texture. It will save some GPU time.
+        gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_ATTACHMENT]);
+
+        // This is a different rendering pattern than the previous samples
+        // used, but it should be more efficent. It's very common for apps
+        // being ported to XR to take existing 2D rendering code and call the
+        // top-level "drawScene" function once per XR view, effectively
+        // drawing a single eye at a time. However, this causes many state
+        // changes to be duplicated, which adds to the render loop's overhead.
+        // By providing the matrices and viewports as an array to the drawing
+        // function it can do all the necessary binding once and then call the
+        // actual draw commands in a tighter loop, only changing the matrices
+        // and viewport each time. This does mean that the viewport is changed
+        // much more frequently (N times per object instead of N times per
+        // scene) but it's typically a pretty cheap thing to change and will
+        // almost always be easily outweighed by the savings from not
+        // redundantly binding everything else.
+
+        // For example, a traditional draw loop would do this:
+
+        // Draw(views):
+        //   for each view in views:
+        //     setViewport();
+        //     for each object in scene:
+        //       bindProgram();
+        //       bindMatrices();
+        //       bindUniforms();
+        //       bindBuffers();
+        //       bindTextures();
+        //       draw();
+
+        // While this method results in a loop more like this:
+
+        // Draw(views):
+        //   for each object in scene:
+        //     bindProgram();
+        //     bindUniforms();
+        //     bindBuffers();
+        //     bindTextures();
+        //     for each view in views:
+        //       setViewport();
+        //       bindMatrices();
+        //       draw();
+
+        // Note that for the complexity of the scene in this samples this
+        // won't make much visible performance difference, but we're using the
+        // more efficient pattern anyway as a way of promoting best practices.
+
+
+        // process input and update input sources every frame
+        scene.updateInputSources(frame, xrRefSpace);
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+
+          // Gather all the values needed for one view and push it into the
+          // array of views to be drawn. WebXRView is a utility class that
+          // holds all the necessary values for drawing a single view.
+
+          // In future samples we'll hide this part away as well by using the
+          // scene.drawXRViews() function, which handles gathering these
+          // values internally.
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+      }
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>
