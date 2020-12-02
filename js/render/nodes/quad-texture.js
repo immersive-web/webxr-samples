@@ -18,25 +18,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import {Material} from '../core/material.js';
-import {Node} from '../core/node.js';
-import {PrimitiveStream} from '../geometry/primitive-stream.js';
+import { Material } from "../core/material.js";
+import { Node } from "../core/node.js";
+import { PrimitiveStream } from "../geometry/primitive-stream.js";
 import { UrlTexture } from "../core/texture.js";
-
-const BUTTON_ICON_SIZE = 0.07;
 
 class ButtonIconMaterial extends Material {
   constructor() {
     super();
 
     this.state.blend = true;
-
-    this.defineUniform('hoverAmount', 0);
-    this.icon = this.defineSampler('icon');
+    this.icon = this.defineSampler("icon");
   }
 
   get materialName() {
-    return 'BUTTON_ICON_MATERIAL';
+    return "BUTTON_ICON_MATERIAL";
   }
 
   get vertexSource() {
@@ -44,14 +40,11 @@ class ButtonIconMaterial extends Material {
     attribute vec3 POSITION;
     attribute vec2 TEXCOORD_0;
 
-    uniform float hoverAmount;
-
     varying vec2 vTexCoord;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vTexCoord = TEXCOORD_0;
-      float scale = mix(1.0, 1.0, hoverAmount);
-      vec4 pos = vec4(POSITION.x * scale, POSITION.y * scale, POSITION.z * (scale + (hoverAmount * 0.2)), 1.0);
+      vec4 pos = vec4(POSITION.x, POSITION.y, POSITION.z, 1.0);
       return proj * view * model * pos;
     }`;
   }
@@ -67,25 +60,13 @@ class ButtonIconMaterial extends Material {
   }
 }
 
-export class QuadTexture extends Node {
-  constructor(texturePath, textureSize) {
+export class QuadNode extends Node {
+  constructor(texturePath, textureSize, selectable=false) {
     super();
 
+    this.selectable = selectable;
     this._textureSize = textureSize;
     this._iconTexture = new UrlTexture(texturePath);
-  }
-
-  get iconTexture() {
-    return this._iconTexture;
-  }
-
-  set iconTexture(value) {
-    if (this._iconTexture == value) {
-      return;
-    }
-
-    this._iconTexture = value;
-    this._iconRenderPrimitive.samplers.icon.texture = value;
   }
 
   onRendererChanged(renderer) {
@@ -107,7 +88,10 @@ export class QuadTexture extends Node {
     let iconPrimitive = stream.finishPrimitive(renderer);
     let iconMaterial = new ButtonIconMaterial();
     iconMaterial.icon.texture = this._iconTexture;
-    this._iconRenderPrimitive = renderer.createRenderPrimitive(iconPrimitive, iconMaterial);
+    this._iconRenderPrimitive = renderer.createRenderPrimitive(
+      iconPrimitive,
+      iconMaterial
+    );
     this.addRenderPrimitive(this._iconRenderPrimitive);
   }
 }

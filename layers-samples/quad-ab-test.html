@@ -30,7 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
   <link rel='stylesheet' href='../css/common.css'>
 
-  <title>Quad Layer</title>
+  <title>Layer VS Non-Layer</title>
   <!-- Stereo layer dependency -->
   <script src="../js/wglu/wglu-program.js"></script>
   <script src="../js/wglu/wglu-url.js"></script>
@@ -40,14 +40,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <body>
   <header style="max-width: 800px;">
     <details open>
-      <summary>Quad Layer</summary>
+      <summary>Layer VS Non-Layer</summary>
       <p>
-        This sample shows how to draw a scene into an quad layer.
-        Quad layers can be used for implementing small panels that
-        can be placed in front of the user containing text/image/video
-        information, its use cases are similar to those of cylinder
-        layer, but are generally favored when the panel is smaller,
-        like Library page/Messenger page in VR shell.
+        This sample is a A/B test quality comparison of rendering the
+        same square texture using quad layer vs drawing the texture
+        directly into the scene. The image on the left is rendered with
+        quad layer, while the the image on the right is simply drawn
+        into the projection layer as a simple texture.
         <a class="back" href="./index.html">Back</a>
       </p>
     </details>
@@ -61,8 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
     import { QueryArgs } from '../js/util/query-args.js';
     import { loadTexture } from '../js/util/texture-loader.js';
-
-    import { QuadTexture } from '../js/render/nodes/quad-texture.js';
+    import { QuadNode } from '../js/render/nodes/quad-texture.js';
 
     const QUAD_TEXTURE_MONO_PATH = '../media/textures/eilenriede-park-2k.png';
     const CYLD_TEXTURE_MONO_PATH = '../media/textures/annotation.png';
@@ -87,8 +85,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let renderer = null;
     let scene = new Scene();
 
-
-    let textureNode = new QuadTexture(QUAD_TEXTURE_MONO_PATH, 2);
+    let textureNode = new QuadNode(QUAD_TEXTURE_MONO_PATH, 2);
     textureNode.translation = [1, 0, -2];
     scene.addNode(textureNode);
 
