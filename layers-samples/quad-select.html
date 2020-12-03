@@ -341,6 +341,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 continue;
               }
               let hitResult = scene.hitTest(targetRayPose.transform);
+              if (!hitResult) { continue; }
               if (hitResult.node == quad1Collider) {
                 selectionArrow.translation = [-1, -1, -2];
               } else if (hitResult.node == quad2Collider) {

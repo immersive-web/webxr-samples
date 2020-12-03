@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-Copyright 2020 The Immersive Web Community Group
+Copyright 2018 The Immersive Web Community Group
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -30,21 +30,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
   <link rel='stylesheet' href='../css/common.css'>
 
-  <title>Cube Sea with Projection Layer</title>
+  <title>Projection Layer with Multiview</title>
 </head>
 
 <body>
   <header>
     <details open>
-      <summary>Cube Sea with Projection Layer</summary>
+      <summary>Projection Layer with Multiview</summary>
       <p>
-        This sample shows how to draw a scene into a projection layer.
-        There are a number of configurations for generating the cubes,
-        go wild and stress test your machine!
-        <a class="back" href="./index.html">Back</a>
+        This sample demonstrates a simple technique to reduce the number of
+        state changes an application needs to make while rendering, potentially
+        enabling better performance.
+        <a class="back" href="./">Back</a>
       </p>
-      <input type="checkbox" id="do_stencil_buffer">Stencil buffer</input>
-      <p>Trigger to select<br />A/X to summon menu<br /></p>
+      <input type="checkbox" id="do_stencil_buffer">stencil buffer</input>
+      <input type="checkbox" id="do_antialias">antialias</input>
     </details>
   </header>
   <script type="module">
@@ -52,7 +52,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { Scene, WebXRView } from '../js/render/scenes/scene.js';
     import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
     import { CubeSeaNode } from '../js/render/nodes/cube-sea.js';
-    import { MenuSystem } from '../js/render/nodes/menu-system.js';
     import { InlineViewerHelper } from '../js/util/inline-viewer-helper.js';
     import { QueryArgs } from '../js/util/query-args.js';
 
@@ -65,42 +64,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     // XR globals.
     let do_stencil_buffer = document.getElementById('do_stencil_buffer');
+    let do_antialias = document.getElementById('do_antialias');
     let xrButton = null;
-    let xrSession = null;
     let xrImmersiveRefSpace = null;
     let inlineViewerHelper = null;
     let xrGLFactory = null;
     let xrFramebuffer = null;
-    let xrDepthBuffer = null;
-    let gl_ext = null;
-    let xr_stencil = false;
 
     // WebGL scene globals.
     let gl = null;
     let renderer = null;
     let scene = new Scene();
-    let cubeCount = 1;
-    let halfOnly = false;
-    let autoRotate = false;
-    let cubeSeaNode = null;
+    let is_multiview = false, is_multisampled_supported = false;
+    let samples = 1;
+    let mv_ext = null;
+    let depthStencilTex = null;
 
-    function createCubeSea() {
-      if (cubeSeaNode) {
-        scene.removeNode(cubeSeaNode);
-      }
-      cubeSeaNode = new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png', cubeCount: cubeCount, halfOnly: halfOnly, autoRotate: autoRotate });
-      scene.addNode(cubeSeaNode);
-    }
-
-    createCubeSea();
-
-    let menuSystem = new MenuSystem(false);
-    menuSystem.createButton('../media/textures/minus-button.png', () => { if (cubeCount >= 2) { cubeCount -= 1; createCubeSea(); } });
-    menuSystem.createButton('../media/textures/plus-button.png', () => { cubeCount += 1; createCubeSea(); });
-    menuSystem.createButton('../media/textures/half-button.png', () => { halfOnly = !halfOnly; createCubeSea(); });
-    menuSystem.createButton('../media/textures/auto-rotate-button.png', () => { autoRotate = !autoRotate; createCubeSea(); });
-    menuSystem.createButton('../media/textures/x-button.png', () => { xrSession.end() });
-    scene.addNode(menuSystem.getMenuBarNode());
+    scene.addNode(new CubeSeaNode({imageUrl: '../media/textures/cube-sea.png'}));
+    scene.enableStats(false);
 
     function initXR() {
       xrButton = new WebXRButton({
@@ -127,7 +108,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         webgl2: true
       });
       document.body.appendChild(gl.canvas);
-      gl_ext = gl.getExtension('WEBGL_depth_texture');
+
+      samples = gl.getParameter(gl.MAX_SAMPLES);
+
+      mv_ext = gl.getExtension('OCULUS_multiview');
+      if (mv_ext) {
+        console.log("OCULUS_multiview extension is supported");
+        is_multiview = true;
+        is_multisampled_supported = true;
+      }
+      else {
+        console.log("OCULUS_multiview extension is NOT supported");
+      }
+      if (!mv_ext) {
+        mv_ext = gl.getExtension('OVR_multiview2');
+        if (mv_ext) {
+          console.log("OVR_multiview2 extension is supported");
+          is_multiview = true;
+        }
+        else {
+          console.log("Neither OCULUS_multiview nor OVR_multiview2 extension is NOT supported");
+          is_multiview = false;
+        }
+      }
 
       function onResize() {
         gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
@@ -136,24 +139,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       window.addEventListener('resize', onResize);
       onResize();
 
-      renderer = new Renderer(gl);
+      // Set up a non-black clear color so that we can see if something renders wrong.
+      gl.clearColor(0.1, 0.2, 0.3, 1.0);
 
-      scene.setRenderer(renderer);
     }
 
     function onRequestSession() {
-      if (!xrSession) {
-        navigator.xr.requestSession('immersive-vr', {
-          requiredFeatures: ['layers'],
-          optionalFeatures: []
-        }).then((session) => {
-          xrButton.setSession(session);
-          session.isImmersive = true;
-          onSessionStarted(session);
-        });
-      } else {
-        onEndSession();
-      }
+      return navigator.xr.requestSession('immersive-vr', { requiredFeatures: ['layers'] }).then((session) => {
+        xrButton.setSession(session);
+        session.isImmersive = true;
+        onSessionStarted(session);
+      });
     }
 
     function onVisibilityChange(event) {
@@ -164,20 +160,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function onSessionStarted(session) {
-      xrSession = session;
-      scene.inputRenderer.useProfileControllerMeshes(session);
-
       session.addEventListener('end', onSessionEnded);
       session.addEventListener('visibilitychange', onVisibilityChange);
 
       initGL();
 
       if (session.isImmersive) {
+        renderer = new Renderer(gl, true /* multiview */);
+
+        scene.setRenderer(renderer);
+
+
         xrFramebuffer = gl.createFramebuffer();
         xrGLFactory = new XRWebGLBinding(session, gl);
-        let layer = xrGLFactory.createProjectionLayer({ stencil: do_stencil_buffer.checked });
+        let layer = xrGLFactory.createProjectionLayer({
+          textureType: "texture-array",
+          depthFormat: do_stencil_buffer.checked ? gl.DEPTH24_STENCIL8 : gl.DEPTH_COMPONENT24
+        });
         session.updateRenderState({ layers: [layer] });
       } else {
+        renderer = new Renderer(gl, false /* multiview */);
+
+        scene.setRenderer(renderer);
+
         let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
       }
@@ -196,15 +201,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
     }
 
-    function onEndSession() {
-      xrSession.end();
+    function onEndSession(session) {
+      session.end();
     }
 
     function onSessionEnded(event) {
       if (event.session.isImmersive) {
         xrButton.setSession(null);
       }
-      xrSession = null;
+    }
+
+    function create_depth_texture(width, height) {
+      if (mv_ext) {
+
+        //gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      }
     }
 
     function onXRFrame(t, frame) {
@@ -274,24 +285,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // won't make much visible performance difference, but we're using the
         // more efficient pattern anyway as a way of promoting best practices.
 
-        // process input and update input sources every frame
-        menuSystem.processInput(frame, scene, refSpace);
-        scene.updateInputSources(frame, refSpace);
-
         let views = [];
         for (let view of pose.views) {
           let viewport = null;
           if (session.isImmersive) {
             glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
-            glLayer.framebuffer = xrFramebuffer;
             viewport = glLayer.viewport;
+            glLayer.framebuffer = xrFramebuffer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+            if (views.length == 0) { // for mutliview we need to set fbo only once
+              if (!is_multisampled_supported || !do_antialias.checked)
+                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
+              else
+                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, samples, 0, 2);
+              console.log("Fbo attachment numviews = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR));
+              console.log("Fbo base view index = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR));
 
-            if (do_stencil_buffer.checked) {
-              gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
-            } else {
-              gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+              if (glLayer.depthStencilTexture === null) {
+                if (depthStencilTex === null) {
+                  console.log("MaxViews = " + gl.getParameter(mv_ext.MAX_VIEWS_OVR));
+                  depthStencilTex = gl.createTexture();
+                  gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthStencilTex);
+                  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT24, viewport.width, viewport.height, 2);
+                }
+              } else {
+                depthStencilTex = glLayer.depthStencilTexture;
+              }
+              if (!is_multisampled_supported || !do_antialias.checked)
+                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, 0, 2);
+              else
+                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, samples, 0, 2);
+              console.log("Fbo attachment numviews = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR));
+              console.log("Fbo base view index = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR));
             }
           } else {
             viewport = glLayer.getViewport(view);
