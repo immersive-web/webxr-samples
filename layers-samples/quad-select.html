@@ -279,9 +279,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       if (pose) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-        // We need to invalidate the color (and depth, just in case) here to avoid
-        // loading from the previously bound color texture. It will save some GPU time.
-        gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_ATTACHMENT]);
 
         // This is a different rendering pattern than the previous samples
         // used, but it should be more efficent. It's very common for apps
@@ -360,6 +357,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+
+          gl.enable(gl.SCISSOR_TEST);
+          gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.disable(gl.SCISSOR_TEST);
 
           // Gather all the values needed for one view and push it into the
           // array of views to be drawn. WebXRView is a utility class that
