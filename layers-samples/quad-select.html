@@ -253,9 +253,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
-          gl.disable(gl.SCISSOR_TEST);
-          gl.clearColor(0, 1, 0, 1);
-          gl.clear(gl.COLOR_BUFFER_BIT);
           if (quadTexture1Width != 0 && quadTexture1Height != 0) {
             stereoUtil.blit(false, quadTexture1, 0, 0, 1, 1, quadTexture1Width, quadTexture1Height);
           }
@@ -268,9 +265,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
-          gl.disable(gl.SCISSOR_TEST);
-          gl.clearColor(0, 1, 0, 1);
-          gl.clear(gl.COLOR_BUFFER_BIT);
           if (quadTexture2Width != 0 && quadTexture2Height != 0) {
             stereoUtil.blit(false, quadTexture2, 0, 0, 1, 1, quadTexture2Width, quadTexture2Height);
           }
@@ -357,11 +351,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
-
-          gl.enable(gl.SCISSOR_TEST);
-          gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-          gl.disable(gl.SCISSOR_TEST);
 
           // Gather all the values needed for one view and push it into the
           // array of views to be drawn. WebXRView is a utility class that
