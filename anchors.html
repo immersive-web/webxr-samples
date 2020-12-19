@@ -212,8 +212,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      let rayOrigin = vec3.create();
-      let rayDirection = vec3.create();
       function onSelect(event) {
         const frame = event.frame;
         frame.createAnchor(new XRRigidTransform(), event.inputSource.gripSpace)
