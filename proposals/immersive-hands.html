@@ -67,8 +67,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let boxes_right = [];
     let boxes = { left: boxes_left, right: boxes_right };
     let isAR = false;
-    let radii = new Float32Array(XRHand.LITTLE_PHALANX_TIP+1);
-    let positions = new Float32Array(16*(XRHand.LITTLE_PHALANX_TIP+1));
+    let radii = new Float32Array(25);
+    let positions = new Float32Array(16*25);
 
     // WebGL scene globals.
     let gl = null;
@@ -107,7 +107,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       boxes_right = [];
       boxes = { left: boxes_left, right: boxes_right };
       if (typeof XRHand !== 'undefined') {
-        for (let i = 0; i <= XRHand.LITTLE_PHALANX_TIP; i++) {
+        for (let i = 0; i <= 24; i++) {
           const r = .6 + Math.random() * .4;
           const g = .6 + Math.random() * .4;
           const b = .6 + Math.random() * .4;
@@ -261,11 +261,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               console.log("no pose");
             }
 
-            if (!frame.fillJointRadii(inputSource.hand, radii)) {
+            if (!frame.fillJointRadii(inputSource.hand.values(), radii)) {
               console.log("no fillJointRadii");
               continue;
             }
-            if (!frame.fillPoses(inputSource.hand, refSpace, positions)) {
+            if (!frame.fillPoses(inputSource.hand.values(), refSpace, positions)) {
               console.log("no fillPoses");
               continue;
             }
