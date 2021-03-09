@@ -237,24 +237,24 @@ export class Scene extends Node {
     let session = xrFrame.session;
     // Assumed to be a XRWebGLLayer for now.
     let layer = session.renderState.baseLayer;
-    let layer = session.renderState.baseLayer;
     if (!layer)
       layer = session.renderState.layers[0];
     else {
       // only baseLayer has framebuffer and we need to bind it
       // even if it is null (for inline sessions)
       gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    }
 
     if (!gl) {
       return;
     }
-
 
     if (layer.colorTexture) {
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, layer.colorTexture, 0);
     }
     if (layer.depthStencilTexture) {
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, layer.depthStencilTexture, 0);
+    }
 
     if (this.clear) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
