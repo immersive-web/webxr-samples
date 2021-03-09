@@ -38,7 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <p>
           Tests a scenario where views are computed from the viewer space and
           composed with a separately queried viewer pose in the main scene
-          reference space. This was known to be buggy in with some implementaitons.
+          reference space. This was known to be buggy in with some implementations.
 
           Please note this is NOT the recommended way of using the API, but it
           provides a useful validation case for implementers.
@@ -177,7 +177,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.viewport(viewport.x, viewport.y,
                       viewport.width, viewport.height);
 
-          // Manunually combine the viewer's transform with the transform of the
+          // Manually combine the viewer's transform with the transform of the
           // individual view to get a matrix that represents the fully composed
           // transform.
           mat4.multiply(tmpMat, pose.transform.matrix, view.transform.matrix);

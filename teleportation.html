@@ -40,7 +40,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           XRSession reference space. Select a point on the floor with a
           controller to teleport to it. Select the leftmost box to rotate to the
           left by 30 degrees. Selecting the rightmost box rotates the viewer by
-          30 degress to the right. Select the middle box to reset the
+          30 degrees to the right. Select the middle box to reset the
           viewer orientation.
           <a class="back" href="./index.html">Back</a>
         </p>
@@ -250,7 +250,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // position while keeping their orientation the same.
       // Otherwise, check if one of the boxes was selected and update the
       // user's orientation accordingly:
-      //    left box: turn left by 30 degress
+      //    left box: turn left by 30 degrees
       //    center box: reset orientation
       //    right box: turn right by 30 degrees
       function onSelect(ev) {
@@ -317,7 +317,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // then transformed back into world space using the inverse of the
         // new originOffset. This simplifies to a rotation of the old player
         // offset by (new angle - old angle):
-        //   worldOffsetNew = inv(rot_of(originoffsetNew)) * rot_of(originoffsetOld) * worldOffsetOld
+        //   worldOffsetNew = inv(rot_of(originOffsetNew)) * rot_of(originOffsetOld) * worldOffsetOld
         //       = inv(rotY(-angleNew)) * rotY(-angleOld) * worldOffsetOld
         //       = rotY(angleNew) * rotY(-angleOld) * worldOffsetOld
         //       = rotY(angleNew - angleOld) * worldOffsetOld

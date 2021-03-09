@@ -90,7 +90,7 @@
       <header class='header'>
         <div id='nav'>
             <a href='./' class='selected'>Samples</a>
-            <!--a href='proposals/'>Proposals</a-->
+            <a href='proposals/'>Proposals</a>
             <a href='tests/'>Test Pages</a>
             <a href='report/'>Report</a>
         </div>
@@ -119,7 +119,7 @@
           let canhazElement = document.getElementById('canhazwebxr');
           let canhazImg = document.getElementById('canhazimg');
           if ('xr' in navigator) {
-            canhazElement.innerText = "Yes! Your browser supports WebXR and can run Virtual Reality and Augment Reality experiences if you have the appropriate hardware."
+            canhazElement.innerText = "Yes! Your browser supports WebXR and can run Virtual Reality and Augmented Reality experiences if you have the appropriate hardware."
             canhazImg.src = "media/textures/check-button.png";
           } else if ('getVRDisplays' in navigator) {
             canhazElement.innerText = "Your browser does not support WebXR, but does support the deprecated WebVR API. You may be able to run Virtual Reality experiences on sites that use the WebXR Polyfill, like this one!"
@@ -278,7 +278,7 @@
       </main>
 
       <p>Models used in these samples come from <a href="https://poly.google.com">Poly</a>, and many were modeled in <a href="https://vr.google.com/blocks/">Blocks</a>.<br/>
-      They a stored and loaded using the <a href="https://www.khronos.org/gltf/">glTF 2.0 format</a>.<br/>
+      They are stored and loaded using the <a href="https://www.khronos.org/gltf/">glTF 2.0 format</a>.<br/>
       Attribution for individual models can be found under the <a href="https://github.com/immersive-web/webxr-samples/tree/master/media/gltf">media/gltf</a> folders for this repository.</p>
 
       <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View samples source on GitHub</a></h3>
