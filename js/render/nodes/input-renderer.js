@@ -224,6 +224,8 @@ export class InputRenderer extends Node {
     this._activeControllers = 0;
     this._activeLasers = 0;
     this._activeCursors = 0;
+
+    this._blurred = false;
   }
 
   onRendererChanged(renderer) {
@@ -249,6 +251,15 @@ export class InputRenderer extends Node {
         }
       }
     });
+
+    session.addEventListener('visibilitychange', (event) => {
+      // remove hand controller while blurred
+      if (event.session.visibilityState === 'visible-blurred') {
+        this._blurred = true;
+      } else if (event.session.visibilityState === 'visible') {
+        this._blurred = false;
+      }
+    });
   }
 
   setControllerMesh(controllerNode, handedness = 'right') {
@@ -262,7 +273,7 @@ export class InputRenderer extends Node {
   }
 
   addController(gripMatrix, handedness = 'right') {
-    if (!this._controllers) { return; }
+    if (!this._controllers || this._blurred) { return; }
     let controller = this._controllers[handedness];
 
     if (!controller) { return; }
@@ -282,6 +293,7 @@ export class InputRenderer extends Node {
   }
 
   addLaserPointer(rigidTransform) {
+    if (this._blurred) { return; }
     // Create the laser pointer mesh if needed.
     if (!this._lasers && this._renderer) {
       this._lasers = [this._createLaserMesh()];
@@ -303,6 +315,7 @@ export class InputRenderer extends Node {
   }
 
   addCursor(cursorPos) {
+    if (this._blurred) { return; }
     // Create the cursor mesh if needed.
     if (!this._cursors && this._renderer) {
       this._cursors = [this._createCursorMesh()];
