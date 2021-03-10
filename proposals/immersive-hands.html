@@ -59,6 +59,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { PbrMaterial } from '../js/render/materials/pbr.js';
     import { QueryArgs } from '../js/util/query-args.js';
     import {mat4} from '../js/render/math/gl-matrix.js';
+    import {vec3} from '../js/render/math/gl-matrix.js';
+    import {Ray} from '../js/render/math/ray.js';
 
     // XR globals.
     let xrButton = null;
@@ -227,6 +229,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         return;
       }
       for (let inputSource of session.inputSources) {
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+          if (targetRayPose) {
+            if (inputSource.targetRayMode == 'tracked-pointer') {
+              scene.inputRenderer.addLaserPointer(targetRayPose.transform);
+            }
+
+            let targetRay = new Ray(targetRayPose.transform);
+            let cursorDistance = 2.0;
+            let cursorPos = vec3.fromValues(
+                targetRay.origin.x,
+                targetRay.origin.y,
+                targetRay.origin.z
+                );
+            vec3.add(cursorPos, cursorPos, [
+                targetRay.direction.x * cursorDistance,
+                targetRay.direction.y * cursorDistance,
+                targetRay.direction.z * cursorDistance,
+                ]);
+
+            scene.inputRenderer.addCursor(cursorPos);
+          }
+
         let offset = 0;
         if (!inputSource.hand) {
           continue;
