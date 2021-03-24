@@ -132,9 +132,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     function initGL() {
       if (gl) { return; }
-
-      // Create a WebGL context to render with, initialized to be compatible
-      // with the XRDisplay we're presenting to.
       gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
       document.body.appendChild(gl.canvas);
 
@@ -152,16 +149,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       stereoUtil = new VRStereoUtil(gl);
     }
 
-    // Called when we've successfully acquired a XRSession. In response we
-    // will set up the necessary session state and kick off the frame loop.
     function onSessionStarted(session) {
       xrSession = session;
-
-      // Render correct controller models if supported by WebXR input profile
       scene.inputRenderer.useProfileControllerMeshes(session);
-
-      // Listen for the sessions 'end' event so we can respond if the user
-      // or UA ends the session for any reason.
       session.addEventListener('end', onSessionEnded);
 
       initGL();
@@ -234,9 +224,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
       xrSession = null;
-
-      // In this simple case discard the WebGL context too, since we're not
-      // rendering anything else to the screen with it.
       gl = null;
     }
 
@@ -249,7 +236,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (quadLayer1.needsRedraw) {
           let fb = gl.createFramebuffer();
           let glayer = xrGLFactory.getSubImage(quadLayer1, frame);
-          //gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
           gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
@@ -261,7 +247,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (quadLayer2.needsRedraw) {
           let fb = gl.createFramebuffer();
           let glayer = xrGLFactory.getSubImage(quadLayer2, frame);
-          //gl.viewport(0, 0, cyl_texture_width, cyl_texture_height);
           gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
 
@@ -273,54 +258,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       if (pose) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-
-        // This is a different rendering pattern than the previous samples
-        // used, but it should be more efficent. It's very common for apps
-        // being ported to XR to take existing 2D rendering code and call the
-        // top-level "drawScene" function once per XR view, effectively
-        // drawing a single eye at a time. However, this causes many state
-        // changes to be duplicated, which adds to the render loop's overhead.
-        // By providing the matrices and viewports as an array to the drawing
-        // function it can do all the necessary binding once and then call the
-        // actual draw commands in a tighter loop, only changing the matrices
-        // and viewport each time. This does mean that the viewport is changed
-        // much more frequently (N times per object instead of N times per
-        // scene) but it's typically a pretty cheap thing to change and will
-        // almost always be easily outweighed by the savings from not
-        // redundantly binding everything else.
-
-        // For example, a traditional draw loop would do this:
-
-        // Draw(views):
-        //   for each view in views:
-        //     setViewport();
-        //     for each object in scene:
-        //       bindProgram();
-        //       bindMatrices();
-        //       bindUniforms();
-        //       bindBuffers();
-        //       bindTextures();
-        //       draw();
-
-        // While this method results in a loop more like this:
-
-        // Draw(views):
-        //   for each object in scene:
-        //     bindProgram();
-        //     bindUniforms();
-        //     bindBuffers();
-        //     bindTextures();
-        //     for each view in views:
-        //       setViewport();
-        //       bindMatrices();
-        //       draw();
-
-        // Note that for the complexity of the scene in this samples this
-        // won't make much visible performance difference, but we're using the
-        // more efficient pattern anyway as a way of promoting best practices.
-
-
-        // process input and update input sources every frame
         scene.updateInputSources(frame, xrRefSpace);
 
         for (let source of frame.session.inputSources) {
@@ -351,14 +288,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
-
-          // Gather all the values needed for one view and push it into the
-          // array of views to be drawn. WebXRView is a utility class that
-          // holds all the necessary values for drawing a single view.
-
-          // In future samples we'll hide this part away as well by using the
-          // scene.drawXRViews() function, which handles gathering these
-          // values internally.
           views.push(new WebXRView(view, glLayer, viewport));
         }
         scene.drawViewArray(views);

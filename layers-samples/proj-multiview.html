@@ -80,7 +80,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let mv_ext = null;
     let depthStencilTex = null;
 
-    scene.addNode(new CubeSeaNode({imageUrl: '../media/textures/cube-sea.png'}));
+    scene.addNode(new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png' }));
     scene.enableStats(false);
 
     function initXR() {
@@ -240,51 +240,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         }
 
-        // This is a different rendering pattern than the previous samples
-        // used, but it should be more efficent. It's very common for apps
-        // being ported to XR to take existing 2D rendering code and call the
-        // top-level "drawScene" function once per XR view, effectively
-        // drawing a single eye at a time. However, this causes many state
-        // changes to be duplicated, which adds to the render loop's overhead.
-        // By providing the matrices and viewports as an array to the drawing
-        // function it can do all the necessary binding once and then call the
-        // actual draw commands in a tighter loop, only changing the matrices
-        // and viewport each time. This does mean that the viewport is changed
-        // much more frequently (N times per object instead of N times per
-        // scene) but it's typically a pretty cheap thing to change and will
-        // almost always be easily outweighed by the savings from not
-        // redundantly binding everything else.
-
-        // For example, a traditional draw loop would do this:
-
-        // Draw(views):
-        //   for each view in views:
-        //     setViewport();
-        //     for each object in scene:
-        //       bindProgram();
-        //       bindMatrices();
-        //       bindUniforms();
-        //       bindBuffers();
-        //       bindTextures();
-        //       draw();
-
-        // While this method results in a loop more like this:
-
-        // Draw(views):
-        //   for each object in scene:
-        //     bindProgram();
-        //     bindUniforms();
-        //     bindBuffers();
-        //     bindTextures();
-        //     for each view in views:
-        //       setViewport();
-        //       bindMatrices();
-        //       draw();
-
-        // Note that for the complexity of the scene in this samples this
-        // won't make much visible performance difference, but we're using the
-        // more efficient pattern anyway as a way of promoting best practices.
-
         let views = [];
         for (let view of pose.views) {
           let viewport = null;
@@ -298,8 +253,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
               else
                 mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, samples, 0, 2);
-              //console.log("Fbo attachment numviews = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR));
-              //console.log("Fbo base view index = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR));
 
               if (glLayer.depthStencilTexture === null) {
                 if (depthStencilTex === null) {
@@ -315,8 +268,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, 0, 2);
               else
                 mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, samples, 0, 2);
-              //console.log("Fbo attachment numviews = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR));
-              //console.log("Fbo base view index = " + gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, mv_ext.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR));
 
               gl.disable(gl.SCISSOR_TEST);
               gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -324,13 +275,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           } else {
             viewport = glLayer.getViewport(view);
           }
-          // Gather all the values needed for one view and push it into the
-          // array of views to be drawn. WebXRView is a utility class that
-          // holds all the necessary values for drawing a single view.
-
-          // In future samples we'll hide this part away as well by using the
-          // scene.drawXRViews() function, which handles gathering these
-          // values internally.
           views.push(new WebXRView(view, glLayer, viewport));
         }
 
