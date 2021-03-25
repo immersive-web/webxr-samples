@@ -187,7 +187,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             layout: "mono",
           });
           cyldLayer.centralAngle = 60 * Math.PI / 180;
-          cyldLayer.aspectRatio = cyldLayer.viewPixelWidth / cyldLayer.viewPixelHeight * 2;
+          cyldLayer.aspectRatio = cyldTextureWidth / cyldTextureHeight * 2;
           cyldLayer.radius = 0.8;
           let pos = { x: 0, y: 0, z: 0.2 };
           let orient = { x: -0.3826834, y: 0, z: 0, w: 0.9238795 };

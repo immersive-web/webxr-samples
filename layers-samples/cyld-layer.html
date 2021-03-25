@@ -169,7 +169,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             layout: cyldIsStereo ? "stereo-top-bottom" : "mono",
           });
           cyldLayer.centralAngle = 60 * Math.PI / 180;
-          cyldLayer.aspectRatio = cyldLayer.viewPixelWidth / cyldLayer.viewPixelHeight;
+          cyldLayer.aspectRatio = cyldTextureWidth / cyldTextureHeight;
           cyldLayer.radius = 2;
 
           session.updateRenderState({ layers: [cyldLayer, projLayer] });
