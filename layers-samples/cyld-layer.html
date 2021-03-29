@@ -162,14 +162,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           cyldTextureWidth = imageElement.width;
           cyldTextureHeight = imageElement.height;
           cyldImageElement = imageElement;
+          let viewPixelWidth = cyldTextureWidth;
+          let viewPixelHeight = cyldTextureHeight / (cyldIsStereo ? 2 : 1);
           cyldLayer = xrGLFactory.createCylinderLayer({
             space: refSpace,
-            viewPixelWidth: cyldTextureWidth,
-            viewPixelHeight: cyldTextureHeight / (cyldIsStereo ? 2 : 1),
+            viewPixelWidth: viewPixelWidth,
+            viewPixelHeight: viewPixelHeight,
             layout: cyldIsStereo ? "stereo-top-bottom" : "mono",
           });
           cyldLayer.centralAngle = 60 * Math.PI / 180;
-          cyldLayer.aspectRatio = cyldTextureWidth / cyldTextureHeight;
+          cyldLayer.aspectRatio = viewPixelWidth / viewPixelHeight;
           cyldLayer.radius = 2;
 
           session.updateRenderState({ layers: [cyldLayer, projLayer] });
