@@ -31,8 +31,28 @@
     </header>
 
     <script type="module">
+      // Code adapted from three.js' WebXR hit test sample.
+      // three.js is covered by MIT license which can be found at:
+      // https://github.com/mrdoob/three.js/blob/master/LICENSE
+
       import * as THREE from 'https://unpkg.com/three@0.127.0/build/three.module.js';
       import {WebXRButton} from '../js/util/webxr-button.js';
+
+      const usePlaneOrigin = document.getElementById('usePlaneOrigin');
+
+      const allPlaneOrigins = [];
+      usePlaneOrigin.addEventListener('input', element =>{
+        console.log("Changing state of plane origins");
+        allPlaneOrigins.forEach(group => {
+          group.visible = usePlaneOrigin.checked
+        });
+      });
+
+      // Suppress XR events for interactions with the DOM overlay
+      document.querySelector('header').addEventListener('beforexrselect', (ev) => {
+        console.log(ev.type);
+        ev.preventDefault();
+      });
 
       let xrButton = null;
 
@@ -42,13 +62,17 @@
 
       let reticle;
 
-      let planeMaterials = [];
+      const planeMaterials = [];
+      const lineMaterials = [
+        new THREE.LineBasicMaterial({color: 0xff0000}),
+        new THREE.LineBasicMaterial({color: 0x00ff00}),
+        new THREE.LineBasicMaterial({color: 0x0000ff}),
+      ];
 
       let hitTestSource = null;
       let hitTestSourceRequested = false;
 
       init();
-      // animate();
 
       function init() {
 
@@ -87,29 +111,29 @@
           });
         }
         
-        const geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.2, 32 ).translate( 0, 0.1, 0 );
+        const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32).translate(0, 0.1, 0);
 
         const onSelect = function() {
-          if ( reticle.visible ) {
-            const material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-            const mesh = new THREE.Mesh( geometry, material );
-            mesh.position.setFromMatrixPosition( reticle.matrix );
+          if (reticle.visible) {
+            const material = new THREE.MeshPhongMaterial({ color: 0xffffff * Math.random()});
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.setFromMatrixPosition(reticle.matrix);
             mesh.scale.y = Math.random() * 2 + 1;
-            scene.add( mesh );
+            scene.add(mesh);
           }
         }
 
-        controller = renderer.xr.getController( 0 );
-        controller.addEventListener( 'select', onSelect );
-        scene.add( controller );
+        controller = renderer.xr.getController(0);
+        controller.addEventListener('select', onSelect);
+        scene.add(controller);
 
         reticle = new THREE.Mesh(
-          new THREE.RingGeometry( 0.15, 0.2, 32 ).rotateX( - Math.PI / 2 ),
+          new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
           new THREE.MeshBasicMaterial()
         );
         reticle.matrixAutoUpdate = false;
         reticle.visible = false;
-        scene.add( reticle );
+        scene.add(reticle);
 
         const loadManager = new THREE.LoadingManager();
         const loader = new THREE.TextureLoader(loadManager);
@@ -130,8 +154,7 @@
         planeMaterials.push(createPlaneMaterial({color: 0x00ffff}));
         planeMaterials.push(createPlaneMaterial({color: 0xff00ff}));
 
-        //
-        window.addEventListener( 'resize', onWindowResize );
+        window.addEventListener('resize', onWindowResize);
       }
 
       function onRequestSession() {
@@ -152,12 +175,12 @@
 
       function onSessionStarted(session) {
         useDomOverlay.disabled = true;
-        session.addEventListener( 'end', onSessionEnded );
+        session.addEventListener('end', onSessionEnded);
 
-        renderer.xr.setReferenceSpaceType( 'local' );
-        renderer.xr.setSession( session );
+        renderer.xr.setReferenceSpaceType('local');
+        renderer.xr.setSession(session);
 
-        renderer.setAnimationLoop( render );
+        renderer.setAnimationLoop(render);
       }
 
       function onEndSession(session) {
@@ -176,11 +199,7 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
-        renderer.setSize( window.innerWidth, window.innerHeight );
-      }
-
-      function animate() {
-        renderer.setAnimationLoop( render );
+        renderer.setSize(window.innerWidth, window.innerHeight);
       }
 
       let anchorId = 1;
@@ -255,38 +274,21 @@
             if(allPlanes.has(plane)) {
               // may have been updated:
               const planeContext = allPlanes.get(plane);
+
               if(planeContext.timestamp < plane.lastChangedTime) {
                 // updated!
                 planeContext.timestamp = plane.lastChangedTime;
 
-                // scene.remove(planeContext.mesh);
-
                 const geometry = createGeometryFromPolygon(plane.polygon);
                 planeContext.mesh.geometry.dispose();
                 planeContext.mesh.geometry = geometry;
-                
-                // const planeMesh = new THREE.Mesh(geometry,
-                //   planeMaterials[planeId % planeMaterials.length]
-                // );
-                  
-                // planeMesh.matrixAutoUpdate = false;
-                // planeMesh.visible = true;
-                  
-                // scene.add(planeMesh);
-
-                // planeContext.mesh = planeMesh;
               }
 
               planeContext.mesh.matrix.fromArray(planePose.transform.matrix);
-
-              // allPlanes.set(plane, planeContext);
             } else {
               // new plane
-              const planeContext = {
-                id: planeId,
-                timestamp: plane.lastChangedTime,
-              };
               
+              // Create geometry:
               const geometry = createGeometryFromPolygon(plane.polygon);
               const planeMesh = new THREE.Mesh(geometry,
                 planeMaterials[planeId % planeMaterials.length]
@@ -298,7 +300,29 @@
               planeMesh.matrix.fromArray( planePose.transform.matrix );
 
               scene.add(planeMesh);
-              planeContext.mesh = planeMesh;
+
+              // Create plane origin visualizer:
+              const originGroup = new THREE.Group();
+              originGroup.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(5,0,0)]),
+                lineMaterials[0]));
+              originGroup.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,5,0)]),
+                lineMaterials[1]));
+              originGroup.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,5)]),
+                lineMaterials[2]));
+              originGroup.visible = usePlaneOrigin.checked;
+
+              planeMesh.add(originGroup);
+              allPlaneOrigins.push(originGroup);
+
+              const planeContext = {
+                id: planeId,
+                timestamp: plane.lastChangedTime,
+                mesh: planeMesh,
+                origin: originGroup,
+              };
 
               allPlanes.set(plane, planeContext);
               console.debug("New plane detected, id=" + planeId);
