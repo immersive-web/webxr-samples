@@ -35,8 +35,13 @@
       // three.js is covered by MIT license which can be found at:
       // https://github.com/mrdoob/three.js/blob/master/LICENSE
 
+      // The code also links to a .png file from ARCore Android SDK.
+      // It is covered by Apache 2.0 license which can be found at:
+      // https://github.com/google-ar/arcore-android-sdk/blob/c684bbda37e44099c273c3e5274fae6fccee293c/LICENSE
+
       import * as THREE from 'https://unpkg.com/three@0.127.0/build/three.module.js';
       import {WebXRButton} from '../js/util/webxr-button.js';
+      import {hitTest, filterHitTestResults} from '../js/hit-test.js';
 
       const usePlaneOrigin = document.getElementById('usePlaneOrigin');
 
@@ -58,9 +63,10 @@
 
       let container;
       let camera, scene, renderer;
-      let controller;
 
       let reticle;
+      // hitResult will be set when reticle is visible:
+      let hitResult;
 
       const planeMaterials = [];
       const lineMaterials = [
@@ -69,30 +75,38 @@
         new THREE.LineBasicMaterial({color: 0x0000ff}),
       ];
 
-      let hitTestSource = null;
-      let hitTestSourceRequested = false;
+      const lineGeometries = [
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(5,0,0)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,5,0)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,5)]),
+      ];
+
+      const baseOriginGroup = new THREE.Group();
+      baseOriginGroup.add(new THREE.Line(lineGeometries[0], lineMaterials[0]));
+      baseOriginGroup.add(new THREE.Line(lineGeometries[1], lineMaterials[1]));
+      baseOriginGroup.add(new THREE.Line(lineGeometries[2], lineMaterials[2]));
 
       init();
 
       function init() {
 
-        container = document.createElement( 'div' );
-        document.body.appendChild( container );
+        container = document.createElement('div');
+        document.body.appendChild(container);
 
         scene = new THREE.Scene();
 
-        camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-        const light = new THREE.HemisphereLight( 0xffffff, 0xbbbbff, 1 );
-        light.position.set( 0.5, 1, 0.25 );
-        scene.add( light );
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+        light.position.set(0.5, 1, 0.25);
+        scene.add(light);
 
-        renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
-        renderer.setPixelRatio( window.devicePixelRatio );
-        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight );
         renderer.xr.enabled = true;
         renderer.autoClear = false;
-        container.appendChild( renderer.domElement );
+        container.appendChild(renderer.domElement);
 
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
@@ -110,22 +124,6 @@
             xrButton.enabled = supported;
           });
         }
-        
-        const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32).translate(0, 0.1, 0);
-
-        const onSelect = function() {
-          if (reticle.visible) {
-            const material = new THREE.MeshPhongMaterial({ color: 0xffffff * Math.random()});
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.setFromMatrixPosition(reticle.matrix);
-            mesh.scale.y = Math.random() * 2 + 1;
-            scene.add(mesh);
-          }
-        }
-
-        controller = renderer.xr.getController(0);
-        controller.addEventListener('select', onSelect);
-        scene.add(controller);
 
         reticle = new THREE.Mesh(
           new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
@@ -159,7 +157,7 @@
 
       function onRequestSession() {
         let sessionInit = {
-          requiredFeatures: ['anchors', 'plane-detection', 'hit-test'],
+          requiredFeatures: ['anchors', 'plane-detection'],
           optionalFeatures: [],
         };
         if (useDomOverlay.checked) {
@@ -176,6 +174,7 @@
       function onSessionStarted(session) {
         useDomOverlay.disabled = true;
         session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelect);
 
         renderer.xr.setReferenceSpaceType('local');
         renderer.xr.setSession(session);
@@ -204,26 +203,67 @@
 
       let anchorId = 1;
       let allAnchors = new Map();
+
       function processAnchors(timestamp, frame) {
-        if(frame.trackedAnchors) {
+        const referenceSpace = renderer.xr.getReferenceSpace();
+
+        if (frame.trackedAnchors) {
           allAnchors.forEach((anchorContext, anchor) => {
-            if(!frame.trackedAnchors.has(anchor)) {
+            if (!frame.trackedAnchors.has(anchor)) {
               // anchor was removed
               allAnchors.delete(anchor);
               console.debug("Anchor no longer tracked, id=" + anchorContext.id);
+
+              scene.remove(anchorContext.mesh);
             }
           });
 
           frame.trackedAnchors.forEach(anchor => {
-            if(allAnchors.has(anchor)) {
+            if (allAnchors.has(anchor)) {
               const anchorContext = allAnchors.get(anchor);
+              const anchorPose = frame.getPose(anchor.anchorSpace, referenceSpace);
               // update pose
+              if (anchorPose) {
+                anchorContext.mesh.visible = true;
+                anchorContext.mesh.matrix.fromArray(anchorPose.transform.matrix);
+              } else {
+                anchorContext.mesh.visible = false;
+              }
             } else {
-              // new anchor
-              allAnchors.set(plane, {id: anchorId});
-              console.debug("New anchor created, id=" + anchorId);
-              anchorId++;
+              console.error("New anchors should be processed in a createAnchor(...).then() promise");
             }
+          });
+        }
+      }
+
+      const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32).translate(0, 0.1, 0);
+
+      function onSelect(event) {
+        if (reticle.visible) {
+          const material = new THREE.MeshPhongMaterial({ color: 0xffffff * Math.random()});
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.scale.y = Math.random() * 2 + 1;
+          mesh.visible = false;
+          mesh.matrixAutoUpdate = false;
+
+          // Reticle matrix is expressed relative to `referenceSpace`, but we need to
+          // pass a pose relative to the plane space. Luckily, our JS-side hit test
+          // contains that information as well.
+          event.frame.createAnchor(
+            new XRRigidTransform(hitResult.point_on_plane),
+            hitResult.plane.planeSpace)
+          .then((anchor) => {
+            scene.add(mesh);
+
+            // new anchor created:
+            const anchorContext = {
+              id: anchorId,
+              mesh: mesh,
+            }
+
+            allAnchors.set(anchor, anchorContext);
+            console.debug("New anchor created, id=" + anchorId);
+            anchorId++;
           });
         }
       }
@@ -257,9 +297,9 @@
       function processPlanes(timestamp, frame) {
         const referenceSpace = renderer.xr.getReferenceSpace();
 
-        if(frame.detectedPlanes) {
+        if (frame.detectedPlanes) {
           allPlanes.forEach((planeContext, plane) => {
-            if(!frame.detectedPlanes.has(plane)) {
+            if (!frame.detectedPlanes.has(plane)) {
               // plane was removed
               allPlanes.delete(plane);
               console.debug("Plane no longer tracked, id=" + planeContext.id);
@@ -270,12 +310,14 @@
 
           frame.detectedPlanes.forEach(plane => {
             const planePose = frame.getPose(plane.planeSpace, referenceSpace);
+            let planeMesh;
 
-            if(allPlanes.has(plane)) {
+            if (allPlanes.has(plane)) {
               // may have been updated:
               const planeContext = allPlanes.get(plane);
+              planeMesh = planeContext.mesh;
 
-              if(planeContext.timestamp < plane.lastChangedTime) {
+              if (planeContext.timestamp < plane.lastChangedTime) {
                 // updated!
                 planeContext.timestamp = plane.lastChangedTime;
 
@@ -283,35 +325,21 @@
                 planeContext.mesh.geometry.dispose();
                 planeContext.mesh.geometry = geometry;
               }
-
-              planeContext.mesh.matrix.fromArray(planePose.transform.matrix);
             } else {
               // new plane
               
               // Create geometry:
               const geometry = createGeometryFromPolygon(plane.polygon);
-              const planeMesh = new THREE.Mesh(geometry,
+              planeMesh = new THREE.Mesh(geometry,
                 planeMaterials[planeId % planeMaterials.length]
               );
               
               planeMesh.matrixAutoUpdate = false;
-              planeMesh.visible = true;
-
-              planeMesh.matrix.fromArray( planePose.transform.matrix );
 
               scene.add(planeMesh);
 
               // Create plane origin visualizer:
-              const originGroup = new THREE.Group();
-              originGroup.add(new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(5,0,0)]),
-                lineMaterials[0]));
-              originGroup.add(new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,5,0)]),
-                lineMaterials[1]));
-              originGroup.add(new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,5)]),
-                lineMaterials[2]));
+              const originGroup = baseOriginGroup.clone();
               originGroup.visible = usePlaneOrigin.checked;
 
               planeMesh.add(originGroup);
@@ -328,46 +356,53 @@
               console.debug("New plane detected, id=" + planeId);
               planeId++;
             }
+
+            if (planePose) {
+              planeMesh.visible = true;
+              planeMesh.matrix.fromArray(planePose.transform.matrix);
+            } else {
+              planeMesh.visible = false;
+            }
           });
         }
       }
 
-      function render( timestamp, frame ) {
-        if ( frame ) {
+      function render(timestamp, frame) {
+        if (frame) {
           processAnchors(timestamp, frame);
           processPlanes(timestamp, frame);
 
           const referenceSpace = renderer.xr.getReferenceSpace();
           const session = renderer.xr.getSession();
 
-          if ( hitTestSourceRequested === false ) {
-            session.requestReferenceSpace( 'viewer' ).then( function ( referenceSpace ) {
-              session.requestHitTestSource( { space: referenceSpace } ).then( function ( source ) {
-                hitTestSource = source;
-              } );
-            } );
+          reticle.visible = false;
+          hitResult = null;
 
-            session.addEventListener( 'end', function () {
-              hitTestSourceRequested = false;
-              hitTestSource = null;
-            } );
+          const pose = frame.getViewerPose(referenceSpace);
+          if (pose) {
+            const ray = new XRRay(pose.transform);
 
-            hitTestSourceRequested = true;
-          }
+            // Perform a JS-side hit test against mathematical (infinte) planes:
+            const hitTestResults = hitTest(frame, ray, referenceSpace);
+            // Filter results down to the ones that fall within plane's polygon:
+            const hitTestFiltered = filterHitTestResults(hitTestResults);
 
-          if ( hitTestSource ) {
-            const hitTestResults = frame.getHitTestResults( hitTestSource );
+            if (hitTestFiltered && hitTestFiltered.length > 0) {
+              hitResult = hitTestFiltered[0];
 
-            if ( hitTestResults.length ) {
-              const hit = hitTestResults[ 0 ];
+              const hitMatrix = hitResult.hitMatrix;
+
+              hitMatrix[12] += 0.001; // move the reticle slightly away from the plane
+              hitMatrix[13] += 0.001; // center to prevent z-fighting with plane meshes
+              hitMatrix[14] += 0.001;
 
               reticle.visible = true;
-              reticle.matrix.fromArray( hit.getPose( referenceSpace ).transform.matrix );
-            } else {
-              reticle.visible = false;
+
+              reticle.matrix.fromArray(hitMatrix);
             }
           }
-          renderer.render( scene, camera );
+
+          renderer.render(scene, camera);
         }
       }
 
