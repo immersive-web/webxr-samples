@@ -49,6 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <a class="back" href="./index.html">Back</a>
       </p>
       <input type="checkbox" id="cyldIsStereo">Stereo cylinder layer</input><br />
+      <input type="checkbox" id="cyldIsTextureArray">Use texture-array</input><br />
     </details>
   </header>
   <main style='text-align: center;'>
@@ -88,6 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let cyldLayer = null;
     let cyldImageElement = null;
     let cyldIsStereo = false;
+    let cyldIsTextureArray = false;
     let cyldTextureWidth = 0;
     let cyldTextureHeight = 0;
 
@@ -146,6 +148,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       xrGLFactory = new XRWebGLBinding(session, gl);
 
       cyldIsStereo = document.getElementById("cyldIsStereo").checked;
+      cyldIsTextureArray = document.getElementById("cyldIsTextureArray").checked;
+
       let cyldImagePath = cyldIsStereo ?
         CYLD_TEXTURE_STEREO_PATH :
         CYLD_TEXTURE_MONO_PATH;
@@ -169,6 +173,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             viewPixelWidth: viewPixelWidth,
             viewPixelHeight: viewPixelHeight,
             layout: cyldIsStereo ? "stereo-top-bottom" : "mono",
+            textureType: cyldIsTextureArray ? 'texture-array' : 'texture',
           });
           cyldLayer.centralAngle = 60 * Math.PI / 180;
           cyldLayer.aspectRatio = viewPixelWidth / viewPixelHeight;
@@ -203,11 +208,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
         // is flipped in our texture image.
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0,
-          0, 0,
-          gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        if (cyldIsTextureArray) {
+          gl.bindTexture(gl.TEXTURE_2D_ARRAY, glayer.colorTexture);
+          gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0,
+            0, 0, glayer.imageIndex, glayer.textureWidth, glayer.textureHeight, 1,
+            gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
+          gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+        } else {
+          gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0,
+            0, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+        }
       }
 
       if (pose) {
