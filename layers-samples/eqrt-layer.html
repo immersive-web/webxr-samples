@@ -56,7 +56,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </p>
       <input type="checkbox" id="eqrtIsStereo">Stereo equirect layer</input><br />
       <input type="checkbox" id="eqrtIs180">180 degree equirect</input><br />
-      <label>Equirect layer radius</label><input type="number" id="eqrtRadius" value="10" /><br />
     </details>
   </header>
   <main style='text-align: center;'>
@@ -101,7 +100,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let eqrtIs180 = false;
     let eqrtTextureWidth = 0;
     let eqrtTextureHeight = 0;
-    let eqrtRadius = 0;
+    let eqrtRadius = 10;
 
     function initXR() {
       xrButton = new WebXRButton({
@@ -161,7 +160,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       eqrtIsStereo = document.getElementById("eqrtIsStereo").checked;
       eqrtIs180 = document.getElementById("eqrtIs180").checked;
-      eqrtRadius = document.getElementById("eqrtRadius").value;
       let eqrtImagePath = eqrtIsStereo ?
         (eqrtIs180 ? EQRT_180_TEXTURE_STEREO_PATH : EQRT_TEXTURE_STEREO_PATH) :
         (eqrtIs180 ? EQRT_180_TEXTURE_MONO_PATH : EQRT_TEXTURE_MONO_PATH);
