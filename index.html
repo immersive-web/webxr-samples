@@ -120,7 +120,19 @@
           let canhazElement = document.getElementById('canhazwebxr');
           let canhazImg = document.getElementById('canhazimg');
           if ('xr' in navigator) {
-            canhazElement.innerText = "Yes! Your browser supports WebXR and can run Virtual Reality and Augmented Reality experiences if you have the appropriate hardware."
+            canhazElement.innerText = "Your browser implements the WebXR API and may be able to run Virtual Reality or Augmented Reality experiences if you are using a supported OS and the appropriate hardware."
+            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+              const span = document.createElement('span');
+              span.innerText = supported ? '✔️- VR support detected' : '❌ - VR support not detected';
+              canhazElement.appendChild(document.createElement('br'));
+              canhazElement.appendChild(span);
+            });
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              const span = document.createElement('span');
+              span.innerText = supported ? '✔️- AR support detected' : '❌ - AR support not detected';
+              canhazElement.appendChild(document.createElement('br'));
+              canhazElement.appendChild(span);
+            });
             canhazImg.src = "media/textures/check-button.png";
           } else if ('getVRDisplays' in navigator) {
             canhazElement.innerText = "Your browser does not support WebXR, but does support the deprecated WebVR API. You may be able to run Virtual Reality experiences on sites that use the WebXR Polyfill, like this one!"
