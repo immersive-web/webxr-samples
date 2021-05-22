@@ -59,13 +59,11 @@ export class MenuSystem {
   getMenuBarNode() {
     this.menuBarNode = new Node();
     this.createMenuLayout();
-    console.log(this.buttons);
     for (let button of this.buttons) {
       let buttonNode = this.getButtonNode(button);
       buttonNode.translation = button.translation;
       buttonNode.rotation = button.rotation;
       this.menuBarNode.addNode(buttonNode);
-      console.log(buttonNode);
     }
     this.menuBarNode.translation = [0, -0.4, -0.2];
 
