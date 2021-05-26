@@ -59,6 +59,49 @@ class CubeSeaMaterial extends Material {
     }`;
   }
 
+  get vertexSourceMultiview() {
+    return `#version 300 es
+    #extension GL_OVR_multiview2 : require
+    #define NUM_VIEWS 2
+    layout(num_views=NUM_VIEWS) in;
+    #define VIEW_ID gl_ViewID_OVR
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
+    in vec3 NORMAL;
+
+    out vec2 vTexCoord;
+    out vec3 vLight;
+
+    const vec3 lightDir = vec3(0.75, 0.5, 1.0);
+    const vec3 ambientColor = vec3(0.5, 0.5, 0.5);
+    const vec3 lightColor = vec3(0.75, 0.75, 0.75);
+
+    vec4 vertex_main(mat4 left_proj, mat4 left_view, mat4 right_proj, mat4 right_view, mat4 model) {
+      vec3 normalRotated = vec3(model * vec4(NORMAL, 0.0));
+      float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);
+      vLight = ambientColor + (lightColor * lightFactor);
+      vTexCoord = TEXCOORD_0;
+      return (VIEW_ID == 0u) ? left_proj * left_view * model * vec4(POSITION, 1.0) :
+                               right_proj * right_view * model * vec4(POSITION, 1.0);
+    }`;
+  }
+
+  get fragmentSourceMultiview() {
+    if (!this.heavy) {
+      return `#version 300 es
+      precision mediump float;
+      uniform sampler2D baseColor;
+      in vec2 vTexCoord;
+      in vec3 vLight;
+
+      vec4 fragment_main() {
+        return vec4(vLight, 1.0) * texture(baseColor, vTexCoord);
+      }`;
+    } else {
+      // NOT IMPLEMENTED
+      console.log("Multiview HEAVY case is not implemented");
+    }
+  }
   get fragmentSource() {
     if (!this.heavy) {
       return `

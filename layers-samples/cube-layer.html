@@ -1,0 +1,303 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Cube Layer</title>
+  <!-- Stereo layer dependency -->
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header style="max-width: 800px;">
+    <details open>
+      <summary>Cube Layer</summary>
+      <p>
+        This sample shows how to draw a scene into an cube layer.
+        Cube layer is mainly used for drawing static background that
+        only needs to be drawn once or rarely need refreshing. The
+        same thing can be accomplished with projection layers, but
+        since projection layers redraws all objects every frame, cube
+        layer is a much more efficient alternative.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <p>
+        Mono cubemap image by Eric Cheng<br />
+        Stereo cubemap image by Jon Griffith
+      </p>
+      <input type="checkbox" id="cubeIsStereo">Stereo cube layer</input><br />
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+
+    const CUBE_TEXTURE_MONO_PATH = '../media/textures/mono_cube_map.png';
+    const CUBE_TEXTURE_STEREO_PATH = '../media/textures/stereo_cube_map.png';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let stereoUtil = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+
+    // Layer globals
+    let projLayer = null;
+    let cubeLayer = null;
+    let cubeImageElement = null;
+    let cubeIsStereo = false;
+    let cubeFaceSize = 0;
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+      } else {
+        onEndSession();
+      }
+    }
+
+    function initGL() {
+      if (gl) { return; }
+      gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
+      document.body.appendChild(gl.canvas);
+      gl.clearColor(0.0, 0, 0, 0.0);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      // Util for rendering stereo layers
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    // We'll use the minimum of our system-imposed max cube map size and the
+    // size of an edge of a cube in our texture source image.
+    function getCubeTextureSize(imageElement) {
+      const glLimit = gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE);
+      const texSourceWidth = imageElement.width;
+      const texSourceHeight = imageElement.height;
+      return Math.min(glLimit, Math.min(texSourceWidth, texSourceHeight));
+    }
+
+    // This is a fairly expensive operation, since it involves slicing out
+    // pieces of the texure jpeg and potentially resizing them, but it only
+    // happens once on the initial render for a photo.
+    function copyCubestripToGLBuffer(tex, sourceImageElement, offset_in_faces) {
+      // the input texture cube face size.
+      const textureSourceCubeFaceSize = Math.min(sourceImageElement.width, sourceImageElement.height);
+
+      // dont flip the pixels as we load them into the texture buffer.
+      // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
+      // is flipped in our texture image.
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, tex);
+
+      let cubefaceTextures = [];
+
+      for (let i = 0; i < 6; i++) {
+        let tempCanvas = document.createElement("canvas");
+        tempCanvas.width = tempCanvas.height = cubeFaceSize;
+        const tempCanvasContext = tempCanvas.getContext('2d');
+        // Note that this call to drawImage will not only copy the bytes to the
+        // canvas but also could resized the image if our cube face size is
+        // smaller than the source image due to GL max texture size.
+        tempCanvasContext.drawImage(
+          sourceImageElement,
+          (i + offset_in_faces) * textureSourceCubeFaceSize, // top left x coord in source
+          0, // top left y coord in source
+          textureSourceCubeFaceSize, // x pixel count from source
+          textureSourceCubeFaceSize, // y pixel count from source
+          0, // dest x offset in the canvas
+          0, // dest y offset in the canvas
+          cubeFaceSize, // x pixel count in dest
+          cubeFaceSize, // y pixel count in dest
+        );
+        cubefaceTextures.push(tempCanvas);
+      }
+
+      let errorCode = 0;
+      cubefaceTextures.forEach((canvas, i) => {
+        gl.texSubImage2D(
+          gl.TEXTURE_CUBE_MAP_POSITIVE_X + i,
+          0,
+          0, 0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          canvas,
+        );
+        errorCode = gl.getError();
+      });
+
+      if (errorCode !== 0) {
+        console.log("renderingError, WebGL Error Code: " + errorCode);
+      }
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
+
+    function onSessionStarted(session) {
+      xrSession = session;
+      scene.inputRenderer.useProfileControllerMeshes(session);
+      session.addEventListener('end', onSessionEnded);
+
+      initGL();
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      cubeIsStereo = document.getElementById("cubeIsStereo").checked;
+      let cubeImagePath = cubeIsStereo ?
+        CUBE_TEXTURE_STEREO_PATH :
+        CUBE_TEXTURE_MONO_PATH;
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        projLayer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        session.updateRenderState({ layers: [projLayer] });
+
+        // Loading texture is async, create layer and update render state when done
+        let imageElement = document.createElement('img');
+        imageElement.src = cubeImagePath;
+        imageElement.onload = function () {
+          cubeFaceSize = getCubeTextureSize(imageElement);
+          cubeImageElement = imageElement;
+          cubeLayer = xrGLFactory.createCubeLayer({
+            space: refSpace,
+            viewPixelWidth: cubeFaceSize,
+            viewPixelHeight: cubeFaceSize,
+            layout: cubeIsStereo ? "stereo" : "mono",
+            isStatic: true
+          });
+          session.updateRenderState({ layers: [cubeLayer, projLayer] });
+        }
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession() {
+      xrSession.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+        cubeImageElement = null;
+      }
+      xrSession = null;
+      gl = null;
+    }
+
+    function onXRFrame(time, frame) {
+      let pose = frame.getViewerPose(xrRefSpace);
+      xrSession.requestAnimationFrame(onXRFrame);
+
+      if (cubeLayer && cubeLayer.needsRedraw) {
+        if (!cubeIsStereo) {
+          let glayer = xrGLFactory.getSubImage(cubeLayer, frame);
+          copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, 0);
+        } else {
+          let offset = 0;
+          for (let eye of ["left", "right"]) {
+            let glayer = xrGLFactory.getSubImage(cubeLayer, frame, eye);
+            copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, offset * 6);
+            ++offset;
+          }
+        }
+      }
+
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        scene.updateInputSources(frame, xrRefSpace);
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+      }
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

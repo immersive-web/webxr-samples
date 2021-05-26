@@ -1,0 +1,248 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Equirect Layer</title>
+  <!-- Stereo layer dependency -->
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header style="max-width: 800px;">
+    <details open>
+      <summary>Equirect Layer</summary>
+      <p>
+        This sample shows how to draw a scene into an equirect layer.
+        Equirect layer is similar in terms of its advantage over projection.
+        It can be used for rendering static background like cube layer,
+        but because it's mapping a square shaped image over a sphere,
+        distortion will need to happen for correctly rendering objects.
+        This is fine for rendering dedicated 360 images, but if we want
+        to add objects to the background, we will need to apply distortion
+        to these objects to ensure they are rendered correctly, whereas
+        using cube layer can eliminate this process. Thus, the real edge
+        of using equirect layer over cube layer is to show 180/360 video.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <input type="checkbox" id="eqrtIsStereo">Stereo equirect layer</input><br />
+      <input type="checkbox" id="eqrtIs180">180 degree equirect</input><br />
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+
+    const EQRT_TEXTURE_MONO_PATH = '../media/textures/mono_equirect_test.png';
+    const EQRT_180_TEXTURE_MONO_PATH = '../media/textures/mono-equirect180.png';
+    const EQRT_TEXTURE_STEREO_PATH = '../media/textures/chess-pano-4k.png';
+    const EQRT_180_TEXTURE_STEREO_PATH = '../media/textures/chess-pano-4k180.png';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let stereoUtil = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+
+    // Layer globals
+    let projLayer = null;
+    let eqrtLayer = null;
+    let eqrtImageElement = null;
+    let eqrtIsStereo = false;
+    let eqrtIs180 = false;
+    let eqrtTextureWidth = 0;
+    let eqrtTextureHeight = 0;
+    let eqrtRadius = 10;
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+      } else {
+        onEndSession();
+      }
+    }
+
+    function initGL() {
+      if (gl) { return; }
+      gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
+      document.body.appendChild(gl.canvas);
+      gl.clearColor(0.0, 0, 0, 0.0);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      // Util for rendering stereo layers
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    // Called when we've successfully acquired a XRSession. In response we
+    // will set up the necessary session state and kick off the frame loop.
+    function onSessionStarted(session) {
+      xrSession = session;
+      scene.inputRenderer.useProfileControllerMeshes(session);
+      session.addEventListener('end', onSessionEnded);
+
+      initGL();
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      eqrtIsStereo = document.getElementById("eqrtIsStereo").checked;
+      eqrtIs180 = document.getElementById("eqrtIs180").checked;
+      let eqrtImagePath = eqrtIsStereo ?
+        (eqrtIs180 ? EQRT_180_TEXTURE_STEREO_PATH : EQRT_TEXTURE_STEREO_PATH) :
+        (eqrtIs180 ? EQRT_180_TEXTURE_MONO_PATH : EQRT_TEXTURE_MONO_PATH);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        projLayer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        session.updateRenderState({ layers: [projLayer] });
+
+        // Loading texture is async, create layer and update render state when done
+        let imageElement = document.createElement('img');
+        imageElement.src = eqrtImagePath;
+        imageElement.onload = function () {
+          eqrtTextureWidth = imageElement.width;
+          eqrtTextureHeight = imageElement.height;
+          eqrtImageElement = imageElement;
+          eqrtLayer = xrGLFactory.createEquirectLayer({
+            space: refSpace,
+            viewPixelWidth: eqrtTextureWidth,
+            viewPixelHeight: eqrtTextureHeight / (eqrtIsStereo ? 2 : 1),
+            layout: eqrtIsStereo ? "stereo-top-bottom" : "mono",
+          });
+
+          eqrtLayer.centralHorizontalAngle = Math.PI * (eqrtIs180 ? 1 : 2);
+          eqrtLayer.upperVerticalAngle = Math.PI / 2.0;
+          eqrtLayer.lowerVerticalAngle = -Math.PI / 2.0;
+          eqrtLayer.radius = eqrtRadius;
+          session.updateRenderState({ layers: [eqrtLayer, projLayer] });
+        }
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession() {
+      xrSession.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      gl = null;
+    }
+
+    function onXRFrame(time, frame) {
+      let pose = frame.getViewerPose(xrRefSpace);
+      xrSession.requestAnimationFrame(onXRFrame);
+
+      if (eqrtLayer && eqrtLayer.needsRedraw) {
+        let glayer = xrGLFactory.getSubImage(eqrtLayer, frame);
+
+        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
+        // is flipped in our texture image.
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, eqrtImageElement);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        scene.updateInputSources(frame, xrRefSpace);
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+      }
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

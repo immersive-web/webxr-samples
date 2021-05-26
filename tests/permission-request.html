@@ -106,21 +106,50 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       addPermissionButtons([
         {
-          icon: '../media/textures/camera-button.png',
+          icon: '../media/textures/microphone-button.png',
           callback: (success, fail) => {
-            navigator.getUserMedia({ video: true }, success, fail);
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(success, fail);
           }
         },
         {
-          icon: '../media/textures/mic-button.png',
+          icon: '../media/textures/camera-button.png',
           callback: (success, fail) => {
-            navigator.getUserMedia({ audio: true }, success, fail);
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/screenshare-button.png',
+          callback: (success, fail) => {
+            navigator.mediaDevices.getDisplayMedia()
+            .then(success, fail);
           }
         },
         {
           icon: '../media/textures/location-button.png',
           callback: (success, fail) => {
             navigator.geolocation.getCurrentPosition(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/notifications-button.png',
+          callback: (success, fail) => {
+            Notification.requestPermission(outcome => {
+              switch(outcome) {
+                case 'granted':
+                  success();
+                  break;
+                case 'denied':
+                  fail();
+                  break;
+                case 'default':
+                  // If permission prompt is closed or ignored,
+                  // the outcome value is 'default', and permission can be requested again.
+                  // https://notifications.spec.whatwg.org/#permission-model
+                  break;
+              }
+            })
           }
         },
         {
@@ -138,7 +167,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/usb-button.png',
           callback: (success, fail) => {
-            navigator.usb.requestDevice({filters: [{}]})
+            navigator.usb.requestDevice({ filters: [{}] })
+            .then(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/hid-button.png',
+          callback: (success, fail) => {
+            navigator.hid.requestDevice({ filters: [] })
+            .then(devices => { devices.length > 0 ? success() : fail() });
+          }
+        },
+        {
+          icon: '../media/textures/midi-button.png',
+          callback: (success, fail) => {
+            navigator.requestMIDIAccess({ sysex: true })
+            .then(success, fail);
+          }
+        },
+        {
+          icon: '../media/textures/serial-button.png',
+          callback: (success, fail) => {
+            navigator.serial.requestPort({ filters: [] })
             .then(success, fail);
           }
         },

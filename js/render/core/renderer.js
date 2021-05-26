@@ -58,15 +58,22 @@ void main() {
 `;
 
 const VERTEX_SHADER_MULTI_ENTRY = `
-#ERROR Multiview rendering is not implemented
+uniform mat4 LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX;
 void main() {
-  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_Position = vertex_main(LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX);
 }
 `;
 
 const FRAGMENT_SHADER_ENTRY = `
 void main() {
   gl_FragColor = fragment_main();
+}
+`;
+
+const FRAGMENT_SHADER_MULTI_ENTRY = `
+out vec4 color;
+void main() {
+  color = fragment_main();
 }
 `;
 
@@ -517,7 +524,7 @@ class RenderMaterial {
 }
 
 export class Renderer {
-  constructor(gl) {
+  constructor(gl, multiview) {
     this._gl = gl || createWebGLContext();
     this._frameId = 0;
     this._programCache = {};
@@ -535,6 +542,8 @@ export class Renderer {
 
     this._globalLightColor = vec3.clone(DEF_LIGHT_COLOR);
     this._globalLightDir = vec3.clone(DEF_LIGHT_DIR);
+
+    this._multiview = multiview;
   }
 
   get gl() {
@@ -695,10 +704,21 @@ export class Renderer {
         }
 
         if (views.length == 1) {
-          gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
-          gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, views[0].viewMatrix);
-          gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
-          gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
+          if (!this._multiview) {
+            gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, views[0].viewMatrix);
+            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
+            gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
+          } else {
+            let vp = views[0].viewport;
+            gl.viewport(vp.x, vp.y, vp.width, vp.height);
+            gl.uniformMatrix4fv(program.uniform.LEFT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[0].viewMatrix);
+            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
+            gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
+          }
         }
       }
 
@@ -728,10 +748,22 @@ export class Renderer {
             let vp = view.viewport;
             gl.viewport(vp.x, vp.y, vp.width, vp.height);
           }
-          gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, view.projectionMatrix);
-          gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, view.viewMatrix);
-          gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
-          gl.uniform1i(program.uniform.EYE_INDEX, view.eyeIndex);
+          if (this._multiview) {
+            if (i == 0) {
+              gl.uniformMatrix4fv(program.uniform.LEFT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
+            }
+            // TODO(AB): modify shaders which use CAMERA_POSITION and EYE_INDEX to work with Multiview
+            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
+            gl.uniform1i(program.uniform.EYE_INDEX, view.eyeIndex);
+          } else {
+            gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, view.projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, view.viewMatrix);
+            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
+            gl.uniform1i(program.uniform.EYE_INDEX, view.eyeIndex);
+          }
         }
 
         for (let instance of primitive._instances) {
@@ -747,6 +779,9 @@ export class Renderer {
           } else {
             gl.drawArrays(primitive._mode, 0, primitive._elementCount);
           }
+        }
+        if (this._multiview) {
+          break;
         }
       }
     }
@@ -834,9 +869,10 @@ export class Renderer {
   }
 
   _getMaterialProgram(material, renderPrimitive) {
+    const multiview = this._multiview;
     let materialName = material.materialName;
-    let vertexSource = material.vertexSource;
-    let fragmentSource = material.fragmentSource;
+    let vertexSource = (!multiview) ? material.vertexSource : material.vertexSourceMultiview;
+    let fragmentSource = (!multiview) ? material.fragmentSource : material.fragmentSourceMultiview;
 
     // These should always be defined for every material
     if (materialName == null) {
@@ -855,7 +891,6 @@ export class Renderer {
     if (key in this._programCache) {
       return this._programCache[key];
     } else {
-      let multiview = false; // Handle this dynamically later
       let fullVertexSource = vertexSource;
       fullVertexSource += multiview ? VERTEX_SHADER_MULTI_ENTRY :
                                       VERTEX_SHADER_SINGLE_ENTRY;
@@ -864,7 +899,8 @@ export class Renderer {
       let fragPrecisionHeader = precisionMatch ? '' : `precision ${this._defaultFragPrecision} float;\n`;
 
       let fullFragmentSource = fragPrecisionHeader + fragmentSource;
-      fullFragmentSource += FRAGMENT_SHADER_ENTRY;
+      fullFragmentSource += multiview ? FRAGMENT_SHADER_MULTI_ENTRY :
+                                        FRAGMENT_SHADER_ENTRY
 
       let program = new Program(this._gl, fullVertexSource, fullFragmentSource, ATTRIB, defines);
       this._programCache[key] = program;

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta http-equiv='X-UA-Compatible' content='chrome=1'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+
+  <meta name='twitter:card' content='summary'>
+  <meta name='twitter:title' content='WebXR Samples'>
+  <meta name='twitter:description' content='Sample WebXR pages for testing and reference'>
+
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+
+  <link rel='stylesheet' href='../css/stylesheet.css'>
+  <link rel='stylesheet' href='../css/pygment_trac.css'>
+
+  <style>
+    article {
+      position: relative;
+      padding: 0.5em;
+      background-color: rgba(255, 255, 255, 0.90);
+      margin-bottom: 1em;
+      border-radius: 3px;
+    }
+
+    hr {
+      margin-bottom: 1em;
+    }
+
+    article h3 {
+      font-size: 1.0em;
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+
+    article h3::before {
+      display: inline-block;
+      content: attr(data-index) ' - ';
+      font-weight: bold;
+      white-space: nowrap;
+      margin-right: 0.2em;
+    }
+
+    article h4 {
+      position: absolute;
+      right: 0.5em;
+      top: 0.5em;
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+
+    article p {
+      margin: 0.5em;
+    }
+
+    article .links {
+      margin-left: 0.5em;
+      margin-right: 0.5em;
+    }
+
+    article a {
+      display: inline-block;
+    }
+
+    article a:not(:first-child)::before {
+      display: inline-block;
+      content: '•';
+      font-weight: bold;
+      white-space: nowrap;
+      margin-left: 0.5em;
+      margin-right: 0.5em;
+    }
+
+    .github-link {
+      font-size: 0.8em;
+    }
+
+    .wordmark img {
+      width: 70%;
+    }
+  </style>
+
+  <!--[if lt IE 9]>
+    <script src='https://html5shiv.googlecode.com/svn/trunk/html5.js'></script>
+    <![endif]-->
+  <title>WebXR - Layers Samples</title>
+</head>
+
+<body>
+
+  <div class='container' id='container'>
+    <header class='header'>
+      <div id='nav'>
+        <a href='../'>Samples</a>
+        <a href='./' class='selected'>Layers Samples</a>
+        <a href='../proposals/'>Proposals</a>
+        <a href='../tests/'>Test Pages</a>
+        <a href='../report/'>Report</a>
+      </div>
+
+      <h1>
+        <a href='' class='wordmark'>
+          <img src='../media/logo/webxr-logo.svg' alt='WebXR Logo' />
+        </a>
+      </h1>
+      <h2 class='tagline'>WebXR Layers Samples</h2>
+    </header>
+
+    <main class='main' id='main'>
+      <p>These pages demonstrate how to use various aspects of the WebXR Layers API.<br/>
+
+      <script>
+        let pages = [
+          {
+            title: 'Projection Layer', category: 'Basics',
+            path: 'proj-layer.html',
+            description: 'This sample shows how to draw a scene into a projection layer. Projection layer is used for rendering interactive/constantly changing elements that needs to be redrawn every frame, like controllers or menu systems/other UI elements.',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Quad Layer', category: 'Basics',
+            path: 'quad-layer.html',
+            description: 'This sample shows how to draw a scene into an quad layer. Quad layers can be used for implementing small panels that can be placed in front of the user containing text/image/video information',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Cylinder Layer', category: 'Basics',
+            path: 'cyld-layer.html',
+            description: 'This sample shows how to draw a scene into an cylinder layer. Cylinder layers can be used for implementing large panels that wraps around the user to make content more immersive/readable.',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Cube Layer', category: 'Basics',
+            path: 'cube-layer.html',
+            description: 'This sample shows how to draw a scene into an cube layer. Cube layer is mainly used for drawing static background that only needs to be drawn once or rarely need refreshing.',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Equirect Layer', category: 'Basics',
+            path: 'eqrt-layer.html',
+            description: 'This sample shows how to draw a scene into an equirect layer. Equirect layer is similar in terms of its advantage over projection. It can be used for rendering static background like cube layer.',
+            noPolyfill: true
+          },
+        ];
+
+        let mainElement = document.getElementById("main");
+
+        // Append an element for every item in the pages list.
+        let sampleIdx = 0;
+        for (let page of pages) {
+
+          if (page.category == 'divider') {
+            let divider = document.createElement('hr');
+            mainElement.appendChild(divider);
+            continue;
+          }
+          sampleIdx += 1;
+
+          let article = document.createElement('article');
+
+          let title = document.createElement('h3');
+          title.setAttribute('data-index', sampleIdx);
+
+          let titleLink = document.createElement('a');
+          titleLink.href = page.path;
+          titleLink.textContent = page.title;
+          title.appendChild(titleLink);
+          article.appendChild(title);
+
+          let category = document.createElement('h4');
+          category.textContent = page.category;
+          article.appendChild(category);
+
+          let description = document.createElement('p');
+          description.textContent = page.description;
+          article.appendChild(description);
+
+          let links = document.createElement('div');
+          links.classList.add('links');
+
+          let sourceLink = document.createElement('a');
+          sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/layers-samples/' + page.path;
+          sourceLink.textContent = 'Source';
+          links.appendChild(sourceLink);
+
+          if (!page.noPolyfill) {
+            let polyfillLink = document.createElement('a');
+            polyfillLink.href = page.path + '?usePolyfill=0';
+            polyfillLink.textContent = 'Run Without Polyfill';
+            links.appendChild(polyfillLink);
+          }
+
+          article.appendChild(links);
+
+          mainElement.appendChild(article);
+        }
+      </script>
+    </main>
+
+    <br />
+
+    <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View source on GitHub</a></h3>
+
+    <footer class='footer'>
+    </footer>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,507 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+    <style>
+      .property-list {
+        font-family: monospace;
+        border-collapse: collapse;
+      }
+      .property-list td {
+        padding: 0.25em;
+      }
+      .property-list tr>:first-child {
+        font-weight: bold;
+      }
+      .property-list tr:nth-child(even) {
+        background-color: #f8f8f8;
+      }
+      .property-list tr>:first-child:after {
+        content: ':';
+      }
+
+      .input-sources>li {
+        margin-bottom: 1em;
+      }
+    </style>
+
+    <title>WebXR Report</title>
+  </head>
+  <body>
+    <header>
+        <h1>WebXR Report</h1>
+        <p>
+          This page displays as much information as it can about any WebXR modes and sessions
+          supported by your browser/devices. On some devices entering an XR session may obscure the
+          content of this page, so realtime output (such as pose data) will only show their final
+          value at the end of the session.
+        </p>
+    </header>
+
+    <section id="xr-report">
+      <h2>{{webXRSupportStatus}}</h2>
+
+      <h2>WebXR Modules</h2>
+      <p>
+        Support for various WebXR features are broken out into specification "modules". A module
+        showing as supported here does not mean that the features is guaranteed to be available on
+        all hardware, only that the browser is capable of supporting the feature when the hardware
+        exposes it.
+      </p>
+      <table class='property-list'>
+        <tr v-for="module in modules">
+          <td><a v-bind:href='module.url'>{{module.name}}</a>
+          <td>
+            <span v-if='module.supported'>✔️- Supported</span>
+            <span v-if='!module.supported'>❌ - Unsupported</span>
+          </td>
+        </tr>
+      </table>
+
+      <h2>Session Modes</h2>
+      <p>
+        Session modes are the various types of WebXR sessions that can be created, and determine how
+        content is displayed and what features are available. A session mode will only be shown as
+        available here if both your browser <i>and</i> your hardware support it.
+      </p>
+      <table class='property-list'>
+        <tr v-for="mode in sessionModes" >
+          <td>{{mode.name}}
+          <td>{{mode.status}}
+          <td><button v-if="mode.supported" v-on:click="mode.onStart">Begin Session</button>
+        </tr>
+      </table>
+
+      <h1 v-if="report.session">Session Report</h1>
+      <div id='session-report'>
+        <article v-if="report.session" >
+          <h3>
+            Type: {{report.mode}} Session ({{report.state}})
+            <button v-if="report.running" v-on:click="report.onEnd">End Session</button>
+          </h3>
+
+          <section>
+            <h4>Supported Reference Spaces</h4>
+            <table class='property-list'>
+              <tr v-for="(referenceSpace, type) in report.referenceSpaces" :key="type">
+                <td>
+                  <input type="radio" v-model="primaryReferenceSpaceType" v-bind:value="type" v-bind:enabled="report.running">
+                  {{type}}
+                </td>
+                <td>
+                  <webxr-space v-bind:space="referenceSpace"/>
+                </td>
+              </tr>
+            </table>
+
+            <h4>Views</h4>
+            <ol class='input-sources'>
+              <li v-for="view in report.views">
+                <table class='property-list'>
+                  <tr>
+                    <td>eye
+                    <td>{{view.eye}}
+                  <tr>
+                    <td>projectionMatrix
+                    <td><webxr-matrix v-bind:matrix="view.projectionMatrix" />
+                  <tr>
+                    <td>transform
+                    <td><webxr-transform v-bind:transform="view.transform" />
+                </table>
+              </li>
+            </ol>
+
+            <h4>Session Properties</h4>
+            <table class='property-list'>
+              <tr>
+                <td>visibilityState
+                <td>{{report.session.visibilityState}}
+              <tr>
+                <td>environmentBlendMode
+                <td>{{report.session.environmentBlendMode}}
+            </table>
+
+            <h4>Input Sources</h4>
+            <ol class='input-sources'>
+              <li v-for="input in report.inputs" :key="input.key">
+                <table class='property-list'>
+                  <tr>
+                    <td>handedness
+                    <td>{{input.source.handedness}}
+                  <tr>
+                    <td>targetRayMode
+                    <td>{{input.source.targetRayMode}}
+                  <tr>
+                    <td>profiles
+                    <td>
+                      <ol>
+                        <li v-for="profile in input.source.profiles">{{profile}}</li>
+                      </ol>
+                    </td>
+                  <tr>
+                    <td>targetRaySpace
+                    <td>
+                      <webxr-space v-bind:space="input.source.targetRaySpace"/>
+                    </td>
+                  <tr>
+                    <td>gripSpace
+                    <td>
+                      <webxr-space v-bind:space="input.source.gripSpace"/>
+                    </td>
+                  <tr v-if="input.source.gamepad" :key="input.gamepadTimestamp">
+                    <td>gamepad
+                    <td>
+                      Mapping: {{input.source.gamepad.mapping}}<br/>
+                      Axes:
+                      <ol>
+                        <li v-for="axis in input.source.gamepad.axes">
+                          {{axis | clampFloat}}
+                        </li>
+                      </ol>
+
+                      Buttons:
+                      <ol>
+                        <li v-for="button in input.source.gamepad.buttons">
+                          {{button.value | clampFloat}} <span v-if="button.touched">(Touched)</span> <span v-if="button.pressed">(Pressed)</span>
+                        </li>
+                      </ol>
+                    </td>
+                </table>
+              </li>
+            </ol>
+          </section>
+
+          <section v-if="module.supported && module.component" v-for="module in modules" v-bind:key="module.name">
+            <component v-bind:is='module.component' v-bind:report="report"></component>
+          </section>
+
+          <canvas width='10px' height='10px' id='output-canvas'></canvas>
+        </article>
+      </div>
+    </section>
+
+    <script type="module">
+      let primaryReferenceSpace = null;
+      const activeSpaces = [];
+
+      Vue.component('webxr-matrix', {
+        props: ['matrix'],
+        template: `
+          <div>
+            [{{matrix[0] | clampFloat}}, {{matrix[1] | clampFloat}}, {{matrix[2] | clampFloat}}, {{matrix[3] | clampFloat}}<br/>
+            &nbsp;{{matrix[4] | clampFloat}}, {{matrix[5] | clampFloat}}, {{matrix[6] | clampFloat}}, {{matrix[7] | clampFloat}}<br/>
+            &nbsp;{{matrix[8] | clampFloat}}, {{matrix[9] | clampFloat}}, {{matrix[10] | clampFloat}}, {{matrix[11] | clampFloat}}<br/>
+            &nbsp;{{matrix[12] | clampFloat}}, {{matrix[13] | clampFloat}}, {{matrix[14] | clampFloat}}, {{matrix[15] | clampFloat}}]
+          </div>
+        `,
+        filters: {
+          clampFloat(value) {
+            return value.toFixed(2);
+          }
+        },
+      });
+
+      Vue.component('webxr-transform', {
+        props: ['transform', 'emulated'],
+        template: `
+          <div>
+            Position: [{{transform.position.x | clampFloat}}, {{transform.position.y | clampFloat}}, {{transform.position.z | clampFloat}}] <i v-if="emulated">(Emulated)</i><br/>
+            Orientation: [{{transform.orientation.x | clampFloat}}, {{transform.orientation.y | clampFloat}}, {{transform.orientation.z | clampFloat}}, {{transform.orientation.w | clampFloat}}]
+          </div>
+        `,
+        filters: {
+          clampFloat(value) {
+            return value.toFixed(2);
+          }
+        },
+      });
+
+      Vue.component('webxr-space', {
+        props: ['space'],
+        data: function() {
+          return {
+            hasSpace: false,
+            emulated: false,
+            transform: null
+          }
+        },
+        template: `
+          <section>
+            <webxr-transform v-if="transform" v-bind:transform="transform" v-bind:emulated="emulated"/>
+            <div v-if="!transform">
+              <i>null <span v-if="!space">(No Space)</span></i>
+            </div>
+          </section>
+        `,
+        mounted: function () {
+          activeSpaces.push(this);
+        },
+        beforeDestroy: function() {
+          const idx = activeSpaces.indexOf(this);
+          if (idx != -1) {
+            activeSpaces.splice(idx, 1);
+          }
+        },
+      });
+
+      function updateSpaces(frame) {
+        if (!primaryReferenceSpace) {
+          return;
+        }
+
+        for (let component of activeSpaces) {
+          if (!component.space) {
+            continue;
+          }
+
+          const pose = frame.getPose(component.space, primaryReferenceSpace);
+          if (pose) {
+            component.emulated = pose.emulated;
+            component.transform = pose.transform;
+          } else {
+            component.transform = null;
+          }
+        }
+      }
+
+      // Report if WebXR is supported at all.
+      let webXRSupportStatus = '❌ - Your browser does not support WebXR';
+      if ('xr' in navigator) {
+        webXRSupportStatus = '✔️ - Your browser supports WebXR'
+      } else if ('getVRDisplays' in navigator) {
+        webXRSupportStatus = '⚠️ - Your browser supports WebVR (deprecated), but not WebXR'
+      }
+
+      const modules = [
+        {
+          name: 'WebXR Device API (core)',
+          url: 'https://immersive-web.github.io/webxr/',
+          supported: 'xr' in navigator,
+        },
+        {
+          name: 'WebXR Gamepads',
+          url: 'https://immersive-web.github.io/webxr-gamepads-module/',
+          supported: 'gamepad' in XRInputSource.prototype
+        },
+        {
+          name: 'WebXR Augmented Reality',
+          url: 'https://immersive-web.github.io/webxr-ar-module/',
+          supported: 'environmentBlendMode' in XRSession.prototype
+        },
+        {
+          name: 'WebXR Hit Test',
+          url: 'https://immersive-web.github.io/hit-test/',
+          supported: 'requestHitTestSource' in XRSession.prototype
+        },
+        {
+          name: 'WebXR DOM Overlays',
+          url: 'https://immersive-web.github.io/dom-overlays/',
+          supported: 'domOverlayState' in XRSession.prototype
+        },
+        {
+          name: 'WebXR Layers',
+          url: 'https://immersive-web.github.io/layers/',
+          supported: 'XRProjectionLayer' in window
+        },
+        {
+          name: 'WebXR Anchors',
+          url: 'https://immersive-web.github.io/anchors/',
+          supported: 'createAnchor' in XRFrame.prototype
+        },
+        {
+          name: 'WebXR Lighting Estimation',
+          url: 'https://immersive-web.github.io/lighting-estimation/',
+          supported: 'requestLightProbe' in XRSession.prototype
+        }
+      ];
+
+      const report = {
+        valid: false,
+        mode: null,
+        state: 'Invalid',
+        running: false,
+        session: null,
+        timestamp: 0,
+        referenceSpaces: {},
+        views: [],
+        inputs: [],
+        frame: null,
+        onEnd: () => {
+          if (report.session) {
+            report.session.end();
+          }
+        }
+      };
+
+      function updateViews(timestamp, frame) {
+        report.views.splice(0);
+        if (!primaryReferenceSpace) { return; }
+
+        const viewerPose = frame.getViewerPose(primaryReferenceSpace);
+        if (!viewerPose) { return; }
+
+        for (let view of viewerPose.views) {
+          report.views.push(view);
+        }
+      }
+
+      function updateInputs() {
+        for (let input of report.inputs) {
+          if (input.source.gamepad) {
+            input.gamepadTimestamp = input.source.gamepad.timestamp;
+          }
+        }
+      }
+
+      const canvas = document.getElementById('output-canvas');
+      const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, xrCompatible: true });
+
+      function onXRFrame(timestamp, frame) {
+        const session = frame.session;
+        const glLayer = session.renderState.baseLayer;
+
+        updateSpaces(frame);
+        updateViews(timestamp, frame);
+        updateInputs();
+
+        // Draw to the page canvas
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.clearColor(0, 0.7, 0, 0.5);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Draw to the XR device
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+        gl.clearColor(0.7, 0.7, 0.7, 0.5);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        session.requestAnimationFrame(onXRFrame);
+      }
+
+      let inputKey = 0;
+      function onInputsChanged(event) {
+        // Update all the input states
+        report.inputs.splice(0);
+        for (let source of event.session.inputSources) {
+          report.inputs.push({
+            key: inputKey++,
+            source,
+            gamepadTimestamp: source.gamepad.timestamp
+          });
+        }
+      }
+
+      const sessionModes = [];
+      const sessionModeNames = ['inline', 'immersive-vr', 'immersive-ar'];
+      const referenceSpaceTypes = ['local', 'local-floor', 'bounded-floor', 'unbounded', 'viewer'];
+      for (let name of sessionModeNames) {
+        const mode = {
+          name,
+          status: '🔍 - Testing...',
+          supported: false,
+          onStart: () => {
+            report.mode = name;
+            report.state = 'Starting';
+
+            const sessionOptions = {
+              optionalFeatures: ['local-floor', 'bounded-floor', 'unbounded']
+            };
+
+            if (name == 'immersive-ar') {
+              optionalFeatures.push('dom-overlay');
+              sessionOptions.domOverlay = { root: document.getElementById('session-report') };
+            }
+
+            navigator.xr.requestSession(name, sessionOptions).then((session) => {
+              report.session = session;
+              report.running = true;
+              report.state = 'Running';
+
+              session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+              for (let type of referenceSpaceTypes) {
+                session.requestReferenceSpace(type).then((referenceSpace) => {
+                  Vue.set(report.referenceSpaces, type, referenceSpace);
+                  if (!xrReport.primaryReferenceSpaceType && type !== 'viewer') {
+                    xrReport.primaryReferenceSpaceType = type;
+                  }
+                }).catch(() => {
+                  // Do we want to report this somehow?
+                });
+              }
+
+              session.requestAnimationFrame(onXRFrame);
+
+              session.addEventListener('inputsourceschange', onInputsChanged);
+
+              session.addEventListener('end', () => {
+                primaryReferenceSpace = null;
+                report.state = 'Ended';
+                report.running = false;
+              });
+            });
+          }
+        };
+
+        if ('xr' in navigator) {
+          navigator.xr.isSessionSupported(name).then((supported) => {
+            mode.supported = supported;
+            mode.status = supported ? '✔️ - Available' : '❌ - Unavailable';
+          });
+        } else {
+          mode.status = '❌ - Unavailable';
+        }
+
+        sessionModes.push(mode);
+      }
+
+      const xrReport = new Vue({
+        el: '#xr-report',
+        data: {
+          webXRSupportStatus,
+          modules,
+          sessionModes,
+          report,
+          primaryReferenceSpaceType: null,
+        },
+        filters: {
+          clampFloat(value) {
+            return value.toFixed(2);
+          },
+        },
+        watch: {
+          primaryReferenceSpaceType: function (type) {
+            primaryReferenceSpace = this.report.referenceSpaces[type];
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
