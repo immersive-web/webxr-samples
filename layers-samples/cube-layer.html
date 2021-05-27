@@ -279,7 +279,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, 0);
         } else {
           let offset = 0;
-          for (let eye of ["left", "right"]) {
+          for (let eye of ["right", "left"]) {
             let glayer = xrGLFactory.getSubImage(cubeLayer, frame, eye);
             copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, offset * 6);
             ++offset;
