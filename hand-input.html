@@ -1,0 +1,392 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+
+    <title>Hand Input</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Hand Input</summary>
+        <p>
+          This sample demonstrates fully atriculated tracking of the user's hands.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {BoxBuilder} from './js/render/geometry/box-builder.js';
+      import {PbrMaterial} from './js/render/materials/pbr.js';
+      import {QueryArgs} from './js/util/query-args.js';
+      import {mat4} from './js/render/math/gl-matrix.js';
+      import { Node } from './js/render/core/node.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
+      let isARAvailable = false;
+      let isVRAvailable = false;
+      let xrSessionString = 'immersive-vr';
+
+      // XR globals.
+      let xrButton = null;
+      let xrImmersiveRefSpace = null;
+      let inlineViewerHelper = null;
+      let boxes_left = [];
+      let boxes_right = [];
+      let boxes = { left: boxes_left, right: boxes_right };
+      let indexFingerBoxes = {left: null, right: null};
+      let isAR = false;
+      const numJoints = 25;
+      let radii = new Float32Array(numJoints);
+      let positions = new Float32Array(16 * numJoints);
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+
+      let jointNames = [
+          "wrist",
+          "thumb-metacarpal",
+          "thumb-phalanx-proximal",
+          "thumb-phalanx-distal",
+          "thumb-tip",
+          "index-finger-metacarpal",
+          "index-finger-phalanx-proximal",
+          "index-finger-phalanx-intermediate",
+          "index-finger-phalanx-distal",
+          "index-finger-tip",
+          "middle-finger-metacarpal",
+          "middle-finger-phalanx-proximal",
+          "middle-finger-phalanx-intermediate",
+          "middle-finger-phalanx-distal",
+          "middle-finger-tip",
+          "ring-finger-metacarpal",
+          "ring-finger-phalanx-proximal",
+          "ring-finger-phalanx-intermediate",
+          "ring-finger-phalanx-distal",
+          "ring-finger-tip",
+          "pinky-finger-metacarpal",
+          "pinky-finger-phalanx-proximal",
+          "pinky-finger-phalanx-intermediate",
+          "pinky-finger-phalanx-distal",
+          "pinky-finger-tip"
+      ];
+
+      function createBoxPrimitive(r, g, b) {
+        let boxBuilder = new BoxBuilder();
+        boxBuilder.pushCube([0, 0, 0], 1);
+        let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+        let boxMaterial = new PbrMaterial();
+        boxMaterial.baseColorFactor.value = [r, g, b, 1];
+        return renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+      }
+
+      const defaultBoxColor = {r: 0.5, g: 0.5, b: 0.5};
+      const leftBoxColor = {r: 1, g: 0, b: 1};
+      const rightBoxColor = {r: 0, g: 1, b: 1};
+      let interactionBox = null;
+      let leftInteractionBox = null;
+      let rightInteractionBox = null;
+        
+      function addBoxForJoint(r, g, b, offset) {
+        let boxNode = new Node();
+        boxNode.addRenderPrimitive(createBoxPrimitive(r, g, b));
+
+        // Marks the node as one that needs to be checked when hit testing.
+        boxNode.selectable = true;
+        return {
+          node: boxNode,
+          offset: offset,
+          jointName: jointNames[offset]
+        };
+      }
+
+      function initHands() {
+        for (const box of boxes_left) {
+          scene.removeNode(box.node);
+        }
+        for (const box of boxes_right) {
+          scene.removeNode(box.node);
+        }
+        if (indexFingerBoxes.left) {
+          scene.removeNode(indexFingerBoxes.left);
+        }
+        if (indexFingerBoxes.right) {
+          scene.removeNode(indexFingerBoxes.right);
+        }
+        boxes_left = [];
+        boxes_right = [];
+        boxes = { left: boxes_left, right: boxes_right };
+        if (typeof XRHand !== 'undefined') {
+          for (let i = 0; i < numJoints; i++) {
+            const r = .6 + Math.random() * .4;
+            const g = .6 + Math.random() * .4;
+            const b = .6 + Math.random() * .4;
+            boxes_left.push(addBoxForJoint(r, g, b, i));
+            boxes_right.push(addBoxForJoint(r, g, b, i));
+          }
+        }
+
+        indexFingerBoxes = {
+          left: addBoxForJoint(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b, jointNames.indexOf('index-finger-tip')),
+          right: addBoxForJoint(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b, jointNames.indexOf('index-finger-tip'))
+        };
+      }
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXRTitle: isARAvailable ? "START AR" : "START VR",
+          textXRNotFoundTitle: isARAvailable ? "AR NOT FOUND" : "VR NOT FOUND",
+          textExitXRTitle: isARAvailable ? "EXIT  AR" : "EXIT  VR",
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          // Checks to ensure that 'immersive-ar' or 'immersive-vr' mode is available,
+          // and only enables the button if so.
+          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+            isARAvailable = supported;
+            xrButton.enabled = supported;
+            if (!supported) {
+              navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                isVRAvailable = supported;
+                xrButton.enabled = supported;
+              });
+            } else {
+              xrSessionString = 'immersive-ar';
+            }
+          });
+
+          navigator.xr.requestSession('inline').then(onSessionStarted);
+        }
+      }
+
+      function onRequestSession() {
+        // Requests an 'immersive-vr' session, which ensures that the users
+        // environment will be visible either via video passthrough or a
+        // transparent display. This may be presented either in a headset or
+        // fullscreen on a mobile device.
+        return navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['hand-tracking']})
+            .then((session) => {
+              xrButton.setSession(session);
+              session.isImmersive = true;
+              onSessionStarted(session);
+            });
+      }
+
+      function initGL() {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          xrCompatible: true
+        });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('visibilitystate', e => {
+          // remove hand controller while blurred
+          if(e.session.visibilitystate === 'visible-blurred') {
+            for (const box of boxes["left"]) {
+              scene.removeNode(box.node);
+            }
+            for (const box of boxes["right"]) {
+              scene.removeNode(box.node);
+            }
+          }
+        });
+
+        initGL();
+        // This and all future samples that visualize controllers will use this
+        // convenience method to listen for changes to the active XRInputSources
+        // and load the right meshes based on the profiles array.
+        scene.inputRenderer.useProfileControllerMeshes(session);
+
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
+            xrImmersiveRefSpace = refSpace;
+          } else {
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function updateInputSources(session, frame, refSpace) {
+        for (let inputSource of session.inputSources) {
+          let offset = 0;
+          if (!inputSource.hand) {
+            continue;
+          } else {
+            let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
+            if (pose === undefined) {
+              console.log("no pose");
+            }
+
+            if (!frame.fillJointRadii(inputSource.hand.values(), radii)) {
+               console.error("no fillRadii");
+               continue;
+            }
+            if (!frame.fillPoses(inputSource.hand.values(), refSpace, positions)) {
+               console.error("no fillPoses");
+               continue;
+            }
+
+            for (const box of boxes[inputSource.handedness]) {
+              scene.addNode(box.node);
+              let matrix = positions.slice(offset, offset + 16);
+              offset += 16;
+              let jointRadius = radii[box.offset];
+              if (jointRadius === null) {
+                // for fingertips
+                jointRadius = 0.01;
+              }
+              mat4.getTranslation(box.node.translation, matrix);
+              mat4.getRotation(box.node.rotation, matrix);
+              box.node.scale = [jointRadius, jointRadius, jointRadius];
+            }
+
+            // Render a special box for each index finger on each hand
+            const indexFingerBox = indexFingerBoxes[inputSource.handedness];
+            scene.addNode(indexFingerBox.node);
+            let joint = inputSource.hand.get('index-finger-tip');
+            let jointPose = frame.getJointPose(joint, refSpace);
+            if (jointPose) {
+              let matrix = jointPose.transform.matrix;
+              mat4.getTranslation(indexFingerBox.node.translation, matrix);
+              mat4.getRotation(indexFingerBox.node.rotation, matrix);
+              indexFingerBox.node.scale = [0.02, 0.02, 0.02];
+            }
+          }
+        }
+      }
+
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let refSpace = session.isImmersive ?
+                         xrImmersiveRefSpace :
+                         inlineViewerHelper.referenceSpace;
+        let pose = frame.getViewerPose(refSpace);
+        
+        if (!boxes_left.length) {
+            initHands();
+        }
+
+        updateInputSources(session, frame, refSpace);
+
+        if (!interactionBox) {
+          // Add box to demonstrate hand interaction
+          function AddInteractionBox(r, g, b) {
+            let box = new Node();
+            box.addRenderPrimitive(createBoxPrimitive(r, g, b));
+            box.translation = [0, 0, -1];
+            box.scale = [0.25, 0.25, 0.25];
+            return box;
+          }
+          interactionBox = AddInteractionBox(defaultBoxColor.r, defaultBoxColor.g, defaultBoxColor.b);
+          leftInteractionBox = AddInteractionBox(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+          rightInteractionBox = AddInteractionBox(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+          scene.addNode(interactionBox);
+          scene.addNode(leftInteractionBox);
+          scene.addNode(rightInteractionBox);
+        }
+
+        function Distance(nodeA, nodeB) {
+          return Math.sqrt(
+            Math.pow(nodeA.translation[0] - nodeB.translation[0], 2) +
+            Math.pow(nodeA.translation[1] - nodeB.translation[1], 2) +
+            Math.pow(nodeA.translation[2] - nodeB.translation[2], 2));
+        }
+
+        const interactionDistance = interactionBox.scale[0];
+
+        leftInteractionBox.visible = false;
+        rightInteractionBox.visible = false;
+        if (Distance(indexFingerBoxes.left.node, interactionBox) < interactionDistance) {
+          leftInteractionBox.visible = true;
+        } else if (Distance(indexFingerBoxes.right.node, interactionBox) < interactionDistance) {
+          rightInteractionBox.visible = true;
+        }
+        interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
+
+        // In this sample and most samples after it we'll use a helper function
+        // to automatically add the right meshes for the session's input sources
+        // each frame. This also does simple hit detection to position the
+        // cursors correctly on the surface of selectable nodes.
+        scene.updateInputSources(frame, refSpace);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+        
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>
