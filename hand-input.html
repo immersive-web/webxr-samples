@@ -250,10 +250,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
 
         initGL();
-        // This and all future samples that visualize controllers will use this
-        // convenience method to listen for changes to the active XRInputSources
-        // and load the right meshes based on the profiles array.
-        scene.inputRenderer.useProfileControllerMeshes(session);
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
@@ -365,12 +361,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           rightInteractionBox.visible = true;
         }
         interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
-
-        // In this sample and most samples after it we'll use a helper function
-        // to automatically add the right meshes for the session's input sources
-        // each frame. This also does simple hit detection to position the
-        // cursors correctly on the surface of selectable nodes.
-        scene.updateInputSources(frame, refSpace);
 
         scene.startFrame();
 
