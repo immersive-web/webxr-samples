@@ -304,23 +304,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let joint = inputSource.hand.get('index-finger-tip');	
           let jointPose = frame.getJointPose(joint, xrRefSpace);	
           if (jointPose) {	
-            let matrix = jointPose.transform.matrix;	
-            mat4.getTranslation(indexFingerBox.translation, matrix);	
-            mat4.getRotation(indexFingerBox.rotation, matrix);	
+            let matrix = jointPose.transform.matrix;
+            mat4.getTranslation(indexFingerBox.translation, matrix);
+            mat4.getRotation(indexFingerBox.rotation, matrix);
             indexFingerBox.scale = [0.02, 0.02, 0.02];	
           }
         }
       }
     }
     
-    function UpdateInteractables() {
+    function UpdateInteractables(time) {
       // Add scene objects if not present
       if (!interactionBox) {	
         // Add box to demonstrate hand interaction
         function AddInteractionBox(r, g, b) {	
           let box = new Node();	
           box.addRenderPrimitive(createBoxPrimitive(r, g, b));	
-          box.translation = [0, 0, -1];	
+          box.translation = [0, 0, -0.65];	
           box.scale = [0.25, 0.25, 0.25];	
           return box;	
         }	
@@ -330,7 +330,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.addNode(interactionBox);	
         scene.addNode(leftInteractionBox);	
         scene.addNode(rightInteractionBox);	
-      }	
+      }
+      
       function Distance(nodeA, nodeB) {	
         return Math.sqrt(	
           Math.pow(nodeA.translation[0] - nodeB.translation[0], 2) +	
@@ -348,6 +349,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         rightInteractionBox.visible = true;	
       }	
       interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
+      
+      mat4.rotateX(interactionBox.matrix, interactionBox.matrix, time/1000);
+      mat4.rotateY(interactionBox.matrix, interactionBox.matrix, time/1500);
+      leftInteractionBox.matrix = interactionBox.matrix;
+      rightInteractionBox.matrix = interactionBox.matrix;
     }
 
     // Called every time the XRSession requests that a new frame be drawn.
@@ -361,7 +367,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       session.requestAnimationFrame(onXRFrame);
 
       updateInputSources(session, frame, xrRefSpace);
-      UpdateInteractables();
+      UpdateInteractables(t);
 
       // Get the XRDevice pose relative to the Frame of Reference we created
       // earlier.
