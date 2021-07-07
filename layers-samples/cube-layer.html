@@ -229,6 +229,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let imageElement = document.createElement('img');
         imageElement.src = cubeImagePath;
         imageElement.onload = function () {
+          imageElement = flipImage(imageElement);
           cubeFaceSize = getCubeTextureSize(imageElement);
           cubeImageElement = imageElement;
           cubeLayer = xrGLFactory.createCubeLayer({
@@ -243,6 +244,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.requestAnimationFrame(onXRFrame);
       });
+    }
+
+    function flipImage(inputImage) {
+      const outputImage = document.createElement("canvas");
+      outputImage.width = inputImage.naturalWidth;
+      outputImage.height = inputImage.naturalHeight;
+      const ctx = outputImage.getContext("2d");
+      ctx.scale(-1, 1);
+      ctx.drawImage(inputImage, -outputImage.width, 0);
+      return outputImage;
     }
 
     function onEndSession() {
@@ -268,7 +279,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, 0);
         } else {
           let offset = 0;
-          for (let eye of ["left", "right"]) {
+          for (let eye of ["right", "left"]) {
             let glayer = xrGLFactory.getSubImage(cubeLayer, frame, eye);
             copyCubestripToGLBuffer(glayer.colorTexture, cubeImageElement, offset * 6);
             ++offset;
