@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-Copyright 2020 The Immersive Web Community Group
+Copyright 2021 The Immersive Web Community Group
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -48,16 +48,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         over projection. It can be used for rendering static background like cube 
         layer, like demonstrated in the Equirect Layer example, but the real edge 
         of using equirect layer over cube layer is to show immersive video.
+
+        NOTE: depending on your internet condition, the fast forward and backward 
+        button can sometimes take effect after a slight delay.
         <a class="back" href="./index.html">Back</a>
       </p>
-      <label>Choose a video</label>
-      <select id="eqrtVideoSelect">
+      <!-- Hide video selection drop down until more videos are available -->
+      <label style="visibility: hidden;">Choose a video</label>
+      <select id="eqrtVideoSelect" style="visibility: hidden;">
         <option value="https://d25a56pc18k0co.cloudfront.net/sloths_binaural_3840_180_3D-injected.mp4"
-          data-video-width=3840 data-video-height=1920 data-video-layout="stereo-left-right" data-video-angle=180>
+          data-video-width=3840 data-video-height=1920 data-video-layout="stereo-left-right" data-video-angle=180 data-video-fps=30>
           stereo-left-right 180 3840x1920 30fps
         </option>
       </select><br />
-      <label>Video rendering FPS</label><input type="number" id="eqrtVideoFPS" value="60" /><br />
     </details>
   </header>
   <main style='text-align: center;'>
@@ -69,8 +72,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
     import { QueryArgs } from '../js/util/query-args.js';
     import { MenuSystem } from '../js/render/nodes/menu-system.js';
-
-    const EQRT_180_VIDEO_STEREO_LR_PATH = 'https://d25a56pc18k0co.cloudfront.net/sloths_binaural_3840_180_3D-injected.mp4';
 
     // If requested, use the polyfill to provide support for mobile devices
     // and devices which only support WebVR.
@@ -177,7 +178,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let eqrtVideoAngle = selected.options[selected.selectedIndex].getAttribute("data-video-angle");
       let eqrtVideoLayout = selected.options[selected.selectedIndex].getAttribute("data-video-layout");
       let eqrtRadius = 10;
-      let eqrtVideoFPS = document.getElementById("eqrtVideoFPS").value;
+      let eqrtVideoFPS = selected.options[selected.selectedIndex].getAttribute("data-video-fps");
 
 
       eqrtVideoElement.play();
