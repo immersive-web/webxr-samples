@@ -73,6 +73,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
       reticle.visible = false;
       scene.addNode(reticle);
+      let reticleHitTestResult = null;
 
       // Having a really simple drop shadow underneath an object helps ground
       // it in the world without adding much complexity.
@@ -105,7 +106,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onRequestSession() {
-        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['local', 'hit-test']})
+        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['local', 'hit-test', 'anchors']})
                            .then((session) => {
           xrButton.setSession(session);
           onSessionStarted(session);
@@ -147,6 +148,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onEndSession(session) {
+        anchoredObjects.clear();
         xrHitTestSource.cancel();
         xrHitTestSource = null;
         session.end();
@@ -156,22 +158,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
 
-      // Adds a new object to the scene at the
-      // specified transform.
-      function addARObjectAt(matrix) {
-        let newFlower = arObject.clone();
-        newFlower.visible = true;
-        newFlower.matrix = matrix;
-        scene.addNode(newFlower);
-
-        flowers.push(newFlower);
+      const MAX_ANCHORED_OBJECTS = 30;
+      let anchoredObjects = [];
+      function addAnchoredObjectsToScene(anchor) {
+        let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+        scene.addNode(flower);
+        anchoredObjects.push({
+          anchoredObject: flower,
+          anchor: anchor
+        });
 
         // For performance reasons if we add too many objects start
         // removing the oldest ones to keep the scene complexity
         // from growing too much.
-        if (flowers.length > MAX_FLOWERS) {
-          let oldFlower = flowers.shift();
-          scene.removeNode(oldFlower);
+        if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
+          let objectToRemove = anchoredObjects.shift();
+          scene.removeNode(objectToRemove.anchoredObject);
+          objectToRemove.anchor.delete();
         }
       }
 
@@ -179,10 +182,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let rayDirection = vec3.create();
       function onSelect(event) {
         if (reticle.visible) {
-          // The reticle should already be positioned at the latest hit point, 
-          // so we can just use it's matrix to save an unnecessary call to 
-          // event.frame.getHitTestResults.
-          addARObjectAt(reticle.matrix);
+          // Create an anchor.
+          reticleHitTestResult.createAnchor().then((anchor) => {
+            addAnchoredObjectsToScene(anchor);
+          }, (error) => {
+            console.error("Could not create anchor: " + error);
+          });
         }
       }
 
@@ -201,7 +206,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             let pose = hitTestResults[0].getPose(xrRefSpace);
             reticle.visible = true;
             reticle.matrix = pose.transform.matrix;
+            reticleHitTestResult = hitTestResults[0];
           }
+        }
+
+        for (const {anchoredObject, anchor} of anchoredObjects) {
+          // only update the object's position if it's still in the list
+          // of frame.trackedAnchors
+          if (!frame.trackedAnchors.has(anchor)) {
+            continue;
+          }
+          const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
+          anchoredObject.matrix = anchorPose.transform.matrix;
         }
 
         scene.startFrame();
