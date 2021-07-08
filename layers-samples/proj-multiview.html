@@ -76,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let gl = null;
     let renderer = null;
     let scene = new Scene();
-    let is_multiview = false, is_multisampled_supported = false;
+    let is_multisampled_supported = false;
     let samples = 1;
     let mv_ext = null;
     let depthStencilTex = null;
@@ -130,7 +130,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       mv_ext = gl.getExtension('OCULUS_multiview');
       if (mv_ext) {
         console.log("OCULUS_multiview extension is supported");
-        is_multiview = true;
         is_multisampled_supported = true;
       }
       else {
@@ -140,11 +139,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         mv_ext = gl.getExtension('OVR_multiview2');
         if (mv_ext) {
           console.log("OVR_multiview2 extension is supported");
-          is_multiview = true;
         }
         else {
           console.log("Neither OCULUS_multiview nor OVR_multiview2 extension is NOT supported");
-          is_multiview = false;
         }
       }
 
