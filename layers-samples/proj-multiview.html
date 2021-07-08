@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-Copyright 2018 The Immersive Web Community Group
+Copyright 2021 The Immersive Web Community Group
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -43,6 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         enabling better performance.
         <a class="back" href="./">Back</a>
       </p>
+      <p id="mv-status"></p>
       <input type="checkbox" id="do_stencil_buffer">stencil buffer</input>
       <input type="checkbox" id="do_antialias">antialias</input>
     </details>
@@ -92,11 +93,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       if (navigator.xr) {
         navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-          xrButton.enabled = supported;
+          let mvCompat = testMultiViewCompatibility();
+          if (!mvCompat) {
+            document.querySelector('#mv-status').textContent = "❌ - Multiview Unsupported";
+          } else {
+            document.querySelector('#mv-status').textContent = "✔️- Multiview Supported";
+          }
+          xrButton.enabled = supported && mvCompat;
         });
 
         navigator.xr.requestSession('inline').then(onSessionStarted);
       }
+    }
+
+    function testMultiViewCompatibility() {
+      let tempWebGLContext = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+
+      return tempWebGLContext.getExtension('OCULUS_multiview') != null;
     }
 
     function initGL() {
@@ -210,13 +226,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
     }
 
-    function create_depth_texture(width, height) {
-      if (mv_ext) {
-
-        //gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-      }
-    }
-
     function onXRFrame(t, frame) {
       let session = frame.session;
       let refSpace = session.isImmersive ?
@@ -248,7 +257,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             viewport = glLayer.viewport;
             glLayer.framebuffer = xrFramebuffer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-            if (views.length == 0) { // for mutliview we need to set fbo only once
+            if (views.length == 0) { // for multiview we need to set fbo only once
               if (!is_multisampled_supported || !do_antialias.checked)
                 mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
               else
