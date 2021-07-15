@@ -89,6 +89,10 @@ export class WebXRSampleApp {
     });
   }
 
+  onCreateXRLayer(session) {
+    return new XRWebGLLayer(session, this.gl);
+  }
+
   onInitRenderer() {
     if (this.gl)
       return;
@@ -144,7 +148,7 @@ export class WebXRSampleApp {
     this.scene.inputRenderer.useProfileControllerMeshes(session);
 
     session.updateRenderState({
-      baseLayer: new XRWebGLLayer(session, this.gl)
+      baseLayer: this.onCreateXRLayer(session)
     });
 
     this.onRequestReferenceSpace(session).then((refSpace) => {
