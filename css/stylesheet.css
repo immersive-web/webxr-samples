@@ -35,10 +35,6 @@ a:hover {
   text-decoration: underline;
 }
 
-.link-important {
-  font-weight: bold;
-}
-
 .header {
   padding-bottom: 2rem;
   text-align: center;
@@ -98,78 +94,6 @@ a:hover {
   font-weight: normal;
 }
 
-.device-box {
-  border-bottom: 1px solid #D8D8D8;
-  overflow: hidden;
-  max-height: 60px;
-  position: relative;
-  padding-left:72px;
-  font-size: 14px;
-  padding-bottom:20px;
-
-  -moz-transition: max-height 0.25s ease-in-out;
-  -ms-transition: max-height 0.25s ease-in-out;
-  -o-transition: max-height 0.25s ease-in-out;
-  -webkit-transition: max-height 0.25s ease-in-out;
-  transition: max-height 0.25s ease-in-out;
-}
-
-.device-box.open {
-  max-height:250px;
-}
-
-.device-box > span {
-  margin: 0.5rem 0;
-  display: block;
-}
-
-.device-box > img {
-  width: 48px;
-  /*float:left;*/
-  /*margin: 6px 8px;*/
-  position: absolute;
-  left: 11px;
-  top: 8px;
-}
-
-.device-box-header {
-  display: block;
-  padding: 23px 0 6px;
-}
-
-.carrot {
-  background-size: cover;
-  background-image: url('../images/carrot.svg');
-  display: block;
-  width: 12px;
-  height: 12px;
-  position: absolute;
-  right:20px;
-  top: 22px;
-  opacity: 0.4;
-}
-
-.device-box:hover {
-  cursor: pointer;
-}
-
-.device-box:hover > .carrot {
-  opacity: 0.8;
-}
-
-.device-box.open > .carrot {
-  -moz-transform: scaleY(-1);
-  -o-transform: scaleY(-1);
-  -webkit-transform: scaleY(-1);
-  transform: scaleY(-1);
-  filter: FlipV;
-  -ms-filter: "FlipV";
-}
-
-.devices {
-  overflow: auto;
-}
-
 @media screen and (min-width: 650px) {
   .device-col {
     width: 48%;
@@ -179,26 +103,6 @@ a:hover {
     margin-left: 4%;
   }
 }
-
-.no-headset > img {
-  float:left;
-  display: inline-block;
-  width: 82px;
-  margin: 5px 20px 0px 10px;
-}
-
-
-@media screen and (max-width: 650px) {
-  .no-headset > img {
-    float: initial;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    margin-bottom:20px;
-    margin-top:35px;
-  }
-}
-
 
 code,
 pre {
