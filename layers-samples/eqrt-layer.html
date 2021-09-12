@@ -43,15 +43,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <summary>Equirect Layer</summary>
       <p>
         This sample shows how to draw a scene into an equirect layer.
-        Equirect layer is similar in terms of its advantage over projection.
-        It can be used for rendering static background like cube layer,
-        but because it's mapping a square shaped image over a sphere,
-        distortion will need to happen for correctly rendering objects.
+        Equirect layers are similar to projection layers in terms of their advantages.
+        They can be used for rendering static backgrounds like cube layers,
+        but because it maps a square-shaped image over a sphere,
+        distortion is required to correctly render objects.
         This is fine for rendering dedicated 360 images, but if we want
         to add objects to the background, we will need to apply distortion
         to these objects to ensure they are rendered correctly, whereas
         using cube layer can eliminate this process. Thus, the real edge
-        of using equirect layer over cube layer is to show 180/360 video.
+        of using an equirect layer over cube layer is to show 180/360 video.
         <a class="back" href="./index.html">Back</a>
       </p>
       <input type="checkbox" id="eqrtIsStereo">Stereo equirect layer</input><br />
