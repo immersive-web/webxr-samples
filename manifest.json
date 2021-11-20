@@ -1,0 +1,63 @@
+{
+  "name": "WebXR Prompt Tests",
+  "short_name": "WebXR Prompt Tests",
+  "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+  "start_url": "./tests/permission-request.html?utm_source=web_app_manifest",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#d30000",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "./media/manifest/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./media/manifest/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./media/manifest/screenshot-1.png",
+      "type": "image/png",
+      "sizes": "1080x1920"
+    },
+    {
+      "src": "./media/manifest/screenshot-2.png",
+      "type": "image/png",
+      "sizes": "1080x1920"
+    },
+    {
+      "src": "./media/manifest/screenshot-3.png",
+      "type": "image/png",
+      "sizes": "1080x1920"
+    },
+    {
+      "src": "./media/manifest/screenshot-4.png",
+      "type": "image/png",
+      "sizes": "1920x1080"
+    },
+    {
+      "src": "./media/manifest/screenshot-5.png",
+      "type": "image/png",
+      "sizes": "1920x1080"
+    },
+    {
+      "src": "./media/manifest/screenshot-6.png",
+      "type": "image/png",
+      "sizes": "1920x1080"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "./manifest.json"
+    }
+  ]
+}
