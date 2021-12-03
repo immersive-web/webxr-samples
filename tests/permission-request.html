@@ -76,9 +76,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       const title = 'Notification title';
 
       const options = {
-        body: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+        body: `This notification can have a maximum of ${Notification.maxActions || 0} action button(s). Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`,
         data: {
-          url: 'https://google.com'
+          url: 'https://google.com',
         },
         image: '../media/manifest/screenshot-4.png',
         icon: '../media/manifest/icon-192x192.png',
@@ -88,11 +88,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           {
             action: 'reply',
             type: 'text',
-            title: 'Reply title',
+            title: 'One (Reply)',
             icon: '../media/manifest/icon-192x192.png',
-            placeholder: 'Reply placeholder'
-          }
-        ]
+            placeholder: 'Reply placeholder',
+          },
+          {
+            action: 'two',
+            type: 'button',
+            title: 'Two',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'three',
+            type: 'button',
+            title: 'Three',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'four',
+            type: 'button',
+            title: 'Four',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'five',
+            type: 'button',
+            title: 'Five',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+        ],
       };
 
       const showNotification = () => serviceWorkerRegistration.showNotification(title, options);
