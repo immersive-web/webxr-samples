@@ -145,9 +145,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.requestReferenceSpace('local').then((refSpace) => {
         xrRefSpace = refSpace;
 
-        let angle = 3.1415;
+        let angle = Math.PI;
         if (!video.src.includes("180"))
-          angle *= 2;
+          angle = Math.PI*2;
 
         let layout = "stereo-top-bottom";
         if (video.src.includes("sbs")||video.src.includes("SBS"))
