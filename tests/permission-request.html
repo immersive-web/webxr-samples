@@ -76,7 +76,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       const title = 'Notification title';
 
       const options = {
-        body: `This notification can have a maximum of ${Notification.maxActions || 0} action button(s). Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`,
+        body: `This notification can have a maximum of ${window.Notification?.maxActions || 0} action button(s). Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`,
         data: {
           url: 'https://google.com',
         },
@@ -119,7 +119,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         ],
       };
 
-      const showNotification = () => serviceWorkerRegistration.showNotification(title, options);
+      const showNotification = () => serviceWorkerRegistration?.showNotification?.(title, options);
 
       let deferredPrompt;
 
@@ -130,8 +130,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       });
 
       const installPWA = async (success, _) => {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt?.prompt();
+        const { outcome } = await deferredPrompt?.userChoice;
         if (outcome === 'accepted') {
           success();
         }
@@ -189,34 +189,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/microphone-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getUserMedia({ audio: true })
+            navigator.mediaDevices?.getUserMedia?.({ audio: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/camera-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getUserMedia({ video: true })
+            navigator.mediaDevices?.getUserMedia?.({ video: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/screenshare-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getDisplayMedia()
+            navigator.mediaDevices?.getDisplayMedia?.()
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/location-button.png',
           callback: (success, fail) => {
-            navigator.geolocation.getCurrentPosition(success, fail);
+            navigator.geolocation?.getCurrentPosition?.(success, fail);
           }
         },
         {
           icon: '../media/textures/notifications-button.png',
           callback: (success, fail) => {
-            Notification.requestPermission(outcome => {
+            window.Notification?.requestPermission?.(outcome => {
               switch(outcome) {
                 case 'granted':
                   success();
@@ -237,7 +237,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/bluetooth-button.png',
           callback: (success, fail) => {
-            navigator.bluetooth.requestDevice({
+            navigator.bluetooth?.requestDevice?.({
               // filters: [...] <- Prefer filters to save energy & show relevant devices.
               // acceptAllDevices here ensures dialog can populate, we don't care with what.
               acceptAllDevices: true
@@ -249,28 +249,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/usb-button.png',
           callback: (success, fail) => {
-            navigator.usb.requestDevice({ filters: [{}] })
+            navigator.usb?.requestDevice?.({ filters: [{}] })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/hid-button.png',
           callback: (success, fail) => {
-            navigator.hid.requestDevice({ filters: [] })
+            navigator.hid?.requestDevice?.({ filters: [] })
             .then(devices => { devices.length > 0 ? success() : fail() });
           }
         },
         {
           icon: '../media/textures/midi-button.png',
           callback: (success, fail) => {
-            navigator.requestMIDIAccess({ sysex: true })
+            navigator.requestMIDIAccess?.({ sysex: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/serial-button.png',
           callback: (success, fail) => {
-            navigator.serial.requestPort({ filters: [] })
+            navigator.serial?.requestPort?.({ filters: [] })
             .then(success, fail);
           }
         },
