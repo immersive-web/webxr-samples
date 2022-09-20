@@ -42,14 +42,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <details open>
       <summary>Equirect Video</summary>
       <p>
-        This sample shows how to show 180/360 video via an equirect layer, with 
-        the addition of media control bar that enables fast forward/rewind, 
-        pause/play and exit. It can be used for rendering static backgrounds like cube 
-        layers, as demonstrated in the Equirect Layer example, but the real edge 
+        This sample shows how to show 180/360 video via an equirect layer, with
+        the addition of media control bar that enables fast forward/rewind,
+        pause/play and exit. It can be used for rendering static backgrounds like cube
+        layers, as demonstrated in the Equirect Layer example, but the real edge
         of using equirect layers over cube layers is to show immersive video.
       </p>
       <p>
-        NOTE: Depending on your internet connection, the fast forward and rewind 
+        NOTE: Depending on your internet connection, the fast forward and rewind
         buttons may not immediately take effect.
       </p>
         <a class="back" href="./index.html">Back</a>
@@ -222,6 +222,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       gl = null;
     }
 
+    function buttonPressedThisFrame(gamepad, index) {
+      return (index < gamepad.buttons.length &&
+        gamepad.buttons[index].pressed);
+    }
+
     function onXRFrame(time, frame) {
       let pose = frame.getViewerPose(xrRefSpace);
       xrSession.requestAnimationFrame(onXRFrame);
@@ -237,6 +242,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, eqrtVideoWidth, eqrtVideoHeight, gl.RGBA, gl.UNSIGNED_BYTE, eqrtVideoElement);
         gl.bindTexture(gl.TEXTURE_2D, null);
       }
+
+      let force_mono = false;
+      for (let source of xrSession.inputSources) {
+        force_mono |= buttonPressedThisFrame(source.gamepad, 4);
+      }
+      eqrtLayer.forceMonoPresentation = force_mono;
 
       if (pose) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
