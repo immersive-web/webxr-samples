@@ -1,0 +1,266 @@
+<!doctype html>
+<!--
+Copyright 2020 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Layer VS Non-Layer</title>
+  <!-- Stereo layer dependency -->
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header style="max-width: 800px;">
+    <details open>
+      <summary>Layer VS Non-Layer</summary>
+      <p>
+        This sample is an A/B test quality comparison of rendering the
+        same square texture using a quad layer vs drawing the texture
+        directly into the scene. The image on the left is rendered with a
+        quad layer, while the image on the right is drawn
+        into the projection layer as a simple texture.
+        <a class="back" href="./index.html">Back</a>
+      </p>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+    import { loadTexture } from '../js/util/texture-loader.js';
+    import { QuadNode } from '../js/render/nodes/quad-texture.js';
+
+    const QUAD_TEXTURE_MONO_PATH = '../media/textures/eilenriede-park-2k.png';
+    const CYLD_TEXTURE_MONO_PATH = '../media/textures/annotation.png';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let stereoUtil = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+
+    let textureNode = new QuadNode(QUAD_TEXTURE_MONO_PATH, 2);
+    textureNode.translation = [1, 0, -2];
+    scene.addNode(textureNode);
+
+    // Layer globals
+    let projLayer = null;
+    let quadLayer = null;
+    let quadImageElement = null;
+    let quadTexture = null;
+    let quadTextureWidth = 0;
+    let quadTextureHeight = 0;
+    let cyldLayer = null;
+    let cyldImageElement = null;
+    let cyldTexture = null;
+    let cyldTextureWidth = 0;
+    let cyldTextureHeight = 0;
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+      } else {
+        onEndSession();
+      }
+    }
+
+    function initGL() {
+      if (gl) { return; }
+      gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
+      document.body.appendChild(gl.canvas);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      // Util for rendering stereo layers
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    function onSessionStarted(session) {
+      xrSession = session;
+      scene.inputRenderer.useProfileControllerMeshes(session);
+      session.addEventListener('end', onSessionEnded);
+
+      initGL();
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        projLayer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        session.updateRenderState({ layers: [projLayer] });
+
+        // Loading texture is async, create layer and update render state when done
+        quadTexture = loadTexture(gl, QUAD_TEXTURE_MONO_PATH, (w, h) => {
+          quadTextureWidth = w;
+          quadTextureHeight = h;
+          quadLayer = xrGLFactory.createQuadLayer({
+            space: refSpace,
+            viewPixelWidth: quadTextureWidth,
+            viewPixelHeight: quadTextureHeight,
+            layout: "mono",
+          });
+          quadLayer.width = 1;
+          quadLayer.height = 1;
+          let pos = { x: -1, y: 0, z: -2 };
+          let orient = { x: 0, y: 0, z: 0, w: 1 };
+          quadLayer.transform = new XRRigidTransform(pos, orient);
+        });
+
+        cyldTexture = loadTexture(gl, CYLD_TEXTURE_MONO_PATH, (w, h) => {
+          cyldTextureWidth = w;
+          cyldTextureHeight = h;
+          cyldLayer = xrGLFactory.createCylinderLayer({
+            space: refSpace,
+            viewPixelWidth: cyldTextureWidth,
+            viewPixelHeight: cyldTextureHeight,
+            layout: "mono",
+          });
+          cyldLayer.centralAngle = 60 * Math.PI / 180;
+          cyldLayer.aspectRatio = cyldTextureWidth / cyldTextureHeight * 2;
+          cyldLayer.radius = 0.8;
+          let pos = { x: 0, y: 0, z: 0.2 };
+          let orient = { x: -0.3826834, y: 0, z: 0, w: 0.9238795 };
+          cyldLayer.transform = new XRRigidTransform(pos, orient);
+        });
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession() {
+      xrSession.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      gl = null;
+    }
+
+    function onXRFrame(time, frame) {
+      let pose = frame.getViewerPose(xrRefSpace);
+      xrSession.requestAnimationFrame(onXRFrame);
+
+      if (quadLayer && cyldLayer) {
+        xrSession.updateRenderState({ layers: [quadLayer, cyldLayer, projLayer] });
+        if (quadLayer.needsRedraw) {
+          let fb = gl.createFramebuffer();
+          let glayer = xrGLFactory.getSubImage(quadLayer, frame);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+          if (quadTextureWidth != 0 && quadTextureHeight != 0) {
+            stereoUtil.blit(false, quadTexture, 0, 0, 1, 1, quadTextureWidth, quadTextureHeight);
+          }
+        }
+
+        if (cyldLayer.needsRedraw) {
+          let fb = gl.createFramebuffer();
+          let glayer = xrGLFactory.getSubImage(cyldLayer, frame);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glayer.colorTexture, 0);
+
+          if (cyldTextureWidth != 0 && cyldTextureHeight != 0) {
+            stereoUtil.blit(false, cyldTexture, 0, 0, 1, 1, cyldTextureWidth, cyldTextureHeight);
+          }
+        }
+      }
+
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        scene.updateInputSources(frame, xrRefSpace);
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+      }
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

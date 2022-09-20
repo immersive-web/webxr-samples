@@ -1,0 +1,204 @@
+<!doctype html>
+<!--
+Copyright 2021 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+    <title>WebXR Media Layers</title>
+
+  </head>
+  <body>
+    <header style="max-width: 800px;">
+      <details open>
+      <summary>Media layer samples</summary>
+      <p>
+        This sample shows various video resolutions displayed using WebXR Media Layers. On browsers that don't support layers, the <a href="https://github.com/immersive-web/webxr-layers-polyfill">WebXR Layers polyfill</a> will be used.
+        <a class="back" href="./">Back</a>
+      </p>
+      <label>Choose a video</label>
+      <select id="videoselect">
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_4.3k_30s_360_h264_crf23_binaural_CREDIT_JON_GRIFFITH_injected.mp4">4.3K H.264 crf23 360</option>
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_5.7k_30s_360_h265_crf23_binaural_CREDIT_JON_GRIFFITH_injected.mp4">5.7K H.265 crf23 360</option>
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_6.2k_30s_180_SBS_h264_crf27_binaural_CREDIT_JON_GRIFFITH_v2.mp4">6.2K H.264 crf27 180 side-by-side</option>
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_6.2k_30s_180_TB_h264_crf27_CREDIT_JON_GRIFFITH-injected.mp4">6.2K H.264 crf27 180 top-bottom</option>
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_8k_30s_180_SBS_h265_crf23_binaural_CREDIT_JON_GRIFFITH-injected.mp4">8K H.265 crf23 180 side-by-side</option>
+        <option value="https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_8k_30s_180_TB_h265_crf23_binaural_CREDIT_JON_GRIFFITH-injected.mp4">8K H.265 crf23 180 top-bottom</option>
+      </select>
+        <button id="xr-button" disabled>XR not found</button>
+      </details>
+      <p>Many thanks to Eric Cheng and Jon Griffith for the Everest media samples. Check out Jon's work on <a href="https://alpineexposures.com/">https://alpineexposures.com/</a>.
+      <p>Pull trigger to restart the video; squeeze to pause.</p>
+    </header>
+    <main style='text-align: center;'>
+    </main>
+    <script src="https://immersive-web.github.io/webxr-layers-polyfill/build/webxr-layers-polyfill.js"></script>
+    <script>
+      (function () {
+      'use strict';
+
+      // initialize the polyfill for unsupported devices
+      let layersPolyfill = new WebXRLayersPolyfill()
+
+      // XR globals.
+      let xrButton = document.getElementById('xr-button');
+      let xrSession = null;
+      let xrRefSpace = null;
+      let xrMediaFactory = null;
+      let cylinder_layer = false;
+
+      let video = document.createElement('video');
+      video.loop = false;
+      video.crossOrigin = "anonymous";
+      video.preload = 'auto';
+      video.autoload = true;
+      function buttonPressedThisFrame(gamepad, index) {
+        return (index < gamepad.buttons.length &&
+          gamepad.buttons[index].pressed);
+      }
+      function videoSelect() {
+        let s = document.getElementById("videoselect");
+        video.src = s.options[s.selectedIndex].value;
+        xrButton.textContent = 'Loading video';
+        xrButton.disabled = true;
+      }
+
+      video.oncanplaythrough = (event) => {
+        xrButton.disabled = false;
+        xrButton.textContent = 'Enter XR';
+      }
+
+      video.onerror = (event) => {
+        xrButton.disabled = true;
+        xrButton.textContent = 'Can\'t play video' + video.error.message;
+      };
+
+      videoSelect();
+      document.getElementById("videoselect").addEventListener('change', (event) => {
+        videoSelect();
+      });
+
+      // Checks to see if WebXR is available and, if so, requests an XRDevice
+      // that is connected to the system and tests it to ensure it supports the
+      // desired session options.
+      function initXR() {
+        // Is WebXR available on this UA?
+        if (navigator.xr) {
+          // If the device allows creation of exclusive sessions set it as the
+          // target of the 'Enter XR' button.
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            if (supported) {
+              // Updates the button to start an XR session when clicked.
+              xrButton.addEventListener('click', onButtonClicked);
+              xrButton.disabled = video.readyState > 2;
+            }
+          });
+        }
+      }
+
+      // Called when the user clicks the button to enter XR. If we don't have a
+      // session we'll request one, and if we do have a session we'll end it.
+      function onButtonClicked() {
+        if (!xrSession) {
+          navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['layers']}).then(onSessionStarted);
+          video.play();
+        } else {
+          xrSession.end();
+        }
+      }
+
+      // Called when we've successfully acquired a XRSession. In response we
+      // will set up the necessary session state and kick off the frame loop.
+      function onSessionStarted(session) {
+        xrSession = session;
+        xrButton.textContent = 'Exit VR';
+
+        // Listen for the sessions 'end' event so we can respond if the user
+        // or UA ends the session for any reason.
+        session.addEventListener('end', onSessionEnded);
+
+        xrMediaFactory = new XRMediaBinding(session);
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+
+        let angle = Math.PI;
+        if (!video.src.includes("180"))
+          angle = Math.PI*2;
+
+        let layout = "stereo-top-bottom";
+        if (video.src.includes("sbs")||video.src.includes("SBS"))
+          layout = "stereo-left-right";
+
+        let layer = xrMediaFactory.createEquirectLayer(video, {space: refSpace, centralHorizontalAngle: angle, layout: layout});
+        // let layer = xrMediaFactory.createEquirectLayer(video, {space: refSpace});
+        session.updateRenderState({ layers: [ layer ] });
+
+          // Inform the session that we're ready to begin drawing.
+        session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      // Called either when the user has explicitly ended the session by calling
+      // session.end() or when the UA has ended the session for any reason.
+      // At this point the session object is no longer usable and should be
+      // discarded.
+      function onSessionEnded(event) {
+        xrSession = null;
+        xrButton.textContent = 'Enter VR';
+        video.pause();
+      }
+
+      // Called every time the XRSession requests that a new frame be drawn.
+      function onXRFrame(time, frame) {
+        let session = frame.session;
+
+        // Inform the session that we're ready for the next frame.
+        session.requestAnimationFrame(onXRFrame);
+
+        for (let source of session.inputSources) {
+          if (source.gamepad) {
+            // Toggle Play/Pause on primary button press
+            if (buttonPressedThisFrame(source.gamepad, 0)) {
+              video.currentTime = 0;
+              video.play();
+            } else if (buttonPressedThisFrame(source.gamepad, 1)) {
+              if (video.paused)
+                video.play();
+              else
+                video.pause();
+            }
+          }
+        }
+      }
+
+      // Start the XR application.
+      initXR();
+
+    })();
+    </script>
+  </body>
+</html>

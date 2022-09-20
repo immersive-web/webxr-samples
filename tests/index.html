@@ -91,7 +91,7 @@
         <div id='nav'>
             <a href='../'>Samples</a>
             <a href='../layers-samples/'>Layers Samples</a>
-            <!--a href='../proposals/'>Proposals</a-->
+            <a href='../proposals/'>Proposals</a>
             <a href='./' class='selected'>Test Pages</a>
             <a href='../report/'>Report</a>
         </div>
@@ -119,9 +119,9 @@
               path: 'pointer-painter.html',
               description: 'Leaves behind a trail of pointers and cursors on select events.' },
 
-            { title: 'Permission Requests', category: 'User Agent Behavior',
+            { title: 'User Agent Prompts', category: 'User Agent Behavior',
               path: 'permission-request.html',
-              description: 'Tests requesting permissions from within XR.' },
+              description: 'Tests various prompts (PWA install, permission requests, notifications) from within XR.' },
 
             { title: 'Offscreen Canvas', category: 'Alternate WebGL Modes',
               path: 'offscreen-canvas.html',
@@ -143,9 +143,13 @@
               path: 'interrupted-ar.html',
               description: 'Tests what happens when an exception is thrown in promise resolve of an `immersive-ar` session request.' },
 
-              { title: 'Sparse Frames', category: 'M_ss_ng Fr_m_s',
+            { title: 'Sparse Frames', category: 'M_ss_ng Fr_m_s',
               path: 'sparse-frames.html',
               description: 'Tests what happens the framebuffer is not populated every frame.' },
+
+            { title: 'WebGL 2.0 Multisampling', category: 'Artisinally crafted pixels',
+              path: 'webgl2-multisample.html',
+              description: 'Tests that multisample renderbuffers are usable with XRWebGLLayer.' },
           ];
 
           let mainElement = document.getElementById("main");

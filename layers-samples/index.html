@@ -97,6 +97,7 @@
       <div id='nav'>
         <a href='../'>Samples</a>
         <a href='./' class='selected'>Layers Samples</a>
+        <a href='../proposals/'>Proposals</a>
         <a href='../tests/'>Test Pages</a>
         <a href='../report/'>Report</a>
       </div>
@@ -111,43 +112,80 @@
 
     <main class='main' id='main'>
       <p>These pages demonstrate how to use various aspects of the WebXR Layers API.<br/>
-        
+
       <script>
         let pages = [
           {
             title: 'Projection Layer', category: 'Basics',
             path: 'proj-layer.html',
-            description: 'This sample shows how to draw a scene into a projection layer. Projection layer is used for rendering interactive/constantly changing elements that needs to be redrawn every frame, like controllers or menu systems/other UI elements.',
+            description: 'Demonstrates drawing to a projection layer.',
             noPolyfill: true
           },
 
           {
             title: 'Quad Layer', category: 'Basics',
             path: 'quad-layer.html',
-            description: 'This sample shows how to draw a scene into an quad layer. Quad layers can be used for implementing small panels that can be placed in front of the user containing text/image/video information',
+            description: 'Demonstrates drawing to a quad layer.',
             noPolyfill: true
           },
 
           {
             title: 'Cylinder Layer', category: 'Basics',
             path: 'cyld-layer.html',
-            description: 'This sample shows how to draw a scene into an cylinder layer. Cylinder layers can be used for implementing large panels that wraps around the user to make content more immersive/readable.',
+            description: 'Demonstrates drawing to a cylinder layer.',
             noPolyfill: true
           },
 
           {
             title: 'Cube Layer', category: 'Basics',
             path: 'cube-layer.html',
-            description: 'This sample shows how to draw a scene into an cube layer. Cube layer is mainly used for drawing static background that only needs to be drawn once or rarely need refreshing.',
+            description: 'Demonstrates drawing to a cube layer.',
             noPolyfill: true
           },
 
           {
             title: 'Equirect Layer', category: 'Basics',
             path: 'eqrt-layer.html',
-            description: 'This sample shows how to draw a scene into an equirect layer. Equirect layer is similar in terms of its advantage over projection. It can be used for rendering static background like cube layer.',
+            description: 'Demonstrates drawing to an equirect layer.',
             noPolyfill: true
           },
+
+          
+          {
+            title: 'Media Layer', category: 'Basics',
+            path: 'media-layer-sample.html',
+            description: 'Demonstrates using an equirect media layer for video playback.',
+            noPolyfill: true
+          },
+          
+          {
+            title: 'Equirect Video', category: 'Multi-layer',
+            path: 'eqrt-video.html',
+            description: 'Demonstrates immersive video playback with media controls using both equirect and projection layers.',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Layer VS Non-Layer', category: 'Multi-layer',
+            path: 'quad-ab-test.html',
+            description: 'An A/B test quality comparison of rendering the same square texture using quad layer vs drawing the texture directly into the scene.',
+            noPolyfill: true
+          },
+
+          {
+            title: 'Layer Hit Test', category: 'Multi-layer',
+            path: 'quad-select.html',
+            description: 'Demonstrates a work-around to implement hit test on layers by placing transparent placeholders for each quad layer in the projection layer.',
+            noPolyfill: true
+          },
+          
+
+          {
+            title: 'Projection Layer with Multiview', category: 'Multiview',
+            path: 'proj-multiview.html',
+            description: 'Demonstrates a technique to reduce the number of state changes made while rendering.',
+            noPolyfill: true
+          }
         ];
 
         let mainElement = document.getElementById("main");
@@ -186,7 +224,7 @@
           links.classList.add('links');
 
           let sourceLink = document.createElement('a');
-          sourceLink.href = 'https://github.com/fe1ixz/webxr-samples/blob/master/layers-samples/' + page.path;
+          sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/layers-samples/' + page.path;
           sourceLink.textContent = 'Source';
           links.appendChild(sourceLink);
 

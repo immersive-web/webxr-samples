@@ -1,0 +1,297 @@
+<!doctype html>
+<!--
+Copyright 2021 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Projection Layer with Multiview</title>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Projection Layer with Multiview</summary>
+      <p>
+        This sample demonstrates a simple technique to reduce the number of
+        state changes an application needs to make while rendering, potentially
+        enabling better performance.
+        <a class="back" href="./">Back</a>
+      </p>
+      <p id="mv-status"></p>
+      <input type="checkbox" id="do_stencil_buffer">stencil buffer</input>
+      <input type="checkbox" id="do_antialias">antialias</input>
+    </details>
+  </header>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { CubeSeaNode } from '../js/render/nodes/cube-sea.js';
+    import { InlineViewerHelper } from '../js/util/inline-viewer-helper.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let do_stencil_buffer = document.getElementById('do_stencil_buffer');
+    let do_antialias = document.getElementById('do_antialias');
+    let xrButton = null;
+    let xrImmersiveRefSpace = null;
+    let inlineViewerHelper = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+    let is_multisampled_supported = false;
+    let samples = 1;
+    let mv_ext = null;
+    let depthStencilTex = null;
+
+    scene.addNode(new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png' }));
+    scene.enableStats(false);
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          let mvCompat = testMultiViewCompatibility();
+          if (!mvCompat) {
+            document.querySelector('#mv-status').textContent = "❌ - Multiview Unsupported";
+          } else {
+            document.querySelector('#mv-status').textContent = "✔️- Multiview Supported";
+          }
+          xrButton.enabled = supported && mvCompat;
+        });
+
+        navigator.xr.requestSession('inline').then(onSessionStarted);
+      }
+    }
+
+    function testMultiViewCompatibility() {
+      let tempWebGLContext = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+
+      return tempWebGLContext.getExtension('OCULUS_multiview') != null;
+    }
+
+    function initGL() {
+      if (gl)
+        return;
+
+      gl = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+      document.body.appendChild(gl.canvas);
+
+      samples = gl.getParameter(gl.MAX_SAMPLES);
+
+      mv_ext = gl.getExtension('OCULUS_multiview');
+      if (mv_ext) {
+        console.log("OCULUS_multiview extension is supported");
+        is_multisampled_supported = true;
+      }
+      else {
+        console.log("OCULUS_multiview extension is NOT supported");
+      }
+      if (!mv_ext) {
+        mv_ext = gl.getExtension('OVR_multiview2');
+        if (mv_ext) {
+          console.log("OVR_multiview2 extension is supported");
+        }
+        else {
+          console.log("Neither OCULUS_multiview nor OVR_multiview2 extension is NOT supported");
+        }
+      }
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      // Set up a non-black clear color so that we can see if something renders wrong.
+      gl.clearColor(0.1, 0.2, 0.3, 1.0);
+    }
+
+    function onRequestSession() {
+      return navigator.xr.requestSession('immersive-vr', { requiredFeatures: ['layers'] }).then((session) => {
+        xrButton.setSession(session);
+        session.isImmersive = true;
+        onSessionStarted(session);
+      });
+    }
+
+    function onVisibilityChange(event) {
+      console.log("Visibility change for "
+        + (event.session.isImmersive ? "immersive" : "non-immersive")
+        + " session: "
+        + event.session.visibilityState);
+    }
+
+    function onSessionStarted(session) {
+      session.addEventListener('end', onSessionEnded);
+      session.addEventListener('visibilitychange', onVisibilityChange);
+
+      initGL();
+
+      if (session.isImmersive) {
+        renderer = new Renderer(gl, true /* multiview */);
+
+        scene.setRenderer(renderer);
+
+
+        xrFramebuffer = gl.createFramebuffer();
+        xrGLFactory = new XRWebGLBinding(session, gl);
+        let layer = xrGLFactory.createProjectionLayer({
+          textureType: "texture-array",
+          depthFormat: do_stencil_buffer.checked ? gl.DEPTH24_STENCIL8 : gl.DEPTH_COMPONENT24
+        });
+        session.updateRenderState({ layers: [layer] });
+      } else {
+        renderer = new Renderer(gl, false /* multiview */);
+
+        scene.setRenderer(renderer);
+
+        let glLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({ baseLayer: glLayer });
+      }
+
+      let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+      session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+        if (session.isImmersive) {
+          xrImmersiveRefSpace = refSpace;
+        } else {
+          // In most samples moving forward we'll use this helper class rather
+          // than the reference space directly to inject the necessary logic
+          // for looking around an inline session with mouse and touch input.
+          inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+        }
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+    }
+
+    function onXRFrame(t, frame) {
+      let session = frame.session;
+      let refSpace = session.isImmersive ?
+        xrImmersiveRefSpace :
+        inlineViewerHelper.referenceSpace;
+      let pose = frame.getViewerPose(refSpace);
+
+      scene.startFrame();
+
+      session.requestAnimationFrame(onXRFrame);
+
+      if (pose) {
+        let glLayer = null;
+
+        if (session.isImmersive) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        } else {
+          glLayer = session.renderState.baseLayer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+          gl.disable(gl.SCISSOR_TEST);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        }
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          if (session.isImmersive) {
+            glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
+            viewport = glLayer.viewport;
+            glLayer.framebuffer = xrFramebuffer;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+            if (views.length == 0) { // for multiview we need to set fbo only once
+              if (!is_multisampled_supported || !do_antialias.checked)
+                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
+              else
+                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, samples, 0, 2);
+
+              if (glLayer.depthStencilTexture === null) {
+                if (depthStencilTex === null) {
+                  console.log("MaxViews = " + gl.getParameter(mv_ext.MAX_VIEWS_OVR));
+                  depthStencilTex = gl.createTexture();
+                  gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthStencilTex);
+                  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT24, viewport.width, viewport.height, 2);
+                }
+              } else {
+                depthStencilTex = glLayer.depthStencilTexture;
+              }
+              if (!is_multisampled_supported || !do_antialias.checked)
+                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, 0, 2);
+              else
+                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, samples, 0, 2);
+
+              gl.disable(gl.SCISSOR_TEST);
+              gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            }
+          } else {
+            viewport = glLayer.getViewport(view);
+          }
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+
+        scene.drawViewArray(views);
+      }
+
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

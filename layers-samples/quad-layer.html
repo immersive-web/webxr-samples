@@ -42,13 +42,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <details open>
       <summary>Quad Layer</summary>
       <p>
-        This sample shows how to draw a scene into an quad layer.
+        This sample shows how to draw a scene into a quad layer.
         Quad layers can be used for implementing small panels that
         can be placed in front of the user containing text/image/video
-        information, its use cases are similar to those of cylinder
-        layer, but are generally favored when the panel is smaller,
-        like Library page/Messenger page in VR shell.
+        information. Its use cases are similar to those of a cylinder
+        layer, but are generally favored when the panel is smaller.
         <a class="back" href="./index.html">Back</a>
+      </p>
+      <p>
+        Image by Eric Cheng
       </p>
       <input type="checkbox" id="cyldIsStereo">Stereo quad layer</input><br />
     </details>
@@ -62,8 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
     import { QueryArgs } from '../js/util/query-args.js';
 
-    const CYLD_TEXTURE_MONO_PATH = '../media/textures/eilenriede-park-2k.png';
-    const CYLD_TEXTURE_STEREO_PATH = '../media/textures/stereo-top-bottom-image.png';
+    const CYLD_TEXTURE_MONO_PATH = '../media/textures/rect-mono.png';
+    const CYLD_TEXTURE_STEREO_PATH = '../media/textures/rect-stereo-top-down.png';
 
     // If requested, use the polyfill to provide support for mobile devices
     // and devices which only support WebVR.

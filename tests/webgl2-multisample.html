@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>WebGL 2.0 Multisample</title>
+
+    <script src='../js/third-party/dat.gui.min.js'></script>
+  </head>
+  <body>
+    <header>
+      <details id='details-panel' open>
+        <summary>WebGL 2.0 Multisample</summary>
+        <p>
+          Tests that applications that use WebGL 2.0 Multisampled Renderbuffers
+          can succesfully blit the result to an XRWebGLLayer.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRSampleApp} from '../js/webxr-sample-app.js';
+      import {createWebGLContext} from '../js/render/core/renderer.js';
+      import {Gltf2Node} from '../js/render/nodes/gltf2.js';
+      import {SkyboxNode} from '../js/render/nodes/skybox.js';
+      import {WebXRView} from '../js/render/scenes/scene.js';
+      import {QueryArgs} from '../js/util/query-args.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
+      // WebXR sample app setup
+      class CustomWebXRSampleApp extends WebXRSampleApp {
+        onCreateGL() {
+          const gl = createWebGLContext({
+            webgl2: true,
+            antialias: false, // Antialiasing will be handled manually.
+            xrCompatible: true
+          });
+          document.body.appendChild(gl.canvas);
+
+          this.multisampleFramebuffer = gl.createFramebuffer();
+
+          this.renderbufferWidth = 1024;
+          this.renderbufferHeight = 1024;
+          this.colorRenderbuffer = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, this.colorRenderbuffer);
+          gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbufferWidth, this.renderbufferHeight);
+
+          this.depthRenderbuffer = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRenderbuffer);
+          gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight);
+
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisampleFramebuffer);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.colorRenderbuffer);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthRenderbuffer);
+
+          return gl;
+        }
+
+        onCreateXRLayer(session) {
+          // Don't need antialiasing or depth, since we're handling that in our own framebuffer.
+          return new XRWebGLLayer(session, this.gl, { antialias: false, depth: false });
+        }
+
+        onXRFrame(time, frame, refSpace) {
+          let pose = frame.getViewerPose(refSpace);
+          this.scene.updateInputSources(frame, refSpace);
+          if (!pose || !this.renderer) { return; }
+
+          let gl = this.renderer.gl;
+          let session = frame.session;
+          // Assumed to be a XRWebGLLayer for now.
+          let layer = session.renderState.baseLayer;
+
+          // Check to see if we need to resize the renderbuffer
+          if (layer.framebufferWidth != this.renderbufferWidth ||
+              layer.framebufferHeight != this.renderbufferHeight) {
+            this.renderbufferWidth = layer.framebufferWidth;
+            this.renderbufferHeight = layer.framebufferHeight;
+
+            gl.bindRenderbuffer(gl.RENDERBUFFER, this.colorRenderbuffer);
+            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbufferWidth, this.renderbufferHeight);
+
+            gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRenderbuffer);
+            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight);
+          }
+
+          // Rather than binding the layer's framebuffer like usual, bind a framebuffer using a
+          // multisampled renderbuffer as the color attachment.
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisampleFramebuffer);
+
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+          let views = [];
+          for (let view of pose.views) {
+            views.push(new WebXRView(view, layer));
+          }
+
+          this.scene.drawViewArray(views);
+
+          // Now bind the layer's framebuffer and blit the multisampled framebuffer over to it.
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.multisampleFramebuffer);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, layer.framebuffer);
+
+          gl.blitFramebuffer(0, 0, this.renderbufferWidth, this.renderbufferHeight,
+                             0, 0, this.renderbufferWidth, this.renderbufferHeight,
+                             gl.COLOR_BUFFER_BIT, gl.LINEAR);
+        }
+      };
+
+      let app = new CustomWebXRSampleApp();
+      document.querySelector('header').appendChild(app.xrButton.domElement);
+
+      app.scene.addNode(new Gltf2Node({url: '../media/gltf/space/space.gltf'}));
+      app.scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
+
+      // Start the XR application.
+      app.run();
+    </script>
+  </body>
+</html>

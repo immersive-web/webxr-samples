@@ -27,17 +27,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='apple-mobile-web-app-capable' content='yes'>
     <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
     <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel="manifest" href="../manifest.json">
     <link rel='stylesheet' href='../css/common.css'>
 
-    <title>Permission Requests</title>
+    <title>User Agent Prompts</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Permission Requests</summary>
+        <summary>User Agent Prompts</summary>
         <p>
-          Tests requesting permissions from within XR. Demonstrates how the UA
-          handles those requests, if at all.
+          Tests requesting various prompts (PWA install, permission requests, notifications) from within XR.
+          Demonstrates how the UA handles those prompts, if at all.
           <a class="back" href="./">Back</a>
         </p>
       </details>
@@ -56,6 +57,86 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if (QueryArgs.getBool('usePolyfill', true)) {
         let polyfill = new WebXRPolyfill();
       }
+
+      let serviceWorkerRegistration;
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('../service-worker.js')
+            .then(registration => {
+              console.log('Service worker registered successfully', registration);
+              serviceWorkerRegistration = registration;
+            })
+            .catch(error => {
+              console.error('Something went wrong while registering service worker', error);
+            });
+        });
+      }
+
+      const title = 'Notification title';
+
+      const options = {
+        body: `This notification can have a maximum of ${window.Notification?.maxActions || 0} action button(s). Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`,
+        data: {
+          url: 'https://google.com',
+        },
+        image: '../media/manifest/screenshot-4.png',
+        icon: '../media/manifest/icon-192x192.png',
+        badge: '../media/manifest/icon-192x192.png',
+        requireInteraction: false,
+        actions: [
+          {
+            action: 'reply',
+            type: 'text',
+            title: 'One (Reply)',
+            icon: '../media/manifest/icon-192x192.png',
+            placeholder: 'Reply placeholder',
+          },
+          {
+            action: 'two',
+            type: 'button',
+            title: 'Two',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'three',
+            type: 'button',
+            title: 'Three',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'four',
+            type: 'button',
+            title: 'Four',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+          {
+            action: 'five',
+            type: 'button',
+            title: 'Five',
+            icon: '../media/manifest/icon-192x192.png',
+          },
+        ],
+      };
+
+      const showNotification = () => serviceWorkerRegistration?.showNotification?.(title, options);
+
+      let deferredPrompt;
+
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredPrompt = event;
+        addPermissionButton('../media/textures/install-pwa-button.png', installPWA, 0, 1.54);
+      });
+
+      const installPWA = async (success, _) => {
+        deferredPrompt?.prompt();
+        const { outcome } = await deferredPrompt?.userChoice;
+        if (outcome === 'accepted') {
+          success();
+        }
+        // If PWA install prompt is dismissed, closed or ignored, it can be requested again.
+      };
 
       const BUTTON_PER_ROW = 5;
       const BUTTON_ROW_ARC = Math.PI * 0.2;
@@ -108,44 +189,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/microphone-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getUserMedia({ audio: true })
+            navigator.mediaDevices?.getUserMedia?.({ audio: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/camera-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getUserMedia({ video: true })
+            navigator.mediaDevices?.getUserMedia?.({ video: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/screenshare-button.png',
           callback: (success, fail) => {
-            navigator.mediaDevices.getDisplayMedia()
+            navigator.mediaDevices?.getDisplayMedia?.()
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/location-button.png',
           callback: (success, fail) => {
-            navigator.geolocation.getCurrentPosition(success, fail);
+            navigator.geolocation?.getCurrentPosition?.(success, fail);
           }
         },
         {
           icon: '../media/textures/notifications-button.png',
           callback: (success, fail) => {
-            Notification.requestPermission(outcome => {
+            window.Notification?.requestPermission?.(outcome => {
               switch(outcome) {
                 case 'granted':
                   success();
+                  addPermissionButton('../media/textures/show-notification-button.png', showNotification, 0, 1.18);
                   break;
                 case 'denied':
                   fail();
                   break;
                 case 'default':
                   // If permission prompt is closed or ignored,
-                  // the outcome value is 'default', and permission can be requested again.
+                  // the outcome value is `default`, and permission can be requested again.
                   // https://notifications.spec.whatwg.org/#permission-model
                   break;
               }
@@ -155,10 +237,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/bluetooth-button.png',
           callback: (success, fail) => {
-            navigator.bluetooth.requestDevice({
+            navigator.bluetooth?.requestDevice?.({
               // filters: [...] <- Prefer filters to save energy & show relevant devices.
               // acceptAllDevices here ensures dialog can populate, we don't care with what.
-              acceptAllDevices:true
+              acceptAllDevices: true
             })
             .then(device => device.gatt.connect())
             .then(success, fail);
@@ -167,28 +249,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         {
           icon: '../media/textures/usb-button.png',
           callback: (success, fail) => {
-            navigator.usb.requestDevice({ filters: [{}] })
+            navigator.usb?.requestDevice?.({ filters: [{}] })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/hid-button.png',
           callback: (success, fail) => {
-            navigator.hid.requestDevice({ filters: [] })
+            navigator.hid?.requestDevice?.({ filters: [] })
             .then(devices => { devices.length > 0 ? success() : fail() });
           }
         },
         {
           icon: '../media/textures/midi-button.png',
           callback: (success, fail) => {
-            navigator.requestMIDIAccess({ sysex: true })
+            navigator.requestMIDIAccess?.({ sysex: true })
             .then(success, fail);
           }
         },
         {
           icon: '../media/textures/serial-button.png',
           callback: (success, fail) => {
-            navigator.serial.requestPort({ filters: [] })
+            navigator.serial?.requestPort?.({ filters: [] })
             .then(success, fail);
           }
         },

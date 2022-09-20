@@ -1,0 +1,270 @@
+<!doctype html>
+<!--
+Copyright 2021 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Equirect Layer</title>
+  <!-- Stereo layer dependency -->
+  <script src="../js/wglu/wglu-program.js"></script>
+  <script src="../js/wglu/wglu-url.js"></script>
+  <script src="../js/stereo-util.js"></script>
+</head>
+
+<body>
+  <header style="max-width: 800px;">
+    <details open>
+      <summary>Equirect Video</summary>
+      <p>
+        This sample shows how to show 180/360 video via an equirect layer, with 
+        the addition of media control bar that enables fast forward/rewind, 
+        pause/play and exit. It can be used for rendering static backgrounds like cube 
+        layers, as demonstrated in the Equirect Layer example, but the real edge 
+        of using equirect layers over cube layers is to show immersive video.
+      </p>
+      <p>
+        NOTE: Depending on your internet connection, the fast forward and rewind 
+        buttons may not immediately take effect.
+      </p>
+        <a class="back" href="./index.html">Back</a>
+      </p>
+      <!-- Hide video selection drop down until more videos are available -->
+      <label style="visibility: hidden;">Choose a video</label>
+      <select id="eqrtVideoSelect" style="visibility: hidden;">
+        <option value="https://d25a56pc18k0co.cloudfront.net/sloths_binaural_3840_180_3D-injected.mp4"
+          data-video-width=3840 data-video-height=1920 data-video-layout="stereo-left-right" data-video-angle=180 data-video-fps=30>
+          stereo-left-right 180 3840x1920 30fps
+        </option>
+      </select><br />
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter VR' to see content</p>
+  </main>
+  <script type="module">
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { QueryArgs } from '../js/util/query-args.js';
+    import { MenuSystem } from '../js/render/nodes/menu-system.js';
+
+    // If requested, use the polyfill to provide support for mobile devices
+    // and devices which only support WebVR.
+    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+    if (QueryArgs.getBool('usePolyfill', true)) {
+      let polyfill = new WebXRPolyfill();
+    }
+
+    // XR globals.
+    let xrButton = null;
+    let xrSession = null;
+    let xrRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+    let stereoUtil = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+
+    // Layer globals
+    let projLayer = null;
+    let eqrtLayer = null;
+    let eqrtVideoElement = null;
+    let eqrtVideoWidth = 0;
+    let eqrtVideoHeight = 0;
+    let eqrtVideoNeedsUpdate = false;
+
+    // Set up media control bar
+    let menuSystem = new MenuSystem();
+    menuSystem.createButton('../media/textures/backward-button.png', () => { eqrtVideoElement.currentTime -= 15; });
+    menuSystem.createSwitch(
+      '../media/textures/pause-button.png', () => eqrtVideoElement.pause(),
+      '../media/textures/play-button.png', () => eqrtVideoElement.play()
+    );
+    menuSystem.createButton('../media/textures/forward-button.png', () => { eqrtVideoElement.currentTime += 15; });
+    menuSystem.createButton('../media/textures/x-button.png', () => { xrSession.end() });
+    scene.addNode(menuSystem.getMenuBarNode());
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          xrButton.enabled = supported;
+        });
+      }
+    }
+
+    function onRequestSession() {
+      if (!xrSession) {
+        navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        }).then(onSessionStarted);
+      } else {
+        onEndSession();
+      }
+    }
+
+    function initGL() {
+      if (gl) { return; }
+      gl = createWebGLContext({ xrCompatible: true, webgl2: true, });
+      document.body.appendChild(gl.canvas);
+      gl.clearColor(0.0, 0, 0, 0.0);
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
+
+      // Util for rendering stereo layers
+      stereoUtil = new VRStereoUtil(gl);
+    }
+
+    function onSessionStarted(session) {
+      xrSession = session;
+      scene.inputRenderer.useProfileControllerMeshes(session);
+      session.addEventListener('end', onSessionEnded);
+
+      initGL();
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+
+      let selected = document.getElementById("eqrtVideoSelect");
+      eqrtVideoElement = document.createElement('video');
+      eqrtVideoElement.loop = true;
+      eqrtVideoElement.crossOrigin = "anonymous";
+      eqrtVideoElement.preload = 'auto';
+      eqrtVideoElement.autoload = true;
+      eqrtVideoElement.src = selected.options[selected.selectedIndex].value;
+      eqrtVideoWidth = selected.options[selected.selectedIndex].getAttribute("data-video-width");
+      eqrtVideoHeight = selected.options[selected.selectedIndex].getAttribute("data-video-height");
+      let eqrtVideoAngle = selected.options[selected.selectedIndex].getAttribute("data-video-angle");
+      let eqrtVideoLayout = selected.options[selected.selectedIndex].getAttribute("data-video-layout");
+      let eqrtRadius = 10;
+      let eqrtVideoFPS = selected.options[selected.selectedIndex].getAttribute("data-video-fps");
+
+
+      eqrtVideoElement.play();
+      setInterval(function () {
+        if (eqrtVideoElement.readyState >= eqrtVideoElement.HAVE_CURRENT_DATA) {
+          eqrtVideoNeedsUpdate = true;
+        }
+      }, 1000 / eqrtVideoFPS);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace;
+        projLayer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        eqrtLayer = xrGLFactory.createEquirectLayer({
+          space: refSpace,
+          viewPixelWidth: eqrtVideoWidth / (eqrtVideoLayout === "stereo-left-right" ? 2 : 1),
+          viewPixelHeight: eqrtVideoHeight / (eqrtVideoLayout === "stereo-top-bottom" ? 2 : 1),
+          layout: eqrtVideoLayout,
+        });
+
+        eqrtLayer.centralHorizontalAngle = Math.PI * eqrtVideoAngle / 180;
+        eqrtLayer.upperVerticalAngle = Math.PI / 2.0;
+        eqrtLayer.lowerVerticalAngle = -Math.PI / 2.0;
+        eqrtLayer.radius = eqrtRadius;
+        session.updateRenderState({ layers: [eqrtLayer, projLayer] });
+
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession() {
+      xrSession.end();
+    }
+
+    function onSessionEnded(event) {
+      if (event.session.isImmersive) {
+        xrButton.setSession(null);
+      }
+      xrSession = null;
+      eqrtVideoElement.pause();
+      gl = null;
+    }
+
+    function onXRFrame(time, frame) {
+      let pose = frame.getViewerPose(xrRefSpace);
+      xrSession.requestAnimationFrame(onXRFrame);
+
+      if (eqrtLayer && (eqrtVideoNeedsUpdate || eqrtLayer.needsRedraw)) {
+        eqrtVideoNeedsUpdate = false;
+        let glayer = xrGLFactory.getSubImage(eqrtLayer, frame);
+
+        // TEXTURE_CUBE_MAP expects the Y to be flipped for the faces and it already
+        // is flipped in our texture image.
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, glayer.colorTexture);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, eqrtVideoWidth, eqrtVideoHeight, gl.RGBA, gl.UNSIGNED_BYTE, eqrtVideoElement);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+        // We need to invalidate the color (and depth, just in case) here to avoid
+        // loading from the previously bound color texture. It will save some GPU time.
+        gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_ATTACHMENT]);
+
+        scene.updateInputSources(frame, xrRefSpace);
+        menuSystem.processInput(frame, scene, xrRefSpace);
+
+        let views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
+          glLayer.framebuffer = xrFramebuffer;
+          viewport = glLayer.viewport;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+      }
+      scene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>
