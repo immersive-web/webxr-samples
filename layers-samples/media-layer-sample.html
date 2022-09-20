@@ -179,6 +179,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
 
+        let force_mono = false;
         for (let source of session.inputSources) {
           if (source.gamepad) {
             // Toggle Play/Pause on primary button press
@@ -191,8 +192,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               else
                 video.pause();
             }
+            force_mono |= buttonPressedThisFrame(source.gamepad, 4);
           }
         }
+        xrSession.renderState.layers[0].forceMonoPresentation = force_mono;
       }
 
       // Start the XR application.

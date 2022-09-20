@@ -93,6 +93,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let cyldTextureWidth = 0;
     let cyldTextureHeight = 0;
 
+    function buttonPressedThisFrame(gamepad, index) {
+      return (index < gamepad.buttons.length &&
+        gamepad.buttons[index].pressed);
+    }
+
     function initXR() {
       xrButton = new WebXRButton({
         onRequestSession: onRequestSession,
@@ -212,6 +217,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.RGBA, gl.UNSIGNED_BYTE, cyldImageElement);
         gl.bindTexture(gl.TEXTURE_2D, null);
       }
+
+      let force_mono = false;
+      for (let source of xrSession.inputSources) {
+        force_mono |= buttonPressedThisFrame(source.gamepad, 0);
+      }
+      cyldLayer.forceMonoPresentation = force_mono;
 
       if (pose) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
