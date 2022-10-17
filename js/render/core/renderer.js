@@ -524,7 +524,7 @@ class RenderMaterial {
 }
 
 export class Renderer {
-  constructor(gl, multiview) {
+  constructor(gl, options = {}) {
     this._gl = gl || createWebGLContext();
     this._frameId = 0;
     this._programCache = {};
@@ -543,7 +543,7 @@ export class Renderer {
     this._globalLightColor = vec3.clone(DEF_LIGHT_COLOR);
     this._globalLightDir = vec3.clone(DEF_LIGHT_DIR);
 
-    this._multiview = multiview;
+    this._multiview = !!options.multiview;
   }
 
   get gl() {

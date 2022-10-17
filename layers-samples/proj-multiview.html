@@ -178,7 +178,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       initGL();
 
       if (session.isImmersive) {
-        renderer = new Renderer(gl, true /* multiview */);
+        renderer = new Renderer(gl, { multiview: true });
 
         scene.setRenderer(renderer);
 
@@ -191,7 +191,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ layers: [layer] });
       } else {
-        renderer = new Renderer(gl, false /* multiview */);
+        renderer = new Renderer(gl, { multiview: false });
 
         scene.setRenderer(renderer);
 
