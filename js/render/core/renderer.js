@@ -64,6 +64,25 @@ void main() {
 }
 `;
 
+const VERTEX_SHADER_MOTION_MULTI_ENTRY = `
+uniform mat4 LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX;
+uniform mat4 PREV_LEFT_PROJECTION_MATRIX, PREV_LEFT_VIEW_MATRIX, PREV_RIGHT_PROJECTION_MATRIX, PREV_RIGHT_VIEW_MATRIX, PREV_MODEL_MATRIX;
+void main() {
+  gl_Position = vertex_main(
+    LEFT_PROJECTION_MATRIX,
+    LEFT_VIEW_MATRIX,
+    RIGHT_PROJECTION_MATRIX,
+    RIGHT_VIEW_MATRIX,
+    MODEL_MATRIX,
+    PREV_LEFT_PROJECTION_MATRIX,
+    PREV_LEFT_VIEW_MATRIX,
+    PREV_RIGHT_PROJECTION_MATRIX,
+    PREV_RIGHT_VIEW_MATRIX,
+    PREV_MODEL_MATRIX
+  );
+}
+`
+
 const FRAGMENT_SHADER_ENTRY = `
 void main() {
   gl_FragColor = fragment_main();
@@ -544,6 +563,7 @@ export class Renderer {
     this._globalLightDir = vec3.clone(DEF_LIGHT_DIR);
 
     this._multiview = !!options.multiview;
+    this._spacewarp = !!options.spacewarp;
   }
 
   get gl() {
@@ -716,6 +736,12 @@ export class Renderer {
             gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
             gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
             gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[0].viewMatrix);
+            if (this._spacewarp) {
+              gl.uniformMatrix4fv(program.uniform.PREV_LEFT_PROJECTION_MATRIX, false, views[0].previousProjectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.PREV_LEFT_VIEW_MATRIX, false, views[0].previousViewMatrix);
+              gl.uniformMatrix4fv(program.uniform.PREV_RIGHT_PROJECTION_MATRIX, false, views[0].previousProjectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.PREV_RIGHT_VIEW_MATRIX, false, views[0].previousViewMatrix);
+            }
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
             gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
           }
@@ -754,6 +780,12 @@ export class Renderer {
               gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
+              if (this._spacewarp) {
+                gl.uniformMatrix4fv(program.uniform.PREV_LEFT_PROJECTION_MATRIX, false, views[0].previousProjectionMatrix);
+                gl.uniformMatrix4fv(program.uniform.PREV_LEFT_VIEW_MATRIX, false, views[0].previousViewMatrix);
+                gl.uniformMatrix4fv(program.uniform.PREV_RIGHT_PROJECTION_MATRIX, false, views[1].previousProjectionMatrix);
+                gl.uniformMatrix4fv(program.uniform.PREV_RIGHT_VIEW_MATRIX, false, views[1].previousViewMatrix);
+              }
             }
             // TODO(AB): modify shaders which use CAMERA_POSITION and EYE_INDEX to work with Multiview
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
@@ -772,6 +804,10 @@ export class Renderer {
           }
 
           gl.uniformMatrix4fv(program.uniform.MODEL_MATRIX, false, instance.worldMatrix);
+          if (this._spacewarp) {
+            gl.uniformMatrix4fv(program.uniform.PREV_MODEL_MATRIX, false, instance.previousWorldMatrix);
+            instance.previousWorldMatrix = instance.worldMatrix;
+          }
 
           if (primitive._indexBuffer) {
             gl.drawElements(primitive._mode, primitive._elementCount,
@@ -870,9 +906,14 @@ export class Renderer {
 
   _getMaterialProgram(material, renderPrimitive) {
     const multiview = this._multiview;
+    const spacewarp = this._spacewarp;
     let materialName = material.materialName;
-    let vertexSource = (!multiview) ? material.vertexSource : material.vertexSourceMultiview;
-    let fragmentSource = (!multiview) ? material.fragmentSource : material.fragmentSourceMultiview;
+    let vertexSource = (!multiview) ? material.vertexSource :
+                                      spacewarp ? material.vertexSourceSpacewarp :
+                                                  material.vertexSourceMultiview;
+    let fragmentSource = (!multiview) ? material.fragmentSource :
+                                        spacewarp ? material.fragmentSourceSpacewarp :
+                                                    material.fragmentSourceMultiview;
 
     // These should always be defined for every material
     if (materialName == null) {
@@ -892,8 +933,9 @@ export class Renderer {
       return this._programCache[key];
     } else {
       let fullVertexSource = vertexSource;
-      fullVertexSource += multiview ? VERTEX_SHADER_MULTI_ENTRY :
-                                      VERTEX_SHADER_SINGLE_ENTRY;
+      fullVertexSource += spacewarp ? VERTEX_SHADER_MOTION_MULTI_ENTRY :
+                                      multiview ? VERTEX_SHADER_MULTI_ENTRY :
+                                                  VERTEX_SHADER_SINGLE_ENTRY;
 
       let precisionMatch = fragmentSource.match(PRECISION_REGEX);
       let fragPrecisionHeader = precisionMatch ? '' : `precision ${this._defaultFragPrecision} float;\n`;

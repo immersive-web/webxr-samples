@@ -246,6 +246,17 @@ export class Node {
     return this._worldMatrix;
   }
 
+  set previousWorldMatrix(value) {
+    this._previousWorldMatrix = value;
+  }
+
+  get previousWorldMatrix() {
+    if (this._previousWorldMatrix) {
+      return this._previousWorldMatrix;
+    }
+    return this.worldMatrix;
+  }
+
   // TODO: Decompose matrix when fetching these?
   set translation(value) {
     if (value != null) {
