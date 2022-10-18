@@ -22,7 +22,7 @@ import {Material} from '../core/material.js';
 import {Node} from '../core/node.js';
 import {UrlTexture} from '../core/texture.js';
 import {BoxBuilder} from '../geometry/box-builder.js';
-import {mat4} from '../math/gl-matrix.js';
+import {mat4, vec3} from '../math/gl-matrix.js';
 
 class CubeSeaMaterial extends Material {
   constructor(heavy = false) {
@@ -253,7 +253,7 @@ export class CubeSeaNode extends Node {
     // If true, use a very heavyweight shader to stress the GPU.
     this.heavyGpu = !!options.heavyGpu;
 
-    this._rotationFactor = options.rotationFactor || 1;
+    this._rotationFactor = typeof options.rotationFactor === 'undefined' ? 1 : options.rotationFactor;
 
     // Number and size of the static cubes. Warning, large values
     // don't render right due to overflow of the int16 indices.
@@ -268,12 +268,17 @@ export class CubeSeaNode extends Node {
     // not recommended for viewing in a headset.
     this.autoRotate = !!options.autoRotate;
 
+    // Automatically move the world cubes up & down.
+    this.verticalOscillation = !!options.verticalOscillation;
+
     this._texture = new UrlTexture(options.imageUrl || 'media/textures/cube-sea.png');
 
     this._material = new CubeSeaMaterial(this.heavyGpu);
     this._material.baseColor.texture = this._texture;
 
     this._renderPrimitive = null;
+
+    this._cubeSeaTranslation = vec3.create();
   }
 
   onRendererChanged(renderer) {
@@ -355,6 +360,10 @@ export class CubeSeaNode extends Node {
   onUpdate(timestamp, frameDelta) {
     if (this.autoRotate) {
       mat4.fromRotation(this.cubeSeaNode.matrix, timestamp / 500, [0, -1, 0]);
+    }
+    if (this.verticalOscillation) {
+      this._cubeSeaTranslation[1] = -1 * Math.abs(Math.sin(timestamp / 2000) * 0.5);
+      this.cubeSeaNode.translation = this._cubeSeaTranslation;
     }
     mat4.fromRotation(this.heroNode.matrix, timestamp / 2000 * this._rotationFactor, [0, 1, 0]);
   }

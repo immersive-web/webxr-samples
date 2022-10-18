@@ -247,14 +247,18 @@ export class Node {
   }
 
   set previousWorldMatrix(value) {
-    this._previousWorldMatrix = value;
+    if (!this._previousWorldMatrix) {
+      this._previousWorldMatrix = mat4.clone(value);
+    } else {
+      mat4.copy(this._previousWorldMatrix, value);
+    }
   }
 
   get previousWorldMatrix() {
-    if (this._previousWorldMatrix) {
-      return this._previousWorldMatrix;
+    if (!this._previousWorldMatrix) {
+      this._previousWorldMatrix = mat4.clone(this.worldMatrix);
     }
-    return this.worldMatrix;
+    return this._previousWorldMatrix;
   }
 
   // TODO: Decompose matrix when fetching these?
