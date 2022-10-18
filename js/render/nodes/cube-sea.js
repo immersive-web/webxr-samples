@@ -106,7 +106,7 @@ class CubeSeaMaterial extends Material {
       mat4 prev_left_view,
       mat4 prev_right_proj,
       mat4 prev_right_view,
-      mat4 prev_model,
+      mat4 prev_model
     ) {
       if (VIEW_ID == 0u) {
         clipPos = left_proj * left_view * model * vec4(POSITION, 1.0);
