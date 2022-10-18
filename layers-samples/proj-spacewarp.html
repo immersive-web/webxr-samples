@@ -1,0 +1,330 @@
+<!doctype html>
+<!--
+Copyright 2021 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Space Warp</title>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Space Warp</summary>
+      <p>
+        This sample demonstrates the space warp technology. It allows the
+        application to run at half the rate from the actual display refresh
+        rate. For this to work, the application needs to render a motion vector
+        buffer and a depth buffer. These are used by the system to
+        synthesize new frames, so that the resulting frame rate is still at the
+        proper refresh rate.
+        <a class="back" href="./">Back</a>
+      </p>
+      <p id="mv-status"></p>
+      <input type="checkbox" id="do_antialias">antialias</input>
+    </details>
+  </header>
+  <script type="module">
+    import { mat4 } from '../js/render/math/gl-matrix.js'
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { Scene, WebXRView } from '../js/render/scenes/scene.js';
+    import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+    import { CubeSeaNode } from '../js/render/nodes/cube-sea.js';
+
+    // XR globals.
+    let do_antialias = document.getElementById('do_antialias');
+    let xrButton = null;
+    let xrImmersiveRefSpace = null;
+    let xrGLFactory = null;
+    let xrFramebuffer = null;
+
+    // WebGL scene globals.
+    let gl = null;
+    let renderer = null;
+    let scene = new Scene();
+    let is_multisampled_supported = false;
+    let samples = 1;
+    let mv_ext = null;
+    let depthStencilTex = null;
+
+    // SpaceWarp globals.
+    let spaceWarpEnabled = true;
+    let xrMotionFramebuffer = null;
+    let motionRenderer = null;
+    let motionScene = new Scene();
+    const prevMatrices = {};
+
+    scene.addNode(new CubeSeaNode({
+      imageUrl: '../media/textures/cube-sea.png',
+      rotationFactor: 1/4,
+    }));
+    motionScene.addNode(new CubeSeaNode({
+      imageUrl: '../media/textures/cube-sea.png',
+      rotationFactor: 1/4,
+    }));
+    scene.enableStats(false);
+    motionScene.enableStats(false);
+
+    function initXR() {
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          let mvCompat = testMultiViewCompatibility();
+          if (!mvCompat) {
+            document.querySelector('#mv-status').textContent = "❌ - Multiview Unsupported";
+          } else {
+            document.querySelector('#mv-status').textContent = "✔️- Multiview Supported";
+          }
+          xrButton.enabled = supported && mvCompat;
+        });
+      }
+    }
+
+    function testMultiViewCompatibility() {
+      let tempWebGLContext = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+
+      return tempWebGLContext.getExtension('OCULUS_multiview') != null;
+    }
+
+    function initGL() {
+      if (gl)
+        return;
+
+      gl = createWebGLContext({
+        xrCompatible: true,
+        webgl2: true
+      });
+      document.body.appendChild(gl.canvas);
+
+      // SpaceWarp: Must enable this extension to get GL_RGBA16F support
+      const ext = gl.getExtension('EXT_color_buffer_half_float');
+      if (!ext) {
+        console.error('Could not enable extension needed by space-warp: EXT_color_buffer_half_float');
+        return;
+      }
+
+      samples = gl.getParameter(gl.MAX_SAMPLES);
+
+      mv_ext = gl.getExtension('OCULUS_multiview');
+      if (mv_ext) {
+        console.log("OCULUS_multiview extension is supported");
+        is_multisampled_supported = true;
+      }
+      else {
+        console.log("OCULUS_multiview extension is NOT supported");
+      }
+      if (!mv_ext) {
+        mv_ext = gl.getExtension('OVR_multiview2');
+        if (mv_ext) {
+          console.log("OVR_multiview2 extension is supported");
+        }
+        else {
+          console.log("Neither OCULUS_multiview nor OVR_multiview2 extension is NOT supported");
+        }
+      }
+
+      function onResize() {
+        gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+        gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+      }
+      window.addEventListener('resize', onResize);
+      onResize();
+
+      // Set up a non-black clear color so that we can see if something renders wrong.
+      gl.clearColor(0.1, 0.2, 0.3, 1.0);
+    }
+
+    function onRequestSession() {
+      // SpaceWarp: Enable the functionality by requesting the feature
+      return navigator.xr.requestSession('immersive-vr', { requiredFeatures: ['layers', 'space-warp'] }).then((session) => {
+        xrButton.setSession(session);
+        onSessionStarted(session);
+      });
+    }
+
+    function onSelect(ev) {
+      if (spaceWarpEnabled) {
+        spaceWarpEnabled = false;
+        console.log('Turned off ASW');
+      } else {
+        spaceWarpEnabled = true;
+        console.log('Turned on ASW');
+      }
+    }
+
+    function onSessionStarted(session) {
+      session.addEventListener('end', onSessionEnded);
+      session.addEventListener('select', onSelect);
+
+      initGL();
+
+      renderer = new Renderer(gl, { multiview: true });
+      motionRenderer = new Renderer(gl, { multiview: true, spacewarp: true });
+
+      scene.setRenderer(renderer);
+      motionScene.setRenderer(motionRenderer);
+
+      xrFramebuffer = gl.createFramebuffer();
+      xrMotionFramebuffer = gl.createFramebuffer();
+      xrGLFactory = new XRWebGLBinding(session, gl);
+      // SpaceWarp: Must use texture-array
+      let layer = xrGLFactory.createProjectionLayer({
+        textureType: "texture-array",
+        depthFormat: gl.DEPTH_COMPONENT24
+      });
+      session.updateRenderState({ layers: [layer] });
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrImmersiveRefSpace = refSpace;
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      xrButton.setSession(null);
+    }
+
+    function onXRFrame(t, frame) {
+      let session = frame.session;
+      let refSpace = xrImmersiveRefSpace;
+      let pose = frame.getViewerPose(refSpace);
+
+      session.renderState.layers[0].deltaPose = null;
+
+      scene.startFrame();
+      motionScene.startFrame();
+
+      session.requestAnimationFrame(onXRFrame);
+
+      if (pose) {
+        let glLayer = null;
+
+        const views = [];
+        for (let view of pose.views) {
+          let viewport = null;
+          glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
+          viewport = glLayer.viewport;
+          glLayer.framebuffer = xrFramebuffer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+          if (views.length == 0) { // for multiview we need to set fbo only once
+            if (!is_multisampled_supported || !do_antialias.checked) {
+              mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
+            } else {
+              mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, samples, 0, 2);
+            }
+
+            if (depthStencilTex === null) {
+              depthStencilTex = gl.createTexture();
+              gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthStencilTex);
+              gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT24, viewport.width, viewport.height, 2);
+            }
+
+            if (!is_multisampled_supported || !do_antialias.checked) {
+              mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, 0, 2);
+            } else {
+              mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, samples, 0, 2);
+            }
+
+            gl.disable(gl.SCISSOR_TEST);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          }
+          views.push(new WebXRView(view, glLayer, viewport));
+        }
+        scene.drawViewArray(views);
+
+        // SpaceWarp: Motion vector render pass
+        if (spaceWarpEnabled) {
+          const motionViews = [];
+          for (let view of pose.views) {
+            glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, xrMotionFramebuffer);
+            if (motionViews.length == 0) {
+              // SpaceWarp: Make sure to avoid doing antialiasing on the motion vector
+              mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.motionVectorTexture, 0, 0, 2);
+              mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, glLayer.depthStencilTexture, 0, 0, 2);
+
+              gl.enable(gl.SCISSOR_TEST);
+              gl.scissor(0, 0, glLayer.motionVectorTextureWidth, glLayer.motionVectorTextureHeight);
+              gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+              gl.disable(gl.SCISSOR_TEST);
+            }
+
+            let prevProjectionMatrix = null;
+            let prevViewMatrix = null;
+            if (prevMatrices[motionViews.length]) {
+              prevProjectionMatrix = mat4.clone(prevMatrices[motionViews.length].projectionMatrix);
+              prevViewMatrix = mat4.clone(prevMatrices[motionViews.length].viewMatrix);
+            }
+
+            // SpaceWarp: The recommended motion vector texture size is
+            // smaller, so make sure to use the correct viewport size.
+            const motionViewport = {
+              x: 0,
+              y: 0,
+              width: glLayer.motionVectorTextureWidth,
+              height: glLayer.motionVectorTextureHeight,
+            };
+            const webXrView = new WebXRView(view, glLayer, motionViewport, prevProjectionMatrix, prevViewMatrix);
+            motionViews.push(webXrView);
+          }
+          motionScene.drawViewArray(motionViews);
+        }
+
+        // SpaceWarp: Remember the previous projection and view matrices.
+        // Needed for calculating the motion vector.
+        for (let i = 0; i < views.length; i++) {
+          const view = views[i];
+          prevMatrices[i] = {
+            projectionMatrix: mat4.clone(view.projectionMatrix),
+            viewMatrix: mat4.clone(view.viewMatrix),
+          };
+        }
+      }
+
+      scene.endFrame();
+      motionScene.endFrame();
+    }
+
+    initXR();
+  </script>
+</body>
+
+</html>

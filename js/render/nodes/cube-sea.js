@@ -86,6 +86,40 @@ class CubeSeaMaterial extends Material {
     }`;
   }
 
+  get vertexSourceSpacewarp() {
+    return `#version 300 es
+    #extension GL_OVR_multiview2 : require
+    #define NUM_VIEWS 2
+    layout(num_views=NUM_VIEWS) in;
+    #define VIEW_ID gl_ViewID_OVR
+    in vec3 POSITION;
+    out highp vec4 clipPos;
+    out highp vec4 prevClipPos;
+
+    vec4 vertex_main(
+      mat4 left_proj,
+      mat4 left_view,
+      mat4 right_proj,
+      mat4 right_view,
+      mat4 model,
+      mat4 prev_left_proj,
+      mat4 prev_left_view,
+      mat4 prev_right_proj,
+      mat4 prev_right_view,
+      mat4 prev_model,
+    ) {
+      if (VIEW_ID == 0u) {
+        clipPos = left_proj * left_view * model * vec4(POSITION, 1.0);
+        prevClipPos = prev_left_proj * prev_left_view * prev_model * vec4(POSITION, 1.0);
+        return clipPos;
+      } else {
+        clipPos = right_proj * right_view * model * vec4(POSITION, 1.0);
+        prevClipPos = prev_right_proj * prev_right_view * prev_model * vec4(POSITION, 1.0);
+        return clipPos;
+      }
+    }`;
+  }
+
   get fragmentSourceMultiview() {
     if (!this.heavy) {
       return `#version 300 es
@@ -102,6 +136,25 @@ class CubeSeaMaterial extends Material {
       console.log("Multiview HEAVY case is not implemented");
     }
   }
+
+  get fragmentSourceSpacewarp() {
+    if (!this.heavy) {
+      return `#version 300 es
+      precision highp float;
+      uniform sampler2D baseColor;
+      in highp vec4 clipPos;
+      in highp vec4 prevClipPos;
+
+      vec4 fragment_main() {
+        highp vec4 motionVector = ( clipPos / clipPos.w - prevClipPos / prevClipPos.w );
+        return motionVector;
+      }`;
+    } else {
+      // NOT IMPLEMENTED
+      console.log("Multiview HEAVY case is not implemented");
+    }
+  }
+
   get fragmentSource() {
     if (!this.heavy) {
       return `
@@ -199,6 +252,8 @@ export class CubeSeaNode extends Node {
     // Test variables
     // If true, use a very heavyweight shader to stress the GPU.
     this.heavyGpu = !!options.heavyGpu;
+
+    this._rotationFactor = options.rotationFactor || 1;
 
     // Number and size of the static cubes. Warning, large values
     // don't render right due to overflow of the int16 indices.
@@ -301,6 +356,6 @@ export class CubeSeaNode extends Node {
     if (this.autoRotate) {
       mat4.fromRotation(this.cubeSeaNode.matrix, timestamp / 500, [0, -1, 0]);
     }
-    mat4.fromRotation(this.heroNode.matrix, timestamp / 2000, [0, 1, 0]);
+    mat4.fromRotation(this.heroNode.matrix, timestamp / 2000 * this._rotationFactor, [0, 1, 0]);
   }
 }
