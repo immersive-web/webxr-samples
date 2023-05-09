@@ -985,7 +985,7 @@ export class Renderer {
 
       let stencilMaskChange = (state & CAP.STENCIL_MASK) - (prevState & CAP.STENCIL_MASK);
       if (stencilMaskChange) {
-        gl.stencilMask(stencilMaskChange > 1);
+        gl.stencilMask(stencilMaskChange > 1 ? 0xff : 0x00);
       }
     }
 
