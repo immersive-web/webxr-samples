@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+
+    <meta http-equiv="origin-trial" content="Ahfj+MLeL6bh+LNmpnSdepftxoDHHwjUG2KWZ4jjCb1WoZxtBlzF3cDHuJNVqnhr3HXJwQ+kLaw57NO15S0mRwwAAABkeyJvcmlnaW4iOiJodHRwczovL2ltbWVyc2l2ZS13ZWIuZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXZWJYUlBsYW5lRGV0ZWN0aW9uIiwiZXhwaXJ5IjoxNjI5ODQ5NTk5fQ==">
+
+    <title>AR Mesh Detection</title>
+
+    <link href='../css/common.css' rel='stylesheet'></link>
+
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>AR Mesh Detection with Anchors</summary>
+        This sample demonstrates using the Mesh Detection feature with Anchors,
+        including an implementation of synchronous hit test in JavaScript that
+        leverages obtained mesh data and the Anchors API to position objects.
+        <p>
+          <input id="useMeshOrigin" type="checkbox" checked>
+          <label for="useMeshOrigin">Mesh coordinate system visible</label><br/>
+
+          <input id="useDomOverlay" type="checkbox" checked>
+          <label for="useDomOverlay">Enable DOM Overlay</label><br/>
+
+          <a class="back" href="./index.html">Back</a>
+        </p>
+      </details>
+    </header>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+          "three/examples/": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/"
+				}
+			}
+		</script>
+
+    <script type="module">
+      // Code adapted from THREE.js' WebXR hit test sample.
+      // THREE.js is covered by MIT license which can be found at:
+      // https://github.com/mrdoob/THREE.js/blob/master/LICENSE
+
+      // The code also links to a .png file from ARCore Android SDK.
+      // It is covered by Apache 2.0 license which can be found at:
+      // https://github.com/google-ar/arcore-android-sdk/blob/c684bbda37e44099c273c3e5274fae6fccee293c/LICENSE
+
+      import * as THREE from 'three';
+      import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.min.js';
+      import {WebXRButton} from '../js/util/webxr-button.js';
+      import {hitTest, filterHitTestResults} from '../js/hit-test.js';
+
+      const useMeshOrigin = document.getElementById('useMeshOrigin');
+
+      const allMeshOrigins = [];
+      useMeshOrigin.addEventListener('input', element =>{
+        const createMeshMaterial = (params) => 
+          new THREE.MeshBasicMaterial(Object.assign(params, {
+            opacity: 0.15,
+            transparent: true,
+          }));
+
+        meshMaterials.splice(0, meshMaterials.length)
+        if (useMeshOrigin.checked) {        
+          meshMaterials.push(createMeshMaterial({color: 0xff0000}));
+          meshMaterials.push(createMeshMaterial({color: 0x00ff00}));
+          meshMaterials.push(createMeshMaterial({color: 0x0000ff}));
+          meshMaterials.push(createMeshMaterial({color: 0xffff00}));
+          meshMaterials.push(createMeshMaterial({color: 0x00ffff}));
+          meshMaterials.push(createMeshMaterial({color: 0xff00ff}));
+        } else {
+          let material = new THREE.MeshBasicMaterial( { color: 0xffffff, side: THREE.FrontSide } );
+          material.blending = THREE.CustomBlending;
+					material.blendEquation = THREE.AddEquation;
+					material.blendSrc = THREE.ZeroFactor;
+					material.blendDst = THREE.ZeroFactor;
+          meshMaterials.push(material);
+        }
+      });
+
+      // Suppress XR events for interactions with the DOM overlay
+      document.querySelector('header').addEventListener('beforexrselect', (ev) => {
+        console.log(ev.type);
+        ev.preventDefault();
+      });
+
+      let xrButton = null;
+      let controller1, controller2;
+      let controllerGrip1, controllerGrip2;
+
+      let container;
+      let camera, scene, renderer;
+      const tempMatrix = new THREE.Matrix4();
+
+      let reticle;
+      // hitResult will be set when reticle is visible:
+      let hitResult;
+
+      const meshMaterials = [];
+      const wireframeMaterial = new THREE.MeshBasicMaterial({wireframe: true});
+
+      const lineMaterials = [
+        new THREE.LineBasicMaterial({color: 0xff0000}),
+        new THREE.LineBasicMaterial({color: 0x00ff00}),
+        new THREE.LineBasicMaterial({color: 0x0000ff}),
+      ];
+
+      const lineGeometries = [
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(5,0,0)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,5,0)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,5)]),
+      ];
+
+      const baseOriginGroup = new THREE.Group();
+      baseOriginGroup.add(new THREE.Line(lineGeometries[0], lineMaterials[0]));
+      baseOriginGroup.add(new THREE.Line(lineGeometries[1], lineMaterials[1]));
+      baseOriginGroup.add(new THREE.Line(lineGeometries[2], lineMaterials[2]));
+
+      init();
+
+      function init() {
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+        light.position.set(0.5, 1, 0.25);
+        scene.add(light);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true;
+        renderer.xr.setFoveation(0);
+        renderer.autoClear = false;
+        container.appendChild(renderer.domElement);
+
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXRTitle: "START AR",
+          textXRNotFoundTitle: "AR NOT FOUND",
+          textExitXRTitle: "EXIT AR",
+        });
+
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-ar')
+                      .then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+
+
+				controller1 = renderer.xr.getController(0);
+				controller1.addEventListener('selectstart', onSelectStart);
+				controller1.addEventListener('selectend', onSelectEnd);
+				controller1.addEventListener('connected', function (event) {
+
+					this.add(buildController(event.data));
+
+				});
+				controller1.addEventListener('disconnected', function () {
+
+					this.remove(this.children[ 0 ]);
+
+				});
+				scene.add(controller1);
+
+				controller2 = renderer.xr.getController(1);
+				controller2.addEventListener('selectstart', onSelectStart);
+				controller2.addEventListener('selectend', onSelectEnd);
+				controller2.addEventListener('connected', function (event) {
+
+					this.add(buildController(event.data));
+
+				});
+        scene.add(controller2);
+
+				const controllerModelFactory = new XRControllerModelFactory();
+
+				controllerGrip1 = renderer.xr.getControllerGrip(0);
+				controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+				scene.add(controllerGrip1);
+
+				controllerGrip2 = renderer.xr.getControllerGrip(1);
+				controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+				scene.add(controllerGrip2);
+
+				controller2.addEventListener('disconnected', function () {
+
+					this.remove(this.children[ 0 ]);
+
+				});
+				scene.add(controller2);
+
+        reticle = new THREE.Mesh(
+          new THREE.SphereGeometry(0.15,32,16), //RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+          new THREE.MeshBasicMaterial({color: 0xff0000})
+      );
+        reticle.matrixAutoUpdate = true;
+        reticle.visible = false;
+        scene.add(reticle);
+
+        const createMeshMaterial = (params) => 
+          new THREE.MeshBasicMaterial(Object.assign(params, {
+            opacity: 0.15,
+            transparent: true,
+          }));
+
+        if (useMeshOrigin.checked) {        
+          meshMaterials.push(createMeshMaterial({color: 0xff0000}));
+          meshMaterials.push(createMeshMaterial({color: 0x00ff00}));
+          meshMaterials.push(createMeshMaterial({color: 0x0000ff}));
+          meshMaterials.push(createMeshMaterial({color: 0xffff00}));
+          meshMaterials.push(createMeshMaterial({color: 0x00ffff}));
+          meshMaterials.push(createMeshMaterial({color: 0xff00ff}));
+        } else {
+          let material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
+          material.blending = CustomBlending;
+					material.blendEquation = AddEquation;
+					material.blendSrc = ZeroFactor;
+					material.blendDst = ZeroFactor;
+          meshMaterials.push(material);
+        }
+
+        window.addEventListener('resize', onWindowResize);
+      }
+
+			function buildController(data) {
+
+        let geometry, material;
+
+        switch (data.targetRayMode) {
+
+          case 'tracked-pointer':
+
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute([ 0, 0, 0, 0, 0, - 1 ], 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute([ 0.5, 0.5, 0.5, 0, 0, 0 ], 3));
+
+            material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
+
+            return new THREE.Line(geometry, material);
+
+          case 'gaze':
+
+            geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, - 1);
+            material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
+            return new THREE.Mesh(geometry, material);
+
+        }
+      }
+
+      let pointer = undefined;
+
+      function onSelectStart(event) {
+        pointer = event.target;
+      }
+      function onSelectEnd(event) {
+        pointer = undefined;
+      }
+
+      function draw() {
+        if (pointer === undefined) {
+          return;
+        }
+
+        const raycaster = new THREE.Raycaster();
+        tempMatrix.identity().extractRotation(pointer.matrixWorld);
+
+        raycaster.ray.origin.setFromMatrixPosition(pointer.matrixWorld);
+        raycaster.ray.direction.set(0, 0, - 1).applyMatrix4(tempMatrix);
+
+        allMeshes.forEach((meshContext, mesh) => {
+          const intersections = raycaster.intersectObject(meshContext.mesh);
+          intersections.forEach((intersection) => {
+            if (intersection.object == meshContext.mesh) {
+              const up = new THREE.Vector3(0, 1, 0); // reference vector
+              let right = new THREE.Vector3();
+              let forward = new THREE.Vector3();
+              let quaternion = new THREE.Quaternion();
+              let matrix = new THREE.Matrix4();
+
+              right.crossVectors(up, intersection.face.normal);
+              forward.crossVectors(right, up);
+
+              matrix.makeBasis(right, up, forward);
+              quaternion.setFromRotationMatrix(matrix);
+              reticle.setRotationFromQuaternion(quaternion.normalize());
+              reticle.visible = true;
+              reticle.position.copy(intersection.point);
+            }
+          });
+        });
+      }
+
+      function onRequestSession() {
+        let sessionInit = {
+          requiredFeatures: ['anchors', 'mesh-detection'],
+          optionalFeatures: [],
+        };
+        if (useDomOverlay.checked) {
+          sessionInit.optionalFeatures.push('dom-overlay');
+          sessionInit.domOverlay = {root: document.body};
+        }
+        navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+          session.mode = 'immersive-ar';
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        useDomOverlay.disabled = true;
+        session.addEventListener('end', onSessionEnded);
+
+        renderer.xr.setReferenceSpaceType('local');
+        renderer.xr.setSession(session);
+
+        renderer.setAnimationLoop(render);
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        useDomOverlay.disabled = false;
+        xrButton.setSession(null);
+
+        renderer.setAnimationLoop(null);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      let anchorId = 1;
+      let allAnchors = new Map();
+
+      function processAnchors(timestamp, frame) {
+        const referenceSpace = renderer.xr.getReferenceSpace();
+
+        if (frame.trackedAnchors) {
+          allAnchors.forEach((anchorContext, anchor) => {
+            if (!frame.trackedAnchors.has(anchor)) {
+              // anchor was removed
+              allAnchors.delete(anchor);
+              console.debug("Anchor no longer tracked, id=" + anchorContext.id);
+
+              scene.remove(anchorContext.mesh);
+            }
+          });
+
+          frame.trackedAnchors.forEach(anchor => {
+            if (allAnchors.has(anchor)) {
+              const anchorContext = allAnchors.get(anchor);
+              const anchorPose = frame.getPose(anchor.anchorSpace, referenceSpace);
+              // update pose
+              if (anchorPose) {
+                anchorContext.mesh.visible = true;
+                anchorContext.mesh.matrix.fromArray(anchorPose.transform.matrix);
+              } else {
+                anchorContext.mesh.visible = false;
+              }
+            } else {
+              console.error("New anchors should be processed in a createAnchor(...).then() promise");
+            }
+          });
+        }
+      }
+
+      const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32).translate(0, 0.1, 0);
+
+      function createGeometry(vertices, indices) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        return geometry;
+      }
+
+      let meshId = 1;
+      let allMeshes = new Map();
+      function processMeshes(timestamp, frame) {
+        const referenceSpace = renderer.xr.getReferenceSpace();
+
+        if (frame.detectedMeshes) {
+          allMeshes.forEach((meshContext, mesh) => {
+            if (!frame.detectedMeshes.has(mesh)) {
+              // mesh was removed
+              allMeshes.delete(mesh);
+              console.debug("Mesh no longer tracked, id=" + meshContext.id);
+
+              scene.remove(meshContext.mesh);
+              scene.remove(meshContext.wireframe);
+            }
+          });
+
+          frame.detectedMeshes.forEach(mesh => {
+            const meshPose = frame.getPose(mesh.meshSpace, referenceSpace);
+            let meshMesh;
+            let wireframeMesh;
+
+            if (allMeshes.has(mesh)) {
+              // may have been updated:
+              const meshContext = allMeshes.get(mesh);
+              meshMesh = meshContext.mesh;
+              wireframeMesh = meshContext.wireframe;
+
+              if (meshContext.timestamp < mesh.lastChangedTime) {
+                // updated!
+                meshContext.timestamp = mesh.lastChangedTime;
+
+                const geometry = createGeometry(mesh.vertices, mesh.indices);
+                meshContext.mesh.geometry.dispose();
+                meshContext.mesh.geometry = geometry;
+                meshContext.wireframe.geometry.dispose();
+                meshContext.wireframe.geometry = geometry;
+              }
+            } else {
+              // new mesh
+              
+              // Create geometry:
+              const geometry = createGeometry(mesh.vertices, mesh.indices);
+
+              wireframeMesh = new THREE.Mesh(geometry, wireframeMaterial);
+              wireframeMesh.matrixAutoUpdate = false;
+              scene.add(wireframeMesh);
+
+              meshMesh = new THREE.Mesh(geometry, 
+                meshMaterials[meshId % meshMaterials.length]
+            );
+              meshMesh.matrixAutoUpdate = false;
+              scene.add(meshMesh);
+
+              // Create mesh origin visualizer:
+              const originGroup = baseOriginGroup.clone();
+              originGroup.visible = false; // useMeshOrigin.checked;
+
+              meshMesh.add(originGroup);
+              allMeshOrigins.push(originGroup);
+
+              const meshContext = {
+                id: meshId,
+                timestamp: mesh.lastChangedTime,
+                mesh: meshMesh,
+                wireframe: wireframeMesh,
+                origin: originGroup,
+              };
+
+              allMeshes.set(mesh, meshContext);
+              console.debug("New mesh detected, id=" + meshId);
+              meshId++;
+            }
+
+            if (meshPose) {
+              meshMesh.visible = true;
+              meshMesh.matrix.fromArray(meshPose.transform.matrix);
+              wireframeMesh.visible = useMeshOrigin.checked;
+              wireframeMesh.matrix.fromArray(meshPose.transform.matrix);
+            } else {
+              meshMesh.visible = false;
+              wireframeMesh.visible = false;
+            }
+          });
+        }
+      }
+
+      function render(timestamp, frame) {
+        if (frame) {
+          processAnchors(timestamp, frame);
+          processMeshes(timestamp, frame);
+          draw();
+
+          const referenceSpace = renderer.xr.getReferenceSpace();
+          const session = renderer.xr.getSession();
+
+          renderer.render(scene, camera);
+        }
+      }
+
+    </script>
+  </body>
+</html>
