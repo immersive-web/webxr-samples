@@ -16,13 +16,14 @@
   <body>
     <header>
       <details open>
-        <summary>AR Mesh Detection with Anchors</summary>
-        This sample demonstrates using the Mesh Detection feature with Anchors,
-        including an implementation of synchronous hit test in JavaScript that
-        leverages obtained mesh data and the Anchors API to position objects.
+        <summary>AR Mesh Detection</summary>
+        This sample demonstrates using the 
+        <a href="https://immersive-web.github.io/real-world-meshing/">>Mesh Detection feature</a>
+        including an implementation of synchronous hit test in JavaScript 
+        that leverages obtained mesh data to position objects.
         <p>
-          <input id="useMeshOrigin" type="checkbox" checked>
-          <label for="useMeshOrigin">Mesh coordinate system visible</label><br/>
+          <input id="showMeshTriangles" type="checkbox" checked>
+          <label for="showMeshTriangles">Mesh triangles visible</label><br/>
 
           <input id="useDomOverlay" type="checkbox" checked>
           <label for="useDomOverlay">Enable DOM Overlay</label><br/>
@@ -55,10 +56,10 @@
       import {WebXRButton} from '../js/util/webxr-button.js';
       import {hitTest, filterHitTestResults} from '../js/hit-test.js';
 
-      const useMeshOrigin = document.getElementById('useMeshOrigin');
+      const showMeshTriangles = document.getElementById('showMeshTriangles');
 
       const allMeshOrigins = [];
-      useMeshOrigin.addEventListener('input', element =>{
+      showMeshTriangles.addEventListener('input', element =>{
         const createMeshMaterial = (params) => 
           new THREE.MeshBasicMaterial(Object.assign(params, {
             opacity: 0.15,
@@ -66,7 +67,8 @@
           }));
 
         meshMaterials.splice(0, meshMaterials.length)
-        if (useMeshOrigin.checked) {        
+        if (showMeshTriangles.checked) {      
+          // preallocate colors for various meshes  
           meshMaterials.push(createMeshMaterial({color: 0xff0000}));
           meshMaterials.push(createMeshMaterial({color: 0x00ff00}));
           meshMaterials.push(createMeshMaterial({color: 0x0000ff}));
@@ -74,6 +76,9 @@
           meshMaterials.push(createMeshMaterial({color: 0x00ffff}));
           meshMaterials.push(createMeshMaterial({color: 0xff00ff}));
         } else {
+          // if the mesh is not visible, set the blending so the mesh "punches"
+          // out vr content behind it. This will occlude the VR scene with the 
+          // real world.
           let material = new THREE.MeshBasicMaterial( { color: 0xffffff, side: THREE.FrontSide } );
           material.blending = THREE.CustomBlending;
 					material.blendEquation = THREE.AddEquation;
@@ -103,23 +108,7 @@
 
       const meshMaterials = [];
       const wireframeMaterial = new THREE.MeshBasicMaterial({wireframe: true});
-
-      const lineMaterials = [
-        new THREE.LineBasicMaterial({color: 0xff0000}),
-        new THREE.LineBasicMaterial({color: 0x00ff00}),
-        new THREE.LineBasicMaterial({color: 0x0000ff}),
-      ];
-
-      const lineGeometries = [
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(5,0,0)]),
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,5,0)]),
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,5)]),
-      ];
-
       const baseOriginGroup = new THREE.Group();
-      baseOriginGroup.add(new THREE.Line(lineGeometries[0], lineMaterials[0]));
-      baseOriginGroup.add(new THREE.Line(lineGeometries[1], lineMaterials[1]));
-      baseOriginGroup.add(new THREE.Line(lineGeometries[2], lineMaterials[2]));
 
       init();
 
@@ -127,7 +116,8 @@
 
         container = document.createElement('div');
         document.body.appendChild(container);
-
+        
+        // set up three.js boilerplate
         scene = new THREE.Scene();
 
         camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
@@ -161,30 +151,27 @@
           });
         }
 
-
+        // add controllers to the scene
 				controller1 = renderer.xr.getController(0);
 				controller1.addEventListener('selectstart', onSelectStart);
 				controller1.addEventListener('selectend', onSelectEnd);
 				controller1.addEventListener('connected', function (event) {
-
 					this.add(buildController(event.data));
-
 				});
+
 				controller1.addEventListener('disconnected', function () {
-
 					this.remove(this.children[ 0 ]);
-
 				});
+
 				scene.add(controller1);
 
 				controller2 = renderer.xr.getController(1);
 				controller2.addEventListener('selectstart', onSelectStart);
 				controller2.addEventListener('selectend', onSelectEnd);
 				controller2.addEventListener('connected', function (event) {
-
 					this.add(buildController(event.data));
-
 				});
+
         scene.add(controller2);
 
 				const controllerModelFactory = new XRControllerModelFactory();
@@ -198,16 +185,15 @@
 				scene.add(controllerGrip2);
 
 				controller2.addEventListener('disconnected', function () {
-
 					this.remove(this.children[ 0 ]);
-
 				});
 				scene.add(controller2);
 
         reticle = new THREE.Mesh(
-          new THREE.SphereGeometry(0.15,32,16), //RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+          new THREE.SphereGeometry(0.15,32,16),
           new THREE.MeshBasicMaterial({color: 0xff0000})
-      );
+        );
+
         reticle.matrixAutoUpdate = true;
         reticle.visible = false;
         scene.add(reticle);
@@ -218,7 +204,7 @@
             transparent: true,
           }));
 
-        if (useMeshOrigin.checked) {        
+        if (showMeshTriangles.checked) {        
           meshMaterials.push(createMeshMaterial({color: 0xff0000}));
           meshMaterials.push(createMeshMaterial({color: 0x00ff00}));
           meshMaterials.push(createMeshMaterial({color: 0x0000ff}));
@@ -226,6 +212,9 @@
           meshMaterials.push(createMeshMaterial({color: 0x00ffff}));
           meshMaterials.push(createMeshMaterial({color: 0xff00ff}));
         } else {
+          // if the mesh is not visible, set the blending so the mesh "punches"
+          // out vr content behind it. This will occlude the VR scene with the 
+          // real world.
           let material = new MeshBasicMaterial( { color: 0xffffff, side: FrontSide } );
           material.blending = CustomBlending;
 					material.blendEquation = AddEquation;
@@ -242,9 +231,7 @@
         let geometry, material;
 
         switch (data.targetRayMode) {
-
           case 'tracked-pointer':
-
             geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute([ 0, 0, 0, 0, 0, - 1 ], 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute([ 0.5, 0.5, 0.5, 0, 0, 0 ], 3));
@@ -252,13 +239,10 @@
             material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
 
             return new THREE.Line(geometry, material);
-
           case 'gaze':
-
             geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, - 1);
             material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
             return new THREE.Mesh(geometry, material);
-
         }
       }
 
@@ -307,7 +291,7 @@
 
       function onRequestSession() {
         let sessionInit = {
-          requiredFeatures: ['anchors', 'mesh-detection'],
+          requiredFeatures: ['hit-test', 'mesh-detection'],
           optionalFeatures: [],
         };
         if (useDomOverlay.checked) {
@@ -349,41 +333,6 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       }
 
-      let anchorId = 1;
-      let allAnchors = new Map();
-
-      function processAnchors(timestamp, frame) {
-        const referenceSpace = renderer.xr.getReferenceSpace();
-
-        if (frame.trackedAnchors) {
-          allAnchors.forEach((anchorContext, anchor) => {
-            if (!frame.trackedAnchors.has(anchor)) {
-              // anchor was removed
-              allAnchors.delete(anchor);
-              console.debug("Anchor no longer tracked, id=" + anchorContext.id);
-
-              scene.remove(anchorContext.mesh);
-            }
-          });
-
-          frame.trackedAnchors.forEach(anchor => {
-            if (allAnchors.has(anchor)) {
-              const anchorContext = allAnchors.get(anchor);
-              const anchorPose = frame.getPose(anchor.anchorSpace, referenceSpace);
-              // update pose
-              if (anchorPose) {
-                anchorContext.mesh.visible = true;
-                anchorContext.mesh.matrix.fromArray(anchorPose.transform.matrix);
-              } else {
-                anchorContext.mesh.visible = false;
-              }
-            } else {
-              console.error("New anchors should be processed in a createAnchor(...).then() promise");
-            }
-          });
-        }
-      }
-
       const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32).translate(0, 0.1, 0);
 
       function createGeometry(vertices, indices) {
@@ -396,11 +345,13 @@
 
       let meshId = 1;
       let allMeshes = new Map();
+      // iterate over the meshes array and compare to our internal state
       function processMeshes(timestamp, frame) {
         const referenceSpace = renderer.xr.getReferenceSpace();
 
         if (frame.detectedMeshes) {
           allMeshes.forEach((meshContext, mesh) => {
+            // if a previous mesh is no longer reported
             if (!frame.detectedMeshes.has(mesh)) {
               // mesh was removed
               allMeshes.delete(mesh);
@@ -411,11 +362,13 @@
             }
           });
 
+          // compare all incoming meshes with our internal state
           frame.detectedMeshes.forEach(mesh => {
             const meshPose = frame.getPose(mesh.meshSpace, referenceSpace);
             let meshMesh;
             let wireframeMesh;
 
+            // this is a mesh we've seen before
             if (allMeshes.has(mesh)) {
               // may have been updated:
               const meshContext = allMeshes.get(mesh);
@@ -423,7 +376,7 @@
               wireframeMesh = meshContext.wireframe;
 
               if (meshContext.timestamp < mesh.lastChangedTime) {
-                // updated!
+                // the mesh was updated!
                 meshContext.timestamp = mesh.lastChangedTime;
 
                 const geometry = createGeometry(mesh.vertices, mesh.indices);
@@ -447,10 +400,8 @@
             );
               meshMesh.matrixAutoUpdate = false;
               scene.add(meshMesh);
-
-              // Create mesh origin visualizer:
               const originGroup = baseOriginGroup.clone();
-              originGroup.visible = false; // useMeshOrigin.checked;
+              originGroup.visible = false;
 
               meshMesh.add(originGroup);
               allMeshOrigins.push(originGroup);
@@ -471,7 +422,7 @@
             if (meshPose) {
               meshMesh.visible = true;
               meshMesh.matrix.fromArray(meshPose.transform.matrix);
-              wireframeMesh.visible = useMeshOrigin.checked;
+              wireframeMesh.visible = showMeshTriangles.checked;
               wireframeMesh.matrix.fromArray(meshPose.transform.matrix);
             } else {
               meshMesh.visible = false;
@@ -483,7 +434,6 @@
 
       function render(timestamp, frame) {
         if (frame) {
-          processAnchors(timestamp, frame);
           processMeshes(timestamp, frame);
           draw();
 
