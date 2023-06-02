@@ -345,7 +345,8 @@
 
       let meshId = 1;
       let allMeshes = new Map();
-      // iterate over the meshes array and compare to our internal state
+      // Iterate over the meshes array and compare to our internal state
+      // This is the code that keeps track of the mesh state and adds them to the scene.
       function processMeshes(timestamp, frame) {
         const referenceSpace = renderer.xr.getReferenceSpace();
 
