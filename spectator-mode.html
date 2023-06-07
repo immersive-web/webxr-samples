@@ -61,6 +61,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let polyfill = new WebXRPolyfill();
       }
 
+      const autoSpectate = QueryArgs.getBool('autoSpectate', false);
+
       // XR globals.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
@@ -138,10 +140,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // that may mean doing additional work that the user can't see. By
           // requiring a button click first you're ensuring that the user CAN
           // still access the 2D page somehow.
-          spectatorButton = document.createElement('button');
-          spectatorButton.textContent = 'Enable spectator mode';
-          spectatorButton.addEventListener('click', onEnableSpectatorMode);
-          mainElement.appendChild(spectatorButton);
+          if (!autoSpectate) {
+            spectatorButton = document.createElement('button');
+            spectatorButton.textContent = 'Enable spectator mode';
+            spectatorButton.addEventListener('click', onEnableSpectatorMode);
+            mainElement.appendChild(spectatorButton);
+          } else {
+            // This is really just for debugging, since it's useful to have
+            // spectator mode start automatically in some testing scenarios.
+            onEnableSpectatorMode();
+          }
 
           // Hide the non-exclusive session's output canvas so that we can see
           // the button.
