@@ -145,15 +145,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             spectatorButton.textContent = 'Enable spectator mode';
             spectatorButton.addEventListener('click', onEnableSpectatorMode);
             mainElement.appendChild(spectatorButton);
+            
+            // Hide the non-exclusive session's output canvas so that we can see
+            // the button.
+            gl.canvas.style.display = 'none';
           } else {
             // This is really just for debugging, since it's useful to have
             // spectator mode start automatically in some testing scenarios.
             onEnableSpectatorMode();
           }
-
-          // Hide the non-exclusive session's output canvas so that we can see
-          // the button.
-          gl.canvas.style.display = 'none';
         });
       }
 
