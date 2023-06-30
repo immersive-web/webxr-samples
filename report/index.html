@@ -281,6 +281,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               <div v-if="!transform">
                 <i>null <span v-if="!space">(No Space)</span></i>
               </div>
+              <div v-if="space?.boundsGeometry !== undefined">
+                Bounds Geometry Points: {{space.boundsGeometry.length}}
+              </div>
             </section>
           `,
           mounted: function () {
