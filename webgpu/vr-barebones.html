@@ -1,0 +1,228 @@
+<!doctype html>
+<!--
+Copyright 2023 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>Barebones VR</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>WebGPU Barebones VR</summary>
+        <p>
+          This sample demonstrates extremely simple use of an "immersive-vr"
+          session which presents a WebGPU layer with no library dependencies.
+          It doesn't render anything exciting, just clears your headset's
+          display to a slowly changing color to prove it's working.
+          <a class="back" href="./">Back</a>
+        </p>
+        <button id="xr-button" class="barebones-button" disabled>XR not found</button>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>Click 'Enter VR' to see content</p> 
+    </main>
+    <script>
+      (function () {
+      'use strict';
+
+      // XR globals.
+      let xrButton = document.getElementById('xr-button');
+      let xrSession = null;
+      let xrRefSpace = null;
+
+      // WebGGPU scene globals.
+      let device = null;
+      let xrGpuBinding = null;
+      let xrGpuProjLayer = null;
+
+      // Checks to see if WebXR is available and, if so, requests an XRDevice
+      // that is connected to the system and tests it to ensure it supports the
+      // desired session options.
+      function initXR() {
+        // Is WebXR available on this UA?
+        if (navigator.xr) {
+          // Is WebGPU avaialble on this UA?
+          if (!navigator.gpu) {
+            xrButton.textContent = 'WebGPU not found';
+            return;
+          }
+
+          // If the device allows creation of exclusive sessions set it as the
+          // target of the 'Enter XR' button.
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            if (supported) {
+              // Updates the button to start an XR session when clicked.
+              xrButton.addEventListener('click', onButtonClicked);
+              xrButton.textContent = 'Enter VR';
+              xrButton.disabled = false;
+            }
+          });
+        }
+      }
+
+      // Called when the user clicks the button to enter XR. If we don't have a
+      // session we'll request one, and if we do have a session we'll end it.
+      function onButtonClicked() {
+        if (!xrSession) {
+          navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['layers'],
+          }).then(onSessionStarted);
+        } else {
+          xrSession.end();
+        }
+      }
+
+      // Called when we've successfully acquired a XRSession. In response we
+      // will set up the necessary session state and kick off the frame loop.
+      async function onSessionStarted(session) {
+        xrSession = session;
+        xrButton.textContent = 'Exit VR';
+
+        // Listen for the sessions 'end' event so we can respond if the user
+        // or UA ends the session for any reason.
+        session.addEventListener('end', onSessionEnded);
+
+        // Request a WebGPU adapter to get a device with, initialized to be
+        // compatible with the XRDisplay we're presenting to.
+        const adapter = await navigator.gpu.requestAdapter({
+          xrCompatible: true,
+        });
+
+        if (!adapter) {
+          console.log('Could not request a compatible WebGPU adapter.');
+          xrSession.end();
+        }
+
+        // Create a WebGPU device to render with, initialized to be compatible
+        // with the XRDisplay we're presenting to.
+        device = await adapter.requestDevice();
+
+        xrGpuBinding = new XRWebGPUBinding(session, device);
+
+        // Get a reference space, which is required for querying poses. In this
+        // case an 'local' reference space means that all poses will be relative
+        // to the location where the XRDevice was first detected.
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+
+          xrGpuProjLayer = xrGpuBinding.createProjectionLayer({ colorFormat: xrGpuBinding.getPreferredColorFormat() });
+          session.updateRenderState({ layers: [xrGpuProjLayer] });
+
+          // Inform the session that we're ready to begin drawing.
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      // Called either when the user has explicitly ended the session by calling
+      // session.end() or when the UA has ended the session for any reason.
+      // At this point the session object is no longer usable and should be
+      // discarded.
+      function onSessionEnded(event) {
+        xrSession = null;
+        xrButton.textContent = 'Enter VR';
+
+        // In this simple case discard the WebGPU device too, since we're not
+        // rendering anything else to the screen with it.
+        device = null;
+        xrGpuBinding = null;
+        xrGpuProjLayer = null;
+      }
+
+      // Called every time the XRSession requests that a new frame be drawn.
+      function onXRFrame(time, frame) {
+        let session = frame.session;
+
+        // Inform the session that we're ready for the next frame.
+        session.requestAnimationFrame(onXRFrame);
+
+        // Get the XRDevice pose relative to the reference space we created
+        // earlier.
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        // Getting the pose may fail if, for example, tracking is lost. So we
+        // have to check to make sure that we got a valid pose before attempting
+        // to render with it. If not in this case we'll just leave the
+        // framebuffer cleared, so tracking loss means the scene will simply
+        // disappear.
+        if (pose) {
+          const commandEncoder = device.createCommandEncoder({});
+
+          // If we do have a valid pose, loop through the views and get the
+          // appropriate sub image for each.
+          for (const view in xrViewerPose.views) {
+            const subImage = xrGpuBinding.getViewSubImage(xrGpuProjLayer, view);
+
+            // The sub image will contain a color texture which is where any
+            // content to be displayed on the XRDevice must be rendered. To
+            // render to the subImage's color texture, use is as a color
+            // attachement in a render pass.
+            const passEncoder = commandEncoder.beginRenderPass({
+              colorAttachments: [{
+                attachment: subImage.colorTexture.createView(subImage.viewDescriptor),
+                loadOp: 'clear',
+
+                // Update the clear color so that we can observe the color in the
+                // headset changing over time.
+                clearValue: [
+                  Math.cos(time / 2000),
+                  Math.cos(time / 4000),
+                  Math.cos(time / 6000),
+                  1
+                ],
+              }]
+            });
+
+            // Normally you'd draw content for the view here into the given
+            // viewport, but we're keeping this sample slim so we're not
+            // bothering to draw any geometry.
+
+            /*
+            let vp = subImage.viewport;
+            passEncoder.setViewport(vp.x, vp.y, vp.width, vp.height, 0.0, 1.0);
+            
+            // Draw a scene using view.projectionMatrix as the projection matrix
+            // and view.transform to position the virtual camera. If you need a
+            // view matrix, use view.transform.inverse.matrix.
+            */
+
+            passEncoder.end();
+          }
+
+          device.defaultQueue.submit([commandEncoder.finish()]);
+        }
+      }
+
+      // Start the XR application.
+      initXR();
+
+    })();
+    </script>
+  </body>
+</html>
