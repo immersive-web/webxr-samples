@@ -188,4 +188,8 @@ export class WebXRSampleApp {
     }
     this.scene.drawXRFrame(frame, pose);
   }
+
+  get session() {
+    return this.xrButton.session;
+  }
 }
