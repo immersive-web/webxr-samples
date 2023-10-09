@@ -21,7 +21,7 @@
 import {CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc} from './material.js';
 import {Node} from './node.js';
 import {Program} from './program.js';
-import {DataTexture, VideoTexture} from './texture.js';
+import {DataTexture, ExternalTexture, VideoTexture} from './texture.js';
 import {mat4, vec3} from '../math/gl-matrix.js';
 
 export const ATTRIB = {
@@ -149,6 +149,10 @@ export class RenderView {
 
   get eyeIndex() {
     return this._eyeIndex;
+  }
+
+  set depthTexture(value) {
+     this._depthTexture = value;
   }
 }
 
@@ -313,6 +317,8 @@ export class RenderTexture {
     this._complete = false;
     this._activeFrameId = 0;
     this._activeCallback = null;
+    this._isExternalTexture = false;
+    this._isArray = false;
   }
 
   markActive(frameId) {
@@ -435,11 +441,13 @@ class RenderMaterial {
     }
 
     for (let sampler of this._samplers) {
+      let type = sampler._renderTexture._isArray ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D;
+
       gl.activeTexture(gl.TEXTURE0 + sampler._index);
       if (sampler._renderTexture && sampler._renderTexture._complete) {
-        gl.bindTexture(gl.TEXTURE_2D, sampler._renderTexture._texture);
+        gl.bindTexture(type, sampler._renderTexture._texture);
       } else {
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(type, null);
       }
     }
 
@@ -787,6 +795,15 @@ export class Renderer {
     }
   }
 
+  addExternalTexture(key, texture, isArray) {
+    if (this._textureCache[key] === 'undefined') {
+      this._textureCache[key] = {};
+    }
+    this._textureCache[key]._complete = true;
+    this._textureCache[key]._texture = texture;
+    this._textureCache[key]._isArray = isArray;
+  }
+
   _getRenderTexture(texture) {
     if (!texture) {
       return null;
@@ -806,7 +823,9 @@ export class Renderer {
       let renderTexture = new RenderTexture(textureHandle);
       this._textureCache[key] = renderTexture;
 
-      if (texture instanceof DataTexture) {
+      if (texture instanceof ExternalTexture) {
+        renderTexture._isExternalTexture = true;
+      } else if (texture instanceof DataTexture) {
         gl.bindTexture(gl.TEXTURE_2D, textureHandle);
         gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height,
                                      0, texture.format, texture._type, texture._data);
@@ -871,6 +890,7 @@ export class Renderer {
   _getMaterialProgram(material, renderPrimitive) {
     const multiview = this._multiview;
     let materialName = material.materialName;
+    material.useDepth = this.useDepth;
     let vertexSource = (!multiview) ? material.vertexSource : material.vertexSourceMultiview;
     let fragmentSource = (!multiview) ? material.fragmentSource : material.fragmentSourceMultiview;
 
