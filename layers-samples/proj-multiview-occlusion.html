@@ -30,7 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
   <link rel='stylesheet' href='../css/common.css'>
 
-  <title>Projection Layer with Multiview</title>
+  <title>Projection Layer with Occlusion</title>
 </head>
 
 <body>
@@ -42,7 +42,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <a class="back" href="./">Back</a>
       </p>
       <p id="mv-status"></p>
-      <input type="checkbox" id="do_stencil_buffer">stencil buffer</input>
       <input type="checkbox" id="do_antialias" checked>antialias</input>
     </details>
   </header>
@@ -62,7 +61,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     // XR globals.
-    let do_stencil_buffer = document.getElementById('do_stencil_buffer');
     let do_antialias = document.getElementById('do_antialias');
     let xrButton = null;
     let xrImmersiveRefSpace = null;
@@ -186,7 +184,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrGLFactory = new XRWebGLBinding(session, gl);
         let layer = xrGLFactory.createProjectionLayer({
           textureType: "texture-array",
-          depthFormat: do_stencil_buffer.checked ? gl.DEPTH24_STENCIL8 : gl.DEPTH_COMPONENT24,
+          depthFormat: gl.DEPTH_COMPONENT24,
           useDepthSorting: true,
         });
         session.updateRenderState({ layers: [layer] });
