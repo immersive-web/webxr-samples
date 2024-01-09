@@ -91,7 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
           let mvCompat = testMultiViewCompatibility();
           if (!mvCompat) {
-            document.querySelector('#mv-status').textContent = "❌ - Multiview Unsupported";
+            document.querySelector('#mv-status').textContent = "❌ - Multiview is required but unsupported in this browser";
           } else {
             document.querySelector('#mv-status').textContent = "✔️- Multiview Supported";
           }

@@ -53,6 +53,10 @@ export class Texture {
   get textureKey() {
     return null;
   }
+
+  get isExternal() {
+    return false;
+  }
 }
 
 export class ImageTexture extends Texture {
@@ -205,6 +209,22 @@ export class DataTexture extends Texture {
 
   get textureKey() {
     return this._key;
+  }
+}
+
+export class ExternalTexture extends Texture {
+  constructor(key) {
+    super();
+
+    this._key = key;
+  }
+
+  get textureKey() {
+    return this._key;
+  }
+
+  get isExternal() {
+    return true;
   }
 }
 
