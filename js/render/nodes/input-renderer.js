@@ -246,7 +246,7 @@ export class InputRenderer extends Node {
       for (let inputSource of event.added) {
         if (inputSource.targetRayMode == 'tracked-pointer') {
           fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
-            this.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness);
+            this.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness, inputSource.profiles[0]);
           });
         }
       }
@@ -262,19 +262,19 @@ export class InputRenderer extends Node {
     });
   }
 
-  setControllerMesh(controllerNode, handedness = 'right') {
+  setControllerMesh(controllerNode, handedness = 'right', profile = '') {
     if (!this._controllers) {
       this._controllers = {};
     }
-    this._controllers[handedness] = { nodes: [controllerNode], activeCount: 0 };
+    this._controllers[profile + "_" + handedness] = { nodes: [controllerNode], activeCount: 0 };
     controllerNode.visible = false;
     // FIXME: Temporary fix to initialize for cloning.
     this.addNode(controllerNode);
   }
 
-  addController(gripMatrix, handedness = 'right') {
+  addController(gripMatrix, handedness = 'right', profile = '') {
     if (!this._controllers || this._blurred) { return; }
-    let controller = this._controllers[handedness];
+    let controller = this._controllers[profile + "_" + handedness];
 
     if (!controller) { return; }
 

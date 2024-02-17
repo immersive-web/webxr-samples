@@ -178,7 +178,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               // here to handle the animation, but this sample will skip that
               // and only display a static mesh for simplicity.
 
-              scene.inputRenderer.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness);
+              scene.inputRenderer.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness, inputSource.profiles[0]);
             });
           }
         }
@@ -213,7 +213,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (inputSource.gripSpace) {
             let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
             if (gripPose) {
-              scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness);
+              scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
             }
           }
 

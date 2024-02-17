@@ -112,7 +112,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (inputSource.gripSpace) {
               let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
               if (gripPose) {
-                this.scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness);
+                this.scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
               }
             }
           }
