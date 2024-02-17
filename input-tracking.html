@@ -204,7 +204,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             if (gripPose) {
               // If we have a grip pose use it to render a mesh showing the
               // position of the controller.
-              scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness);
+              scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
             }
           }
           
