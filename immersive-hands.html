@@ -78,8 +78,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     const leftBoxColor = {r: 1, g: 0, b: 1};
     const rightBoxColor = {r: 0, g: 1, b: 1};
     let interactionBox = null;
-    let leftInteractionBox = null;
-    let rightInteractionBox = null;
 
     // WebGL scene globals.
     let gl = null;
@@ -238,6 +236,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // In this simple case discard the WebGL context too, since we're not
       // rendering anything else to the screen with it.
       renderer = null;
+      interactionBox = null;
     }
 
     function updateInputSources(session, frame, refSpace) {
@@ -325,11 +324,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return box;	
         }	
         interactionBox = AddInteractionBox(defaultBoxColor.r, defaultBoxColor.g, defaultBoxColor.b);	
-        leftInteractionBox = AddInteractionBox(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);	
-        rightInteractionBox = AddInteractionBox(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);	
         scene.addNode(interactionBox);	
-        scene.addNode(leftInteractionBox);	
-        scene.addNode(rightInteractionBox);	
       }
       
       function Distance(nodeA, nodeB) {	
@@ -341,19 +336,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Perform distance check on interactable elements
       const interactionDistance = interactionBox.scale[0];	
-      leftInteractionBox.visible = false;	
-      rightInteractionBox.visible = false;	
+      let color = defaultBoxColor;
       if (Distance(indexFingerBoxes.left, interactionBox) < interactionDistance) {	
-        leftInteractionBox.visible = true;	
+        color = leftBoxColor;
       } else if (Distance(indexFingerBoxes.right, interactionBox) < interactionDistance) {	
-        rightInteractionBox.visible = true;	
-      }	
-      interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
-      
+        color = rightBoxColor;
+      }
+      const uniforms = interactionBox.renderPrimitives[0].uniforms;
+      uniforms.baseColorFactor.value = [color.r, color.g, color.b, 1];
+
       mat4.rotateX(interactionBox.matrix, interactionBox.matrix, time/1000);
       mat4.rotateY(interactionBox.matrix, interactionBox.matrix, time/1500);
-      leftInteractionBox.matrix = interactionBox.matrix;
-      rightInteractionBox.matrix = interactionBox.matrix;
     }
 
     // Called every time the XRSession requests that a new frame be drawn.
