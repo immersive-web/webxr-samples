@@ -292,6 +292,14 @@ export class InputRenderer extends Node {
     controllerNode.visible = true;
   }
 
+  hideController(handedness = 'right', profile = '') {
+    if (!this._controllers) { return; }
+    let controller = this._controllers[profile + "_" + handedness];
+
+    if (!controller) { return; }
+    controllerNode.visible = true;
+  }
+
   addLaserPointer(rigidTransform) {
     if (this._blurred) { return; }
     // Create the laser pointer mesh if needed.
