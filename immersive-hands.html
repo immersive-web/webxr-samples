@@ -197,6 +197,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // or UA ends the session for any reason.
       session.addEventListener('end', onSessionEnded);
       session.addEventListener('inputsourceschange', onInputSourcesChange);
+      // trackedSources are still experimental. Don't rely on this feature yet.
       session.addEventListener('trackedsourceschange', onInputSourcesChange);
 
       session.addEventListener('visibilitychange', e => {
@@ -299,6 +300,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function updateTrackedSources(session, frame, refSpace) {
+      // session.trackedSources are still experimental. Don't rely on this feature yet.
       if (session.trackedSources) {
         updateSources(session, frame, refSpace, session.trackedSources, "tracked_");
       }
