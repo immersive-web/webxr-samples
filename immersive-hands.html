@@ -78,9 +78,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // Boxes
     let boxes_left = [];
     let boxes_right = [];
+    let boxes_none = [];
     let tracked_boxes_left = [];
     let tracked_boxes_right = [];
-    let boxes = { input_left: boxes_left, input_right: boxes_right, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right };
+    let tracked_boxes_none = [];
+    let boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
     let indexFingerBoxes = { input_left: null, input_right: null, tracked_left: null, tracked_right: null };
     const defaultBoxColor = {r: 0.5, g: 0.5, b: 0.5};
     const leftBoxColor = {r: 1, g: 0, b: 1};
@@ -123,7 +125,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
       boxes_left = [];
       boxes_right = [];
-      boxes = { input_left: boxes_left, input_right: boxes_right, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right };
+      boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
       if (typeof XRHand !== 'undefined') {
         for (let i = 0; i <= 24; i++) {
           const r = .6 + Math.random() * .4;
