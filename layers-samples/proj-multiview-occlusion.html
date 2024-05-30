@@ -153,7 +153,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function onRequestSession() {
-      return navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['layers','depth-sensing'], optionalFeatures: [] }).then((session) => {
+      return navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['layers','depth-sensing'],
+          optionalFeatures: [],
+          depthSensing: {
+            usagePreference: ["gpu-optimized"],
+            dataFormatPreference: ["unsigned-short"],
+          }}).then((session) => {
         xrButton.setSession(session);
         session.isImmersive = true;
         onSessionStarted(session);
