@@ -38,12 +38,13 @@
   </header>
 
   <script type="importmap">
-			{
-				"imports": {
-					"three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+     {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/",
           "three/examples/": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/"
-				}
-			}
+        }
+      }
 		</script>
 
   <script type="module">
@@ -57,6 +58,8 @@
 
     import * as THREE from 'three';
     import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.min.js';
+    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+    import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
     import { WebXRButton } from '../js/util/webxr-button.js';
     import { hitTest, filterHitTestResults } from '../js/hit-test.js';
 
@@ -106,7 +109,7 @@
     let controllerGrip1, controllerGrip2;
 
     let container;
-    let camera, scene, renderer;
+    let camera, scene, renderer, font;
     const tempMatrix = new THREE.Matrix4();
 
     let reticle;
@@ -117,10 +120,13 @@
     const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
     const baseOriginGroup = new THREE.Group();
 
-    init();
+    const loader = new FontLoader();
+    loader.load('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/gentilis_regular.typeface.json', function (loaded_font){
+      font = loaded_font;
+      init();
+    } );
 
-    function init() {
-
+		function init() {
       container = document.createElement('div');
       document.body.appendChild(container);
 
@@ -344,6 +350,7 @@
 
             scene.remove(meshContext.mesh);
             scene.remove(meshContext.wireframe);
+            scene.remove(meshContext.text);
           }
         });
 
@@ -352,6 +359,7 @@
           const meshPose = frame.getPose(mesh.meshSpace, referenceSpace);
           let meshMesh;
           let wireframeMesh;
+          let textMesh;
 
           // this is a mesh we've seen before
           if (allMeshes.has(mesh)) {
@@ -385,6 +393,16 @@
             );
             meshMesh.matrixAutoUpdate = false;
             scene.add(meshMesh);
+            if (mesh.semanticLabel && mesh.semanticLabel.length > 0) {
+              const shapes = font.generateShapes(mesh.semanticLabel, 0.1);
+              const geometry = new THREE.ShapeGeometry(shapes);
+              geometry.computeBoundingBox();
+              const xMid = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
+              geometry.translate(xMid, 0, 0);
+              textMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
+
+              scene.add(textMesh);
+            }
             const originGroup = baseOriginGroup.clone();
             originGroup.visible = false;
 
@@ -396,6 +414,7 @@
               timestamp: mesh.lastChangedTime,
               mesh: meshMesh,
               wireframe: wireframeMesh,
+              text: textMesh,
               origin: originGroup,
             };
 
@@ -409,9 +428,24 @@
             meshMesh.matrix.fromArray(meshPose.transform.matrix);
             wireframeMesh.visible = showMeshTriangles.checked;
             wireframeMesh.matrix.fromArray(meshPose.transform.matrix);
+            if (textMesh) {
+              textMesh.visible = true;
+              const position = new THREE.Vector3().setFromMatrixPosition(wireframeMesh.matrix);
+              textMesh.position.copy(position);
+            }
           } else {
             meshMesh.visible = false;
             wireframeMesh.visible = false;
+            if (textMesh) {
+              textMesh.visible = false;
+            }
+          }
+        });
+
+        allMeshes.forEach((meshContext, mesh) => {
+          if (meshContext.text) {
+            const direction = new THREE.Vector3().subVectors(camera.position, meshContext.text.position).normalize();
+            meshContext.text.lookAt(direction);
           }
         });
       }
@@ -421,9 +455,6 @@
       if (frame) {
         processMeshes(timestamp, frame);
         draw();
-
-        const referenceSpace = renderer.xr.getReferenceSpace();
-        const session = renderer.xr.getSession();
 
         renderer.render(scene, camera);
       }
