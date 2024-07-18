@@ -9,48 +9,66 @@
   "background_color": "#ffffff",
   "icons": [
     {
-      "src": "./media/manifest/icon-192x192.png",
+      "src": "./media/manifest/icon-192x192-regular.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "./media/manifest/icon-512x512.png",
+      "src": "./media/manifest/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./media/manifest/icon-512x512-regular.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./media/manifest/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
     {
       "src": "./media/manifest/screenshot-1.png",
       "type": "image/png",
-      "sizes": "1080x1920"
+      "sizes": "1080x1920",
+      "form_factor": "narrow"
     },
     {
       "src": "./media/manifest/screenshot-2.png",
       "type": "image/png",
-      "sizes": "1080x1920"
+      "sizes": "1080x1920",
+      "form_factor": "narrow"
     },
     {
       "src": "./media/manifest/screenshot-3.png",
       "type": "image/png",
-      "sizes": "1080x1920"
+      "sizes": "1080x1920",
+      "form_factor": "narrow"
     },
     {
       "src": "./media/manifest/screenshot-4.png",
       "type": "image/png",
-      "sizes": "1920x1080"
+      "sizes": "1920x1080",
+      "form_factor": "wide"
     },
     {
       "src": "./media/manifest/screenshot-5.png",
       "type": "image/png",
-      "sizes": "1920x1080"
+      "sizes": "1920x1080",
+      "form_factor": "wide"
     },
     {
       "src": "./media/manifest/screenshot-6.png",
       "type": "image/png",
-      "sizes": "1920x1080"
+      "sizes": "1920x1080",
+      "form_factor": "wide"
     }
   ],
   "prefer_related_applications": false,

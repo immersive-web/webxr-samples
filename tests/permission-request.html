@@ -61,15 +61,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let serviceWorkerRegistration;
 
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('../service-worker.js')
-            .then(registration => {
-              console.log('Service worker registered successfully', registration);
-              serviceWorkerRegistration = registration;
-            })
-            .catch(error => {
-              console.error('Something went wrong while registering service worker', error);
-            });
+        window.addEventListener('load', async () => {
+          try {
+            const registration = await navigator.serviceWorker.register('../service-worker.js');
+            console.log('Service worker registered successfully', registration);
+            serviceWorkerRegistration = registration;
+          } catch (error) {
+            console.error('Something went wrong while registering service worker', error);
+          }
         });
       }
 
@@ -81,57 +80,56 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           url: 'https://google.com',
         },
         image: '../media/manifest/screenshot-4.png',
-        icon: '../media/manifest/icon-192x192.png',
-        badge: '../media/manifest/icon-192x192.png',
+        icon: '../media/manifest/icon-192x192-regular.png',
+        badge: '../media/manifest/icon-192x192-regular.png',
         requireInteraction: false,
         actions: [
           {
             action: 'reply',
             type: 'text',
             title: 'One (Reply)',
-            icon: '../media/manifest/icon-192x192.png',
+            icon: '../media/manifest/icon-192x192-regular.png',
             placeholder: 'Reply placeholder',
           },
           {
             action: 'two',
             type: 'button',
             title: 'Two',
-            icon: '../media/manifest/icon-192x192.png',
+            icon: '../media/manifest/icon-192x192-regular.png',
           },
           {
             action: 'three',
             type: 'button',
             title: 'Three',
-            icon: '../media/manifest/icon-192x192.png',
+            icon: '../media/manifest/icon-192x192-regular.png',
           },
           {
             action: 'four',
             type: 'button',
             title: 'Four',
-            icon: '../media/manifest/icon-192x192.png',
+            icon: '../media/manifest/icon-192x192-regular.png',
           },
           {
             action: 'five',
             type: 'button',
             title: 'Five',
-            icon: '../media/manifest/icon-192x192.png',
+            icon: '../media/manifest/icon-192x192-regular.png',
           },
         ],
       };
 
       const showNotification = () => serviceWorkerRegistration?.showNotification?.(title, options);
 
-      let deferredPrompt;
+      let deferredInstallEvent;
 
       window.addEventListener('beforeinstallprompt', (event) => {
         event.preventDefault();
-        deferredPrompt = event;
+        deferredInstallEvent = event;
         addPermissionButton('../media/textures/install-pwa-button.png', installPWA, 0, 1.54);
       });
 
       const installPWA = async (success, _) => {
-        deferredPrompt?.prompt();
-        const { outcome } = await deferredPrompt?.userChoice;
+        const { outcome } = await deferredInstallEvent?.prompt();
         if (outcome === 'accepted') {
           success();
         }
