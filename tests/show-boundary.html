@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+
+  <title>AR show bounded floor</title>
+
+  <link href='../css/common.css' rel='stylesheet'>
+  </link>
+
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Bounded floor display</summary>
+      This sample demonstrates the
+      <a href="https://immersive-web.github.io/webxr/#xrboundedreferencespace-interface">bounded-floor feature</a>
+      by showing its outline around the user<p>
+        <a class="back" href="./index.html">Back</a>
+      </p>
+    </details>
+  </header>
+
+  <script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
+          "three/examples/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+				}
+			}
+		</script>
+
+  <script type="module">
+
+    import * as THREE from 'three';
+    import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.min.js';
+    import { WebXRButton } from '../js/util/webxr-button.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+
+    let xrButton = null;
+    let controller1, controller2;
+    let controllerGrip1, controllerGrip2;
+
+    let container;
+    let camera, scene, renderer, line, placedflower;
+    let BoundedReferenceSpace;
+    let flower;
+    let updateBoundary = false;
+    const tempMatrix = new THREE.Matrix4();
+
+    const linematerial = new THREE.LineBasicMaterial( { color: 0xffffff } );
+    const fillmaterial = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
+
+    const baseOriginGroup = new THREE.Group();
+
+    init();
+
+    function init() {
+
+      // set up three.js boilerplate
+      scene = new THREE.Scene();
+      line = null;
+      placedflower = null;
+
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      light.position.set(0.5, 1, 0.25);
+      scene.add(light);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.xr.setFoveation(0);
+      renderer.autoClear = false;
+
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession,
+        textEnterXRTitle: "START AR",
+        textXRNotFoundTitle: "AR NOT FOUND",
+        textExitXRTitle: "EXIT AR",
+      });
+
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-ar')
+          .then((supported) => {
+            xrButton.enabled = supported;
+          });
+      }
+
+      // add controllers to the scene
+      controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
+      controller1.addEventListener('connected', function (event) {
+        this.add(buildController(event.data));
+      });
+
+      controller1.addEventListener('disconnected', function () {
+        this.remove(this.children[0]);
+      });
+
+      scene.add(controller1);
+
+      controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
+      controller2.addEventListener('connected', function (event) {
+        this.add(buildController(event.data));
+      });
+
+      scene.add(controller2);
+
+      const controllerModelFactory = new XRControllerModelFactory();
+
+      controllerGrip1 = renderer.xr.getControllerGrip(0);
+      controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+      scene.add(controllerGrip1);
+
+      controllerGrip2 = renderer.xr.getControllerGrip(1);
+      controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+      scene.add(controllerGrip2);
+
+      controller2.addEventListener('disconnected', function () {
+        this.remove(this.children[0]);
+      });
+      scene.add(controller2);
+
+      window.addEventListener('resize', onWindowResize);
+
+      const dracoLoader = new DRACOLoader();
+			dracoLoader.setDecoderPath( 'jsm/libs/draco/gltf/' );
+
+			const loader = new GLTFLoader();
+			loader.setDRACOLoader( dracoLoader );
+
+      loader.load( '../media/gltf/sunflower/sunflower.gltf', function ( gltf ) {
+        flower = gltf.scene;
+      });
+    }
+
+    function buildController(data) {
+
+      let geometry, material;
+
+      switch (data.targetRayMode) {
+        case 'tracked-pointer':
+          geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, - 1], 3));
+          geometry.setAttribute('color', new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3));
+
+          material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
+
+          return new THREE.Line(geometry, material);
+        case 'gaze':
+          geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, - 1);
+          material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
+          return new THREE.Mesh(geometry, material);
+      }
+    }
+
+    let pointer = undefined;
+
+    function onSelectStart(event) {
+      pointer = event.target;
+    }
+    function onSelectEnd(event) {
+      pointer = undefined;
+    }
+
+    function draw() {
+
+    }
+
+    function onRequestSession() {
+      let sessionInit = {
+        requiredFeatures: ['local-floor', 'bounded-floor'], 
+        optionalFeatures: ['unbounded', 'depth-sensing']
+      };
+      navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+        session.mode = 'immersive-ar';
+        xrButton.setSession(session);
+        onSessionStarted(session);
+      });
+    }
+
+    function drawBoundary(xrframe) {
+      if (BoundedReferenceSpace === null) {
+        return;
+      }
+
+      if (line !== null) {
+        scene.remove(line);
+        scene.remove(placedflower);
+      }
+
+      const points = [];
+      const xrgeometry = BoundedReferenceSpace.boundsGeometry;
+      // Place it a bit above ground so depth sensing doesn't erase the boundary
+      for(let x = 0; x < xrgeometry.length; x++) {
+        points.push( new THREE.Vector3(xrgeometry[x].x, 0.1, xrgeometry[x].z));
+      }
+      if (xrgeometry.length) {
+        points.push( new THREE.Vector3(xrgeometry[0].x, 0.1, xrgeometry[0].z));
+      }
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      line = new THREE.Line( geometry, linematerial );
+
+      const pose = xrframe.getPose(BoundedReferenceSpace, renderer.xr.getReferenceSpace());
+      const matrix = new THREE.Matrix4();
+      matrix.fromArray(pose.transform.matrix);
+      line.applyMatrix4(matrix);
+      scene.add(line);
+
+      placedflower = flower.clone();
+      placedflower.applyMatrix4(matrix);
+      scene.add(placedflower);
+    }
+
+    function onSessionStarted(session) {
+      session.addEventListener('end', onSessionEnded);
+
+      session.requestReferenceSpace('bounded-floor').then((refSpace) => {
+        BoundedReferenceSpace = refSpace;
+        refSpace.addEventListener('reset', (evt) => {
+          updateBoundary = true;
+        });
+        updateBoundary = true;
+      });
+
+      renderer.xr.setReferenceSpaceType('local-floor');
+      renderer.xr.setSession(session).then(() => {
+        renderer.xr.getReferenceSpace().addEventListener('reset', (evt) => {
+          updateBoundary = true;
+        });
+      });
+
+      renderer.setAnimationLoop(render);
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      xrButton.setSession(null);
+
+      renderer.setAnimationLoop(null);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+
+    function render(timestamp, frame) {
+      if (frame) {
+        if (updateBoundary) {
+          updateBoundary = false;
+          drawBoundary(frame);
+        }
+
+        const referenceSpace = renderer.xr.getReferenceSpace();
+        const session = renderer.xr.getSession();
+
+        renderer.render(scene, camera);
+      }
+    }
+
+  </script>
+</body>
+
+</html>
