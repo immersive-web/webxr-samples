@@ -1,0 +1,257 @@
+<!doctype html>
+<!--
+Copyright 2021 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+
+    <title>Hit Test using transient input source</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Hit Test using input source</summary>
+        <p>
+          This sample demonstrates use of hit testing using transient input source to place virtual objects on real-world surfaces.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Node} from './js/render/core/node.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {DropShadowNode} from './js/render/nodes/drop-shadow.js';
+      import {vec3} from './js/render/math/gl-matrix.js';
+      import {Ray} from './js/render/math/ray.js';
+
+      // XR globals.
+      let xrButton = null;
+      let xrRefSpace = null;
+      let xrViewerSpace = null;
+      let xrTransientInputHitTestSource = null;
+      let xrTransientInputHitTestSourceRequested = false;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      scene.enableStats(false);
+
+      let arObject = new Node();
+      arObject.visible = false;
+      scene.addNode(arObject);
+
+      let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+      arObject.addNode(flower);
+
+      let reticleLeft = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticleLeft.visible = false;
+      scene.addNode(reticleLeft);
+
+      let reticleRight = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticleRight.visible = false;
+      scene.addNode(reticleRight);
+
+      // Having a really simple drop shadow underneath an object helps ground
+      // it in the world without adding much complexity.
+      let shadow = new DropShadowNode();
+      vec3.set(shadow.scale, 0.15, 0.15, 0.15);
+      arObject.addNode(shadow);
+
+      const MAX_FLOWERS = 30;
+      let flowers = [];
+
+      // Ensure the background is transparent for AR.
+      scene.clear = false;
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXRTitle: "START AR",
+          textXRNotFoundTitle: "AR NOT FOUND",
+          textExitXRTitle: "EXIT  AR",
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-ar')
+                      .then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        return navigator.xr.requestSession('immersive-ar', {requiredFeatures: ['local', 'hit-test']})
+                           .then((session) => {
+          xrButton.setSession(session);
+          onSessionStarted(session);
+        });
+      }
+
+      function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded);
+        session.addEventListener('select', onSelect);
+
+        if (!gl) {
+          gl = createWebGLContext({
+            xrCompatible: true
+          });
+
+          renderer = new Renderer(gl);
+
+          scene.setRenderer(renderer);
+        }
+
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        xrTransientInputHitTestSource.cancel();
+        xrTransientInputHitTestSource = null;
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+      }
+
+      // Adds a new object to the scene at the
+      // specified transform.
+      function addARObjectAt(matrix) {
+        let newFlower = arObject.clone();
+        newFlower.visible = true;
+        newFlower.matrix = matrix;
+        scene.addNode(newFlower);
+
+        flowers.push(newFlower);
+
+        // For performance reasons if we add too many objects start
+        // removing the oldest ones to keep the scene complexity
+        // from growing too much.
+        if (flowers.length > MAX_FLOWERS) {
+          let oldFlower = flowers.shift();
+          scene.removeNode(oldFlower);
+        }
+      }
+
+      let rayOrigin = vec3.create();
+      let rayDirection = vec3.create();
+      function onSelect(event) {
+        if (event.inputSource.handedness == "left" &&
+            reticleLeft.visible) {
+          // The reticle should already be positioned at the latest hit point, 
+          // so we can just use it's matrix to save an unnecessary call to 
+          // event.frame.getHitTestResults.
+          addARObjectAt(reticleLeft.matrix);
+        } else if (event.inputSource.handedness == "right" &&
+                   reticleRight.visible) {
+          addARObjectAt(reticleRight.matrix);
+        }
+      }
+
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        updateInputSources(session, frame, xrRefSpace);
+
+        reticleLeft.visible = false;
+        reticleRight.visible = false;
+
+        // If we have a hit test source, get its results for the frame
+        // and use the pose to display a reticle in the scene.
+        if (xrTransientInputHitTestSource && pose) {
+          let inputHitTestResults = frame.getHitTestResultsForTransientInput(xrTransientInputHitTestSource);
+          for (let inputHitTestResult of inputHitTestResults) {
+            if (inputHitTestResult.results.length > 0) {
+              let pose = inputHitTestResult.results[0].getPose(xrRefSpace);
+              if (inputHitTestResult.inputSource.handedness == "left") {
+                reticleLeft.visible = true;
+                reticleLeft.matrix = pose.transform.matrix;
+              } else {
+                reticleRight.visible = true;
+                reticleRight.matrix = pose.transform.matrix;
+              }
+            }
+          }
+        }
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      function updateInputSources(session, frame, refSpace) {
+        for (let inputSource of session.inputSources) {
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+
+          // We may not get a pose back in cases where the input source has lost
+          // tracking or does not know where it is relative to the given frame
+          // of reference.
+          if (!targetRayPose) {
+            continue;
+          }
+
+          if (inputSource.targetRayMode == 'tracked-pointer') {
+            // If we have a pointer matrix and the pointer origin is the users
+            // hand (as opposed to their head or the screen) use it to render
+            // a ray coming out of the input device to indicate the pointer
+            // direction.
+            scene.inputRenderer.addLaserPointer(targetRayPose.transform);
+          }
+
+          if (!xrTransientInputHitTestSourceRequested) {
+            session.requestHitTestSourceForTransientInput({ profile: inputSource.profiles[0]})
+              .then((transientInputHitTestSource) => {
+                xrTransientInputHitTestSource = transientInputHitTestSource;
+                });
+            xrTransientInputHitTestSourceRequested = true;
+          }
+        }
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>
