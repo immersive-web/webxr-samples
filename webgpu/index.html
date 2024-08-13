@@ -79,10 +79,7 @@
       }
     </style>
 
-    <!--[if lt IE 9]>
-    <script src='https://html5shiv.googlecode.com/svn/trunk/html5.js'></script>
-    <![endif]-->
-    <title>WebXR - Test Pages</title>
+    <title>WebXR - WebGPU Samples</title>
   </head>
   <body>
 
@@ -91,9 +88,9 @@
         <div id='nav'>
             <a href='../'>Samples</a>
             <a href='../layers-samples/'>Layers Samples</a>
-            <a href='../webgpu/'>WebGPU Samples</a>
+            <a href='.'  class='selected'>WebGPU Samples</a>
             <a href='../proposals/'>Proposals</a>
-            <a href='./' class='selected'>Test Pages</a>
+            <a href='../tests/'>Test Pages</a>
             <a href='../report/'>Report</a>
         </div>
 
@@ -102,71 +99,77 @@
             <img src='../media/logo/webxr-logo.svg' alt='WebXR Logo'/>
           </a>
         </h1>
-        <h2 class='tagline'>Test Pages</h2>
+        <h2 class='tagline'>WebGPU Sample Pages</h2>
       </header>
 
       <main class='main' id='main'>
-        <p>These pages are useful for testing various aspects of WebXR
-           implementations, but aren't as well commented or straightforward as
-           the sample pages.<br/>
+        <p><b>Does my browser support WebXR with WebGPU?</b><br/>
+        <div>
+          <img id='canhazimg' style='width: 32px; float: left;'></img>
+          <p id='canhazwebxr' style='margin-left: 48px;'></p>
+        </div>
+        <script>
+          let canhazElement = document.getElementById('canhazwebxr');
+          let canhazImg = document.getElementById('canhazimg');
+          if ('xr' in navigator) {
+            if ('gpu' in navigator) {
+              if ('XRGPUBinding' in window) {
+                canhazElement.innerText = "Yes! Your browser supports WebXR with WebGPU!"
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                  const span = document.createElement('span');
+                  span.innerText = supported ? '✔️- VR support detected' : '❌ - VR support not detected';
+                  canhazElement.appendChild(document.createElement('br'));
+                  canhazElement.appendChild(span);
+                });
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                  const span = document.createElement('span');
+                  span.innerText = supported ? '✔️- AR support detected' : '❌ - AR support not detected';
+                  canhazElement.appendChild(document.createElement('br'));
+                  canhazElement.appendChild(span);
+                });
+                canhazImg.src = "../media/textures/check-button.png";
+              } else {
+                canhazElement.innerText = "Your browser supports WebXR and WebGPU, but does not support the necessary feature to display WebGPU content in WebXR. However you can still run WebXR experiences built with WebGL!"
+                canhazImg.src = "../media/textures/info-button.png";
+              }
+            } else {
+              canhazElement.innerText = "Your browser supports WebXR but not WebGPU. However you can still run WebXR experiences built with WebGL!"
+              canhazImg.src = "../media/textures/info-button.png";
+            }
+          } else {
+            canhazElement.innerText = "Sorry, your browser does not support WebXR."
+            canhazImg.src = "../media/textures/x-button.png";
+          }
+        </script>
+
+        <p><b>Sample pages demonstrating how to use various aspects of the WebXR API with WebGPU.</b><br/>
 
         <script>
           let pages = [
-            { title: 'Cube Sea', category: 'Cube Sea',
-              path: 'cube-sea.html',
-              description: 'All hail the cube sea! Not very interesting to look at, but it\'s fantastic for testing!' },
-
-            { title: 'Pointer Painter', category: 'Input',
-              path: 'pointer-painter.html',
-              description: 'Leaves behind a trail of pointers and cursors on select events.' },
-
-            { title: 'User Agent Prompts', category: 'User Agent Behavior',
-              path: 'permission-request.html',
-              description: 'Tests various prompts (PWA install, permission requests, notifications) from within XR.' },
-
-            { title: 'Offscreen Canvas', category: 'Alternate WebGL Modes',
-              path: 'offscreen-canvas.html',
-              description: 'Tests use of an OffscreenCanvas with XR.' },
-
-            { title: 'Sponza', category: 'Lots-o-Polys',
-              path: 'sponza.html',
-              description: 'Loads a larger scene than other samples for performance testing. (Warning: Can be slow on mobile devices!)' },
-
-            { title: 'Composed Views', category: 'We Like Matrix Math',
-              path: 'composed-views.html',
-              description: 'Tests a scenario where views are composed from a combination of viewer and local-floor space.' },
-
-            { title: 'Reference Space Invert', category: 'We Hate Matrix Math',
-              path: 'ref-space-invert.html',
-              description: 'Tests creating an offset reference space with the viewer pose, which should cancel out the pose and report the viewer at the origin.' },
-
-            { title: 'Interrupted AR', category: 'Exceptions!',
-              path: 'interrupted-ar.html',
-              description: 'Tests what happens when an exception is thrown in promise resolve of an `immersive-ar` session request.' },
-
-            { title: 'Sparse Frames', category: 'M_ss_ng Fr_m_s',
-              path: 'sparse-frames.html',
-              description: 'Tests what happens the framebuffer is not populated every frame.' },
-
-            { title: 'WebGL 2.0 Multisampling', category: 'Artisinally crafted pixels',
-              path: 'webgl2-multisample.html',
-              description: 'Tests that multisample renderbuffers are usable with XRWebGLLayer.' },
-
-            { title: 'Exit Button', category: 'Tasty Burritos',
-              path: 'exit-button.html',
-              description: 'A scene with an in-world exit button.' },
+            { title: 'Barebones VR', category: 'No Dependencies',
+              path: 'vr-barebones.html',
+              description: 'Extremely simple use of "immersive-vr" sessions with no library dependencies. Doesn\'t render anything exciting.',
+              noPolyfill: true },
           ];
 
           let mainElement = document.getElementById("main");
 
           // Append an element for every item in the pages list.
+          let pageIndex = 0;
           for (var i = 0; i < pages.length; ++i) {
             var page = pages[i];
+
+            if (page.tag) {
+              mainElement.appendChild(document.createElement(page.tag));
+              continue;
+            } else {
+              pageIndex++;
+            }
 
             let article = document.createElement('article');
 
             let title = document.createElement('h3');
-            title.setAttribute('data-index', i + 1);
+            title.setAttribute('data-index', pageIndex);
 
             let titleLink = document.createElement('a');
             titleLink.href = page.path;
@@ -186,7 +189,7 @@
             links.classList.add('links');
 
             let sourceLink = document.createElement('a');
-            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/tests/' + page.path;
+            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/master/' + page.path;
             sourceLink.textContent = 'Source';
             links.appendChild(sourceLink);
 
@@ -204,9 +207,11 @@
         </script>
       </main>
 
-      <br/>
+      <p>Models used in these samples come from <a href="https://poly.google.com">Poly</a>, and many were modeled in <a href="https://vr.google.com/blocks/">Blocks</a>.<br/>
+      They are stored and loaded using the <a href="https://www.khronos.org/gltf/">glTF 2.0 format</a>.<br/>
+      Attribution for individual models can be found under the <a href="https://github.com/immersive-web/webxr-samples/tree/master/media/gltf">media/gltf</a> folders for this repository.</p>
 
-      <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View source on GitHub</a></h3>
+      <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View samples source on GitHub</a></h3>
 
       <footer class='footer'>
       </footer>
