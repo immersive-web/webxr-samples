@@ -165,6 +165,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             } else {
               boundsRenderer.boundedRefSpace = refSpace;
             }
+
+            refSpace.onreset = (evt) => {
+              boundsRenderer.boundedRefSpace = evt.referenceSpace;
+            }
           }).catch(() => {
             // If a bounded reference space isn't supported, fall back to a
             // local-floor reference space. This still provides a floor-relative
