@@ -48,7 +48,51 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <main style='text-align: center;'>
       <p>Click 'Enter VR' to see content</p>
     </main>
+    <canvas id='webgpu_canvas'></canvas>
     <script type='module'>
+      // Because we are not using the 'secondary-views' feature we can be sure
+      // that WebXR will never provide more than two views.
+      const MAX_VIEWS = 2;
+
+      // A simple shader that draws a single triangle
+      const SHADER_SRC = `
+        struct Camera {
+          projection: mat4x4f,
+          view: mat4x4f,
+        }
+        @group(0) @binding(0) var<uniform> cameras: array<Camera, ${MAX_VIEWS}>;
+
+        struct VertexOut {
+          @builtin(position) pos: vec4f,
+          @location(0) color: vec4f,
+        }
+
+        @vertex
+        fn vertexMain(@builtin(vertex_index) vert_index: u32,
+                      @builtin(instance_index) view_index: u32) -> VertexOut {
+          var pos = array<vec4f, 3>(
+            vec4f(0.0, 0.5, 1, 1),
+            vec4f(-0.5, -0.5, 1, 1),
+            vec4f(0.5, -0.5, 1, 1)
+          );
+
+          var color = array<vec4f, 3>(
+            vec4f(1, 0, 0, 1),
+            vec4f(0, 1, 0, 1),
+            vec4f(0, 0, 1, 1)
+          );
+
+          let posOut = cameras[view_index].projection * cameras[view_index].view * pos[vert_index];
+
+          return VertexOut(posOut, color[vert_index]);
+        }
+
+        @fragment
+        fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+          return in.color;
+        }
+      `;
+
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
@@ -56,6 +100,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // WebGPU scene globals.
       let gpuDevice = null;
+      let gpuContext = null;
+      let gpuUniformBuffer = null;
+      let gpuUniformArray = new Float32Array(32 * MAX_VIEWS); // Enough room for two matrices per view.
+      let gpuBindGroupLayout = null;
+      let gpuBindGroup = null;
+      let gpuModule = null;
+      let gpuPipeline = null;
+      let colorFormat = null;
 
       // WebXR/WebGPU interop globals.
       let xrGpuBinding = null;
@@ -92,13 +144,90 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.addEventListener('click', onButtonClicked);
         xrButton.textContent = 'Enter VR';
         xrButton.disabled = false;
+
+        await initWebGPU();
+        requestAnimationFrame(onFrame);
+      }
+
+      // Initializes WebGPU resources
+      async function initWebGPU() {
+        if (!gpuDevice) {
+          // Create a WebGPU adapter and device to render with, initialized to be
+          // compatible with the XRDisplay we're presenting to. Note that a canvas
+          // is not necessary if we are only rendering to the XR device.
+          const adapter = await navigator.gpu.requestAdapter({
+            xrCompatible: true
+          });
+          gpuDevice = await adapter.requestDevice();
+          colorFormat = navigator.gpu.getPreferredCanvasFormat();
+
+          gpuContext = webgpu_canvas.getContext('webgpu');
+          gpuContext.configure({
+            format: colorFormat,
+            device: gpuDevice,
+          });
+
+          // Allocate a uniform buffer with enough space for two uniforms per-view
+          gpuUniformBuffer = gpuDevice.createBuffer({
+            size: Float32Array.BYTES_PER_ELEMENT * 32 * MAX_VIEWS,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+          });
+
+          // Set the uniform buffer to contain identity matrices initially so
+          // that we can see something.
+          const IDENTITY = [
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+          ];
+          gpuUniformArray.set(IDENTITY, 0);
+          gpuUniformArray.set(IDENTITY, 16);
+          gpuDevice.queue.writeBuffer(gpuUniformBuffer, 0, gpuUniformArray);
+
+          // Create a bind group for the uniforms
+          gpuBindGroupLayout = gpuDevice.createBindGroupLayout({
+            entries: [{
+              binding: 0,
+              visibility: GPUShaderStage.VERTEX,
+              buffer: {},
+            }]
+          });
+
+          gpuBindGroup = gpuDevice.createBindGroup({
+            layout: gpuBindGroupLayout,
+            entries: [{
+              binding: 0,
+              resource: { buffer: gpuUniformBuffer }
+            }]
+          });
+
+          gpuModule = gpuDevice.createShaderModule({ code: SHADER_SRC });
+        }
+
+        gpuPipeline = gpuDevice.createRenderPipeline({
+          layout: gpuDevice.createPipelineLayout({ bindGroupLayouts: [ gpuBindGroupLayout ]}),
+          vertex: {
+            module: gpuModule,
+            entryPoint: 'vertexMain',
+          },
+          fragment: {
+            module: gpuModule,
+            entryPoint: 'fragmentMain',
+            targets: [{
+              format: colorFormat,
+            }]
+          }
+        });
       }
 
       // Called when the user clicks the button to enter XR. If we don't have a
       // session we'll request one, and if we do have a session we'll end it.
       async function onButtonClicked() {
         if (!xrSession) {
-          navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+          navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['webgpu'],
+          }).then(onSessionStarted);
         } else {
           xrSession.end();
         }
@@ -114,25 +243,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // or UA ends the session for any reason.
         session.addEventListener('end', onSessionEnded);
 
-        // Create a WebGPU adapter and device to render with, initialized to be
-        // compatible with the XRDisplay we're presenting to. Note that a canvas
-        // is not necessary if we are only rendering to the XR device.
-        const adapter = await navigator.gpu.requestAdapter({
-          xrComplatible: true
-        });
-        gpuDevice = await adapter.requestDevice();
-
         // Create the WebXR/WebGPU binding, and with it create a projection
         // layer to render to.
         xrGpuBinding = new XRGPUBinding(xrSession, gpuDevice);
+
+        // If the preferred color format doesn't match what we've been rendering
+        // with so far, rebuild the pipeline
+        if (colorFormat != xrGpuBinding.getPreferredColorFormat()) {
+          colorFormat = xrGpuBinding.getPreferredColorFormat();
+          await initWebGPU();
+        }
+
         projectionLayer = xrGpuBinding.createProjectionLayer({
-          colorFormat: xrGpuBinding.getPreferredColorFormat(),
-          depthStencilFormat: 'depth24plus',
+          colorFormat
         });
 
         // Set the session's layers to display the projection layer. This allows
         // any content rendered to the layer to be displayed on the XR device.
-        session.updateRenderState({ baseLayer: projectionLayer });
+        session.updateRenderState({ layers: [projectionLayer] });
 
         // Get a reference space, which is required for querying poses. In this
         // case an 'local' reference space means that all poses will be relative
@@ -154,9 +282,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrGpuBinding = null;
         xrButton.textContent = 'Enter VR';
 
-        // In this simple case discard the WebGPU device too, since we're not
-        // rendering anything else to the screen with it.
-        gpuDevice = null;
+        // If the canvas color format is different than the XR one, rebuild the
+        // pipeline again upon switching back.
+        if (colorFormat != navigator.gpu.getPreferredCanvasFormat()) {
+          colorFormat = navigator.gpu.getPreferredCanvasFormat();
+        }
+
+        requestAnimationFrame(onFrame);
       }
 
       // Called every time the XRSession requests that a new frame be drawn.
@@ -180,13 +312,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // If we do have a valid pose, begin recording GPU commands.
           const commandEncoder = gpuDevice.createCommandEncoder();
 
-          // Loop through each of the views reported by the frame and draw into
-          // the corresponding sub image of the projection layer.
-          for (let view of pose.views) {
-            let subImage = xrGLFactory.getViewSubImage(projectionLayer, view);
+          // First loop through each view and write it's projection and view
+          // matrices into the uniform buffer.
+          for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
+            const view = pose.views[viewIndex];
+            const offset = 32 * viewIndex;
+            gpuUniformArray.set(view.projectionMatrix, offset);
+            gpuUniformArray.set(view.transform.inverse.matrix, offset + 16);
+          }
+          gpuDevice.queue.writeBuffer(gpuUniformBuffer, 0, gpuUniformArray);
 
-            // Clear the framebuffer
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          // Now loop through each of the views and draw into the corresponding
+          // sub image of the projection layer.
+          for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
+            let subImage = xrGpuBinding.getViewSubImage(projectionLayer, view);
 
             // Start a render pass which uses the textures of the view's sub
             // image as render targets.
@@ -195,35 +334,66 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   view: subImage.colorTexture.createView(subImage.getViewDescriptor()),
                   // Clear the color texture to a solid color.
                   loadOp: 'clear',
+                  storeOp: 'store',
                   // Update the clear color each frame so that we can observe
                   // the color in the headset changing over time.
-                  clearValue: [
-                    Math.cos(time / 2000),
-                    Math.cos(time / 4000),
-                    Math.cos(time / 6000), 1.0
-                  ],
-                }],
-                depthStencilAttachment: {
-                  view: subImage.depthStencilTexture.createView(subImage.getViewDescriptor()),
-                  depthLoadOp: 'clear',
-                  depthStoreOp: 'store',
-                  depthClearValue: 1,
-                }
+                  clearValue: [0.1, 0.0, 0.4, 1.0],
+                }]
               });
 
             let vp = subImage.viewport;
             renderPass.setViewport(vp.x, vp.y, vp.width, vp.height, 0.0, 1.0);
 
-            // Render from the viewpoint of view using view.projectionMatrix as
-            // the projection matrix and view.transform to position the virtual
-            // camera. If you need a view matrix, use view.transform.inverse.matrix.
+            drawScene(renderPass, viewIndex);
 
-            renderPass.endPass();
+            renderPass.end();
           }
 
           // Submit the rendering commands to the GPU.
           gpuDevice.queue.submit([commandEncoder.finish()]);
         }
+      }
+
+      // Does a standard render to the canvas
+      function onFrame(time) {
+        // If a session has started since the last frame don't request a new one.
+        if (!xrSession) {
+          requestAnimationFrame(onFrame);
+        }
+
+        const commandEncoder = gpuDevice.createCommandEncoder();
+
+        // Start a render pass which uses the textures of the view's sub
+        // image as render targets.
+        const renderPass = commandEncoder.beginRenderPass({
+          colorAttachments: [{
+            view: gpuContext.getCurrentTexture().createView(),
+            // Clear the color texture to a solid color.
+            loadOp: 'clear',
+            storeOp: 'store',
+            // Update the clear color each frame so that we can observe
+            // the color in the headset changing over time.
+            clearValue: [0.1, 0.1, 0.4, 1.0],
+          }]
+        });
+
+        drawScene(renderPass);
+
+        renderPass.end();
+
+        // Submit the rendering commands to the GPU.
+        gpuDevice.queue.submit([commandEncoder.finish()]);
+      }
+
+      function drawScene(renderPass, viewIndex = 0) {
+        // Render from the viewpoint of view using view.projectionMatrix as
+        // the projection matrix and view.transform to position the virtual
+        // camera. If you need a view matrix, use view.transform.inverse.matrix.
+        renderPass.setPipeline(gpuPipeline);
+        renderPass.setBindGroup(0, gpuBindGroup);
+        // Passing viewIndex as the firstInstance as an easy way to tell the
+        // shader which camera uniforms to use.
+        renderPass.draw(3, 1, 0, viewIndex);
       }
 
       // Start the XR application.
