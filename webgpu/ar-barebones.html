@@ -29,14 +29,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
     <link rel='stylesheet' href='../css/common.css'>
 
-    <title>Barebones WebGPU VR</title>
+    <title>Barebones WebGPU AR</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Barebones WebGPU VR</summary>
+        <summary>Barebones WebGPU AR</summary>
         <p>
-          This sample demonstrates extremely simple use of an "immersive-vr"
+          This sample demonstrates extremely simple use of an "immersive-ar"
           session with the WebGPU API and no library dependencies. It doesn't
           render anything exciting, just a rainbow triangle to prove it's working.
           <a class="back" href="./">Back</a>
@@ -128,17 +128,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
-        // If the UA allows creation of immersive VR sessions enable the
+        // If the UA allows creation of immersive AR sessions enable the
         // target of the 'Enter XR' button.
-        const supported = await navigator.xr.isSessionSupported('immersive-vr');
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
         if (!supported) {
-          xrButton.textContent = 'Immersive VR not supported';
+          xrButton.textContent = 'Immersive AR not supported';
           return;
         }
 
         // Updates the button to start an XR session when clicked.
         xrButton.addEventListener('click', onButtonClicked);
-        xrButton.textContent = 'Enter VR';
+        xrButton.textContent = 'Enter AR';
         xrButton.disabled = false;
 
         await initWebGPU();
@@ -221,7 +221,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // session we'll request one, and if we do have a session we'll end it.
       async function onButtonClicked() {
         if (!xrSession) {
-          navigator.xr.requestSession('immersive-vr', {
+          navigator.xr.requestSession('immersive-ar', {
             requiredFeatures: ['webgpu'],
           }).then(onSessionStarted);
         } else {
@@ -233,7 +233,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // will set up the necessary session state and kick off the frame loop.
       async function onSessionStarted(session) {
         xrSession = session;
-        xrButton.textContent = 'Exit VR';
+        xrButton.textContent = 'Exit AR';
 
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
@@ -276,7 +276,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         xrSession = null;
         xrGpuBinding = null;
-        xrButton.textContent = 'Enter VR';
+        xrButton.textContent = 'Enter AR';
 
         // If the canvas color format is different than the XR one, rebuild the
         // pipeline again upon switching back.
@@ -331,9 +331,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   // Clear the color texture to a solid color.
                   loadOp: 'clear',
                   storeOp: 'store',
-                  // Clear to a non-black color so we can see if it's working
-                  // even when the triangle isn't in view.
-                  clearValue: [0.1, 0.0, 0.4, 1.0],
+                  // Clear the canvas to transparent black so the user's environment
+                  // shows through.
+                  clearValue: [0.0, 0.0, 0.0, 0.0],
                 }]
               });
 
@@ -367,8 +367,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // Clear the color texture to a solid color.
             loadOp: 'clear',
             storeOp: 'store',
-            // Update the clear color each frame so that we can observe
-            // the color in the headset changing over time.
             clearValue: [0.1, 0.1, 0.4, 1.0],
           }]
         });
