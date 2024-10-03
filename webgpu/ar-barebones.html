@@ -67,9 +67,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         fn vertexMain(@builtin(vertex_index) vert_index: u32,
                       @builtin(instance_index) view_index: u32) -> VertexOut {
           var pos = array<vec4f, 3>(
-            vec4f(0.0, 0.5, 1, 1),
-            vec4f(-0.5, -0.5, 1, 1),
-            vec4f(0.5, -0.5, 1, 1)
+            vec4f(0.0, 0.5, -1, 1),
+            vec4f(-0.5, -0.5, -1, 1),
+            vec4f(0.5, -0.5, -1, 1)
           );
 
           var color = array<vec4f, 3>(
@@ -108,6 +108,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // WebXR/WebGPU interop globals.
       let xrGpuBinding = null;
       let projectionLayer = null;
+
+      // Generate a projection matrix, borrowed from gl-matrix.
+      function perspectiveZO(out, fovy, aspect, near, far = Infinity) {
+        const f = 1.0 / Math.tan(fovy / 2);
+        out[0] = f / aspect;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[4] = 0;
+        out[5] = f;
+        out[6] = 0;
+        out[7] = 0;
+        out[8] = 0;
+        out[9] = 0;
+        out[11] = -1;
+        out[12] = 0;
+        out[13] = 0;
+        out[15] = 0;
+        if (far != null && far !== Infinity) {
+          const nf = 1 / (near - far);
+          out[10] = far * nf;
+          out[14] = far * near * nf;
+        } else {
+          out[10] = -1;
+          out[14] = -near;
+        }
+        return out;
+      }
 
       // Checks to see if WebXR and WebGPU is available and, if so, requests an
       // tests to ensure it supports the desired session type.
@@ -169,16 +197,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
           });
 
-          // Set the uniform buffer to contain identity matrices initially so
+          // Set the uniform buffer to contain valid matrices initially so
           // that we can see something.
-          const IDENTITY = [
+          let mat = [
             1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0,
             0, 0, 0, 1
           ];
-          gpuUniformArray.set(IDENTITY, 0);
-          gpuUniformArray.set(IDENTITY, 16);
+          gpuUniformArray.set(mat, 16);
+
+          perspectiveZO(mat, Math.PI * 0.5, webgpu_canvas.offsetWidth / webgpu_canvas.offsetHeight, 0.1);
+          gpuUniformArray.set(mat, 0);
+
           gpuDevice.queue.writeBuffer(gpuUniformBuffer, 0, gpuUniformArray);
 
           // Create a bind group for the uniforms
@@ -321,6 +352,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Now loop through each of the views and draw into the corresponding
           // sub image of the projection layer.
           for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
+            const view = pose.views[viewIndex];
             let subImage = xrGpuBinding.getViewSubImage(projectionLayer, view);
 
             // Start a render pass which uses the textures of the view's sub
@@ -329,7 +361,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 colorAttachments: [{
                   view: subImage.colorTexture.createView(subImage.getViewDescriptor()),
                   // Clear the color texture to a solid color.
-                  loadOp: 'clear',
+                  loadOp: viewIndex == 0 ? 'clear' : 'load',
                   storeOp: 'store',
                   // Clear the canvas to transparent black so the user's environment
                   // shows through.
