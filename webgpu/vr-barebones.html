@@ -49,6 +49,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // Because we are not using the 'secondary-views' feature we can be sure
       // that WebXR will never provide more than two views.
       const MAX_VIEWS = 2;
+      // We have two matrices per view, which is only 32 floats, but we're going
+      // to allocate 64 of them because uniform buffers bindings must be aligned
+      // to 256-bytes.
+      const UNIFORM_FLOATS_PER_VIEW = 64;
 
       // A simple shader that draws a single triangle
       const SHADER_SRC = `
@@ -56,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           projection: mat4x4f,
           view: mat4x4f,
         }
-        @group(0) @binding(0) var<uniform> cameras: array<Camera, ${MAX_VIEWS}>;
+        @group(0) @binding(0) var<uniform> camera: Camera;
 
         struct VertexOut {
           @builtin(position) pos: vec4f,
@@ -65,7 +69,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         @vertex
         fn vertexMain(@builtin(vertex_index) vert_index: u32,
-                      @builtin(instance_index) view_index: u32) -> VertexOut {
+                      @builtin(instance_index) instance: u32) -> VertexOut {
           var pos = array<vec4f, 3>(
             vec4f(0.0, 0.25, -0.5, 1),
             vec4f(-0.25, -0.25, -0.5, 1),
@@ -78,7 +82,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             vec4f(0, 0, 1, 1)
           );
 
-          let posOut = cameras[view_index].projection * cameras[view_index].view * pos[vert_index];
+          // Give each instance a small offset to help with the sense of depth.
+          let instancePos = pos[vert_index] + vec4f(0, 0, f32(instance) * -0.1, 0);
+          let posOut = camera.projection * camera.view * instancePos;
 
           return VertexOut(posOut, color[vert_index]);
         }
@@ -98,17 +104,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let gpuDevice = null;
       let gpuContext = null;
       let gpuUniformBuffer = null;
-      let gpuUniformArray = new Float32Array(32 * MAX_VIEWS); // Enough room for two matrices per view.
+      let gpuUniformArray = new Float32Array(UNIFORM_FLOATS_PER_VIEW * MAX_VIEWS);
       let gpuBindGroupLayout = null;
-      let gpuBindGroup = null;
+      let gpuBindGroups = [];
       let gpuModule = null;
       let gpuPipeline = null;
+      let gpuDepthTexture = null;
       let colorFormat = null;
+      let depthStencilFormat = 'depth24plus';
+
 
       // WebXR/WebGPU interop globals.
       let xrGpuBinding = null;
       let projectionLayer = null;
-      
+
       // Generate a projection matrix, borrowed from gl-matrix.
       function perspectiveZO(out, fovy, aspect, near, far = Infinity) {
         const f = 1.0 / Math.tan(fovy / 2);
@@ -191,9 +200,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             device: gpuDevice,
           });
 
+          // A depth texture to use when not in an immersive session.
+          gpuDepthTexture = gpuDevice.createTexture({
+            size: { width: webgpu_canvas.width, height: webgpu_canvas.height },
+            format: depthStencilFormat,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+          });
+
           // Allocate a uniform buffer with enough space for two uniforms per-view
           gpuUniformBuffer = gpuDevice.createBuffer({
-            size: Float32Array.BYTES_PER_ELEMENT * 32 * MAX_VIEWS,
+            size: Float32Array.BYTES_PER_ELEMENT * UNIFORM_FLOATS_PER_VIEW * MAX_VIEWS,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
           });
 
@@ -212,7 +228,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
           gpuDevice.queue.writeBuffer(gpuUniformBuffer, 0, gpuUniformArray);
 
-          // Create a bind group for the uniforms
+          // Create a bind group layout for the uniforms
           gpuBindGroupLayout = gpuDevice.createBindGroupLayout({
             entries: [{
               binding: 0,
@@ -221,13 +237,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             }]
           });
 
-          gpuBindGroup = gpuDevice.createBindGroup({
-            layout: gpuBindGroupLayout,
-            entries: [{
-              binding: 0,
-              resource: { buffer: gpuUniformBuffer }
-            }]
-          });
+          // Create a bind group for each potential view
+          for (let i = 0; i < MAX_VIEWS; ++i) {
+            gpuBindGroups.push(gpuDevice.createBindGroup({
+              layout: gpuBindGroupLayout,
+              entries: [{
+                binding: 0,
+                resource: {
+                  buffer: gpuUniformBuffer,
+                  offset: Float32Array.BYTES_PER_ELEMENT * UNIFORM_FLOATS_PER_VIEW * i
+                }
+              }]
+            }));
+          }
 
           gpuModule = gpuDevice.createShaderModule({ code: SHADER_SRC });
         }
@@ -237,6 +259,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           vertex: {
             module: gpuModule,
             entryPoint: 'vertexMain',
+          },
+          depthStencil: {
+            format: depthStencilFormat,
+            depthWriteEnabled: true,
+            depthCompare: 'less-equal',
           },
           fragment: {
             module: gpuModule,
@@ -282,7 +309,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         projectionLayer = xrGpuBinding.createProjectionLayer({
-          colorFormat
+          colorFormat,
+          depthStencilFormat,
         });
 
         // Set the session's layers to display the projection layer. This allows
@@ -304,7 +332,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // session.end() or when the UA has ended the session for any reason.
       // At this point the session object is no longer usable and should be
       // discarded.
-      function onSessionEnded(event) {
+      async function onSessionEnded(event) {
         xrSession = null;
         xrGpuBinding = null;
         xrButton.textContent = 'Enter VR';
@@ -313,6 +341,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // pipeline again upon switching back.
         if (colorFormat != navigator.gpu.getPreferredCanvasFormat()) {
           colorFormat = navigator.gpu.getPreferredCanvasFormat();
+          await initWebGPU();
         }
 
         requestAnimationFrame(onFrame);
@@ -343,7 +372,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // matrices into the uniform buffer.
           for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
             const view = pose.views[viewIndex];
-            const offset = 32 * viewIndex;
+            const offset = UNIFORM_FLOATS_PER_VIEW * viewIndex;
             gpuUniformArray.set(view.projectionMatrix, offset);
             gpuUniformArray.set(view.transform.inverse.matrix, offset + 16);
           }
@@ -366,7 +395,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   // Clear to a non-black color so we can see if it's working
                   // even when the triangle isn't in view.
                   clearValue: [0.1, 0.0, 0.4, 1.0],
-                }]
+                }],
+                depthStencilAttachment: {
+                  view: subImage.depthStencilTexture.createView(subImage.getViewDescriptor()),
+                  // Clear the depth texture
+                  depthLoadOp: 'clear',
+                  depthStoreOp: 'store',
+                  depthClearValue: 1.0,
+                }
               });
 
             let vp = subImage.viewport;
@@ -399,10 +435,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             // Clear the color texture to a solid color.
             loadOp: 'clear',
             storeOp: 'store',
-            // Update the clear color each frame so that we can observe
-            // the color in the headset changing over time.
             clearValue: [0.1, 0.1, 0.4, 1.0],
-          }]
+          }],
+          depthStencilAttachment: {
+            view: gpuDepthTexture.createView(),
+            // Clear the depth texture
+            depthLoadOp: 'clear',
+            depthStoreOp: 'store',
+            depthClearValue: 1.0,
+          }
         });
 
         drawScene(renderPass);
@@ -414,14 +455,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function drawScene(renderPass, viewIndex = 0) {
-        // Render from the viewpoint of view using view.projectionMatrix as
-        // the projection matrix and view.transform to position the virtual
-        // camera. If you need a view matrix, use view.transform.inverse.matrix.
+        // Renders the scene using the uniforms saved for view[viewIndex], which
+        // are accessible in gpuBindGroups[viewIndex].
         renderPass.setPipeline(gpuPipeline);
-        renderPass.setBindGroup(0, gpuBindGroup);
-        // Passing viewIndex as the firstInstance as an easy way to tell the
-        // shader which camera uniforms to use.
-        renderPass.draw(3, 1, 0, viewIndex);
+        renderPass.setBindGroup(0, gpuBindGroups[viewIndex]);
+        // Draw 5 instances of the triangle so that our scene has some depth
+        renderPass.draw(3, 5);
       }
 
       // Start the XR application.
