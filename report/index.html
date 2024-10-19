@@ -66,6 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <div id='nav'>
             <a href='../'>Samples</a>
             <a href='../layers-samples/'>Layers Samples</a>
+            <!--a href='../webgpu/'>WebGPU Samples</a-->
             <a href='../proposals/'>Proposals</a>
             <a href='../tests/'>Test Pages</a>
             <a href='./' class='selected'>Report</a>
@@ -119,7 +120,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               <td><button v-if="mode.supported" v-on:click="mode.onStart">Begin Session</button>
             </tr>
           </table>
-    
+
           <h1 v-if="report.session">Session Report</h1>
           <div id='session-report'>
             <article v-if="report.session" >
@@ -127,7 +128,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 Type: {{report.mode}} Session ({{report.state}})
                 <button v-if="report.running" v-on:click="report.onEnd">End Session</button>
               </h3>
-    
+
               <section>
                 <h4>Supported Reference Spaces</h4>
                 <table class='property-list'>
@@ -141,7 +142,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     </td>
                   </tr>
                 </table>
-    
+
                 <h4>Views</h4>
                 <ol class='input-sources'>
                   <li v-for="view in report.views">
@@ -158,7 +159,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     </table>
                   </li>
                 </ol>
-    
+
                 <h4>Session Properties</h4>
                 <table class='property-list'>
                   <tr>
@@ -168,7 +169,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     <td>environmentBlendMode
                     <td>{{report.session.environmentBlendMode}}
                 </table>
-    
+
                 <h4>Input Sources</h4>
                 <ol class='input-sources'>
                   <li v-for="input in report.inputs" :key="input.key">
@@ -206,7 +207,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                               {{axis | clampFloat}}
                             </li>
                           </ol>
-    
+
                           Buttons:
                           <ol>
                             <li v-for="button in input.source.gamepad.buttons">
@@ -218,11 +219,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                   </li>
                 </ol>
               </section>
-    
+
               <section v-if="module.supported && module.component" v-for="module in modules" v-bind:key="module.name">
                 <component v-bind:is='module.component' v-bind:report="report"></component>
               </section>
-    
+
               <canvas width='10px' height='10px' id='output-canvas'></canvas>
             </article>
           </div>
@@ -370,6 +371,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             name: 'WebXR Hand Input',
             url: 'https://www.w3.org/TR/webxr-hand-input/',
             supported: 'hand' in (window.XRInputSource?.prototype || {})
+          },
+          {
+            name: 'WebXR/WebGPU bindings',
+            url: 'https://immersive-web.github.io/WebXR-WebGPU-Binding/',
+            supported: 'XRGPUBinding' in window
           }
         ];
 
