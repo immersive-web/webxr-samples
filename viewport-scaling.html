@@ -131,7 +131,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrRefSpace = refSpace;
 
           if (useLayer) {
-            proj_layer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+            proj_layer = xrGLFactory.createProjectionLayer({ stencil: false });
             proj_layer.fixedFoveation = 1;
             session.updateRenderState({ layers: [proj_layer] });
           }
@@ -168,8 +168,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (pose) {
           if (useLayer) {
-            // process input and update input sources every frame
-            scene.updateInputSources(frame, xrRefSpace);
             let views = [];
             for (let view of pose.views) {
                 view.requestViewportScale(scale);
