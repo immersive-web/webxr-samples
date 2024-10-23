@@ -1,0 +1,220 @@
+<!doctype html>
+<!--
+Copyright 2024 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+
+    <title>Immersive Viewport scaling</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Viewport scaling</summary>
+        <p>
+          This sample demonstrates how a session can request to render to
+          a smaller area of its layer. This can be used to dynamically
+          lower the number of pixels that need to be rendered. This can 
+          help experiences that are fragment bound for a short amount
+          of time.
+          <a class="back" href="./">Back</a>
+          <br/>
+          Use projection layer: <input id='useLayer' type='checkbox'/>
+        </p>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>Click 'Enter XR' to see content</p> 
+    </main>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene, WebXRView} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {QueryArgs} from './js/util/query-args.js';
+
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
+      // XR globals.
+      let xrButton = null;
+      let xrRefSpace = null;
+
+      // WebGL scene globals.
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      let scale = 1;
+      let scale_down = true;
+      let useLayerCheckbox = document.getElementById('useLayer');
+      let useLayer = false;
+      // layer support
+      let xrGLFactory = null;
+      let xrFramebuffer = null;
+      let proj_layer = null;
+      let count = true;
+
+      scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        useLayer = useLayerCheckbox.checked;
+        return navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: useLayer?['layers']:[],
+        }).then(onSessionStarted);
+      }
+
+      function onSessionStarted(session) {
+        xrButton.setSession(session);
+
+        session.addEventListener('end', onSessionEnded);
+
+        gl = createWebGLContext({
+          xrCompatible: true, webgl2: true
+        });
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
+
+        if (useLayer) {
+            xrFramebuffer = gl.createFramebuffer();
+            xrGLFactory = new XRWebGLBinding(session, gl);            
+        } else {
+            let gllayer = new XRWebGLLayer(session, gl);
+            gllayer.fixedFoveation = 1.0;
+            session.updateRenderState({ baseLayer: gllayer });
+        }
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+
+          if (useLayer) {
+            proj_layer = xrGLFactory.createProjectionLayer({ stencil: false });
+            proj_layer.fixedFoveation = 1;
+            session.updateRenderState({ layers: [proj_layer] });
+          }
+          session.requestAnimationFrame(onXRFrame);
+        });
+
+        session.onselectstart = () => {
+          count = false;
+        }
+        session.onselectend = () => {
+          count = true;
+        }
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+
+        renderer = null;
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+
+        scene.startFrame();
+        scene.updateInputSources(frame, xrRefSpace);
+
+        session.requestAnimationFrame(onXRFrame);
+
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        if (pose) {
+          if (useLayer) {
+            let views = [];
+            for (let view of pose.views) {
+                view.requestViewportScale(scale);
+                let subImage = xrGLFactory.getViewSubImage(proj_layer, view);
+                subImage.framebuffer = xrFramebuffer;
+                let viewport = subImage.viewport;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, subImage.colorTexture, 0);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, subImage.depthStencilTexture, 0);
+
+                views.push(new WebXRView(view, subImage, viewport));
+            }
+            scene.drawViewArray(views);
+          } else {
+            let glLayer = session.renderState.baseLayer;
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            for (let view of pose.views) {
+                view.requestViewportScale(scale);
+
+                let viewport = glLayer.getViewport(view);
+                gl.viewport(viewport.x, viewport.y,
+                            viewport.width, viewport.height);
+
+                scene.draw(view.projectionMatrix, view.transform);
+            }
+          }
+
+          if (count)
+            scale += scale_down ? -0.004 : 0.004;
+
+          if (scale >= 1) {
+            scale = 1; 
+            scale_down = true;
+          } else if (scale <= 0.125) {
+            scale = 0.125;q
+            scale_down = false;
+          }
+        }
+
+        scene.endFrame();
+      }
+
+      initXR();
+    </script>
+  </body>
+</html>
