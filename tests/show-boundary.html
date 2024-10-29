@@ -187,7 +187,7 @@
     function onRequestSession() {
       let sessionInit = {
         requiredFeatures: ['local-floor', 'bounded-floor'], 
-        optionalFeatures: ['unbounded', 'depth-sensing']
+        optionalFeatures: ['unbounded']
       };
       navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
         session.mode = 'immersive-ar';
