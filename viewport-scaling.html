@@ -38,7 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <p>
           This sample demonstrates how a session can request to render to
           a smaller area of its layer. This can be used to dynamically
-          lower the number of pixels that need to be rendered. This can 
+          lower the number of pixels that need to be rendered. This can
           help experiences that are fragment bound for a short amount
           of time.
           <a class="back" href="./">Back</a>
@@ -48,7 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </details>
     </header>
     <main style='text-align: center;'>
-      <p>Click 'Enter XR' to see content</p> 
+      <p>Click 'Enter XR' to see content</p>
     </main>
     <script type="module">
       import {WebXRButton} from './js/util/webxr-button.js';
@@ -120,7 +120,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         if (useLayer) {
             xrFramebuffer = gl.createFramebuffer();
-            xrGLFactory = new XRWebGLBinding(session, gl);            
+            xrGLFactory = new XRWebGLBinding(session, gl);
         } else {
             let gllayer = new XRWebGLLayer(session, gl);
             gllayer.fixedFoveation = 1.0;
@@ -203,10 +203,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scale += scale_down ? -0.004 : 0.004;
 
           if (scale >= 1) {
-            scale = 1; 
+            scale = 1;
             scale_down = true;
           } else if (scale <= 0.125) {
-            scale = 0.125;q
+            scale = 0.125;
             scale_down = false;
           }
         }
