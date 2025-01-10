@@ -114,6 +114,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);
+        }).catch((err) => {
+          console.log(`XRSession creation failed: ${err.message}`);
         });
       }
 
