@@ -97,9 +97,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     function onRequestSession() {
       if (!xrSession) {
-        navigator.xr.requestSession('immersive-vr', {
-          requiredFeatures: ['layers'],
-        }).then(onSessionStarted);
+        // Unlike all other layer types, use of a single projection layer does
+        // not require the 'layers' feature.
+        navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
       } else {
         onEndSession();
       }
