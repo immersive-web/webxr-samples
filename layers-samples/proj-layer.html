@@ -44,6 +44,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         controllers or menu systems/other UI elements.
         <a class="back" href="./index.html">Back</a>
       </p>
+      <input type="checkbox" id="texture-array">Use Texture Array</input>
     </details>
   </header>
   <main style='text-align: center;'>
@@ -65,6 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     // XR globals.
+    let textureArrayCheck = document.getElementById('texture-array');
     let xrButton = null;
     let xrSession = null;
     let xrRefSpace = null;
@@ -80,6 +82,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     // Layer globals
     let proj_layer = null;
+    let usingTextureArray = false;
 
     function initXR() {
       xrButton = new WebXRButton({
@@ -144,7 +147,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       session.requestReferenceSpace('local').then((refSpace) => {
         xrRefSpace = refSpace;
-        proj_layer = xrGLFactory.createProjectionLayer({ space: refSpace, stencil: false });
+        usingTextureArray = textureArrayCheck.checked;
+        proj_layer = xrGLFactory.createProjectionLayer({
+          textureType: usingTextureArray ? 'texture-array' : 'texture',
+          space: refSpace, stencil: false });
         session.updateRenderState({ layers: [proj_layer] });
 
         session.requestAnimationFrame(onXRFrame);
@@ -183,24 +189,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           glLayer.framebuffer = xrFramebuffer;
           viewport = glLayer.viewport;
           gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
 
-          gl.enable(gl.SCISSOR_TEST);
-          gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-          gl.disable(gl.SCISSOR_TEST);
+          if (usingTextureArray) {
+            gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, glLayer.imageIndex);
+            gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, glLayer.depthStencilTexture, 0, glLayer.imageIndex);
+            
+            // No need to set the scissor when clearing a layered texture, since only one layer is exposed at a time.
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-          // Gather all the values needed for one view and push it into the
-          // array of views to be drawn. WebXRView is a utility class that
-          // holds all the necessary values for drawing a single view.
+            scene.drawViewArray([new WebXRView(view, glLayer, viewport)]);
+          } else {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
 
-          // In future samples we'll hide this part away as well by using the
-          // scene.drawXRViews() function, which handles gathering these
-          // values internally.
-          views.push(new WebXRView(view, glLayer, viewport));
+            // If you need to clear a non-layered texture you must set the scissor to the sub image viewport. Otherwise
+            // you will clear sections of the texture that have already been drawn to by previous views.
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.disable(gl.SCISSOR_TEST);
+
+            // Gather all the values needed for one view and push it into the
+            // array of views to be drawn. WebXRView is a utility class that
+            // holds all the necessary values for drawing a single view.
+
+            // In future samples we'll hide this part away as well by using the
+            // scene.drawXRViews() function, which handles gathering these
+            // values internally.
+            views.push(new WebXRView(view, glLayer, viewport));
+          }
         }
-        scene.drawViewArray(views);
+        if (!usingTextureArray) {
+          scene.drawViewArray(views);
+        }
       }
       scene.endFrame();
     }
