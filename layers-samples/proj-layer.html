@@ -133,6 +133,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     function onSessionStarted(session) {
       xrSession = session;
 
+      // This informs the 'Enter XR' button that the session has started and
+      // that it should display 'Exit XR' instead.
+      xrButton.setSession(session);
+
       // Render correct controller models if supported by WebXR input profile
       scene.inputRenderer.useProfileControllerMeshes(session);
 
@@ -162,9 +166,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function onSessionEnded(event) {
-      if (event.session.isImmersive) {
-        xrButton.setSession(null);
-      }
+      xrButton.setSession(null);
       xrSession = null;
 
       // In this simple case discard the WebGL context too, since we're not
@@ -193,7 +195,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if (usingTextureArray) {
             gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, glLayer.imageIndex);
             gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, glLayer.depthStencilTexture, 0, glLayer.imageIndex);
-            
+
             // No need to set the scissor when clearing a layered texture, since only one layer is exposed at a time.
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
