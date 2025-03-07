@@ -97,7 +97,7 @@ export class SkyboxNode extends Node {
     let lonSegments = 40;
 
     // Create the vertices/indices
-    for (let i=0; i <= latSegments; ++i) {
+    for (let i = 0; i <= latSegments; ++i) {
       let theta = i * Math.PI / latSegments;
       let sinTheta = Math.sin(theta);
       let cosTheta = Math.cos(theta);
@@ -147,8 +147,8 @@ export class SkyboxNode extends Node {
                                               1.0, 1.0, 0.0, 0.0];
         break;
       case 'stereoTopBottom':
-        material.texCoordScaleOffset.value = [1.0, 0.5, 0.0, 0.5,
-                                              1.0, 0.5, 0.0, 0.0];
+        material.texCoordScaleOffset.value = [1.0, 0.5, 0.0, 0.0,
+                                              1.0, 0.5, 0.0, 0.5];
         break;
       case 'stereoLeftRight':
         material.texCoordScaleOffset.value = [0.5, 1.0, 0.0, 0.0,
