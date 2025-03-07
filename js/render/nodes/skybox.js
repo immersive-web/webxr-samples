@@ -23,11 +23,11 @@ Node for displaying 360 equirect images as a skybox.
 */
 
 import {Material, RENDER_ORDER} from '../core/material.js';
-import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 import {Node} from '../core/node.js';
+import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 import {UrlTexture} from '../core/texture.js';
 
-const GL = WebGLRenderingContext; // For enums
+const GL = WebGLRenderingContext;  // For enums
 
 class SkyboxMaterial extends Material {
   constructor() {
@@ -38,9 +38,8 @@ class SkyboxMaterial extends Material {
 
     this.image = this.defineSampler('diffuse');
 
-    this.texCoordScaleOffset = this.defineUniform('texCoordScaleOffset',
-                                                      [1.0, 1.0, 0.0, 0.0,
-                                                       1.0, 1.0, 0.0, 0.0], 4);
+    this.texCoordScaleOffset = this.defineUniform(
+        'texCoordScaleOffset', [1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0], 4);
   }
 
   get materialName() {
@@ -97,15 +96,15 @@ export class SkyboxNode extends Node {
     let lonSegments = 40;
 
     // Create the vertices/indices
-    for (let i=0; i <= latSegments; ++i) {
+    for (let i = 0; i <= latSegments; ++i) {
       let theta = i * Math.PI / latSegments;
       let sinTheta = Math.sin(theta);
       let cosTheta = Math.cos(theta);
 
-      let idxOffsetA = i * (lonSegments+1);
-      let idxOffsetB = (i+1) * (lonSegments+1);
+      let idxOffsetA = i * (lonSegments + 1);
+      let idxOffsetB = (i + 1) * (lonSegments + 1);
 
-      for (let j=0; j <= lonSegments; ++j) {
+      for (let j = 0; j <= lonSegments; ++j) {
         let phi = (j * 2 * Math.PI / lonSegments) + this._rotationY;
         let x = Math.sin(phi) * sinTheta;
         let y = cosTheta;
@@ -118,17 +117,18 @@ export class SkyboxNode extends Node {
         vertices.push(x, y, z, u, v);
 
         if (i < latSegments && j < lonSegments) {
-          let idxA = idxOffsetA+j;
-          let idxB = idxOffsetB+j;
+          let idxA = idxOffsetA + j;
+          let idxB = idxOffsetB + j;
 
-          indices.push(idxA, idxB, idxA+1,
-                       idxB, idxB+1, idxA+1);
+          indices.push(idxA, idxB, idxA + 1, idxB, idxB + 1, idxA + 1);
         }
       }
     }
 
-    let vertexBuffer = renderer.createRenderBuffer(GL.ARRAY_BUFFER, new Float32Array(vertices));
-    let indexBuffer = renderer.createRenderBuffer(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
+    let vertexBuffer = renderer.createRenderBuffer(
+        GL.ARRAY_BUFFER, new Float32Array(vertices));
+    let indexBuffer = renderer.createRenderBuffer(
+        GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
 
     let attribs = [
       new PrimitiveAttribute('POSITION', vertexBuffer, 3, GL.FLOAT, 20, 0),
@@ -143,16 +143,16 @@ export class SkyboxNode extends Node {
 
     switch (this._displayMode) {
       case 'mono':
-        material.texCoordScaleOffset.value = [1.0, 1.0, 0.0, 0.0,
-                                              1.0, 1.0, 0.0, 0.0];
+        material.texCoordScaleOffset.value =
+            [1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0];
         break;
       case 'stereoTopBottom':
-        material.texCoordScaleOffset.value = [1.0, 0.5, 0.0, 0.0,
-                                              1.0, 0.5, 0.0, 0.5];
+        material.texCoordScaleOffset.value =
+            [1.0, 0.5, 0.0, 0.5, 1.0, 0.5, 0.0, 0.0];
         break;
       case 'stereoLeftRight':
-        material.texCoordScaleOffset.value = [0.5, 1.0, 0.0, 0.0,
-                                              0.5, 1.0, 0.5, 0.0];
+        material.texCoordScaleOffset.value =
+            [0.5, 1.0, 0.0, 0.0, 0.5, 1.0, 0.5, 0.0];
         break;
     }
 
