@@ -184,7 +184,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       class GamepadBoxSet extends Node {
         constructor(buttonCount, axesCount) {
           super();
+          this.setup_buttons_and_axes(buttonCount, axesCount);
+        }
 
+        setup_buttons_and_axes(buttonCount, axesCount) {
           let axesBoxCount = Math.ceil(axesCount / 2);
           let rowLength = Math.max(buttonCount, axesBoxCount);
 
@@ -206,6 +209,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         update_state(gamepad) {
+          if ((gamepad.buttons.length !== this.buttonBoxes.length)||(gamepad.axes.length/2 !== this.axesBoxes.length)) {
+            this.clearNodes();
+            this.buttonBoxes = [];
+            this.axesBoxes = [];
+            this.setup_buttons_and_axes(gamepad.buttons.length, gamepad.axes.length );
+          }
           // The boxes associated with any given button will turn green if
           // touched and red if pressed. The box height will also scale based
           // on the button's value to make it appear like a button being pushed.
