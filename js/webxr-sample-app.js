@@ -121,9 +121,11 @@ export class WebXRSampleApp {
     return navigator.xr.requestSession(this.options.immersiveMode, {
         requiredFeatures: [this.options.referenceSpace]
     }).then((session) => {
-      this.xrButton.setSession(session);
-      session.isImmersive = true;
-      this.onSessionStarted(session);
+      this.gl.makeXRCompatible().then(() => {
+        this.xrButton.setSession(session);
+        session.isImmersive = true;
+        this.onSessionStarted(session);
+      });
     });
   }
 
