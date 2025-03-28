@@ -41,6 +41,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           Tests that applications that use WebGL 2.0 Multisampled Renderbuffers
           can succesfully blit the result to an XRWebGLLayer.
           <a class="back" href="./">Back</a>
+          <br/>
+          <input type="radio" id="useRenderbuffer" name="xrTarget" value="useRenderbuffer" checked>
+          <label for="useRenderbuffer">use renderbuffers</label><br>
+          <input type="radio" id="useTexture" value="useTexture" name="xrTarget">
+          <label for="useTexture">use textures</label><br>
+          <input type="radio" id="useMultisampleTexture" value="useMSTexture" name="xrTarget" disabled>
+          <label for="useTexture">use textures with multisampling</label><br>
+          <input type="radio" id="useFoveatedTexture" value="useFoveatedTexture" name="xrTarget" disabled>
+          <label for="useFoveatedTexture">use foveated textures</label><br>
         </p>
       </details>
     </header>
@@ -59,8 +68,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let polyfill = new WebXRPolyfill();
       }
 
+      let xrTargets = document.getElementsByName('xrTarget');
+
       // WebXR sample app setup
       class CustomWebXRSampleApp extends WebXRSampleApp {
+        getXRTarget() {
+          for(let radio of xrTargets) { 
+              if(radio.checked) return radio.value; 
+          } 
+        }
+        
         onCreateGL() {
           const gl = createWebGLContext({
             webgl2: true,
@@ -74,6 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           this.renderbufferWidth = 1024;
           this.renderbufferHeight = 1024;
           this.colorRenderbuffer = gl.createRenderbuffer();
+          this.target = this.getXRTarget();
           gl.bindRenderbuffer(gl.RENDERBUFFER, this.colorRenderbuffer);
           gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbufferWidth, this.renderbufferHeight);
 
@@ -84,6 +102,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisampleFramebuffer);
           gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.colorRenderbuffer);
           gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthRenderbuffer);
+
+          this.MRTR = gl.getExtension('WEBGL_multisampled_render_to_texture');
+          if (this.MRTR !== null) {
+            document.getElementById("useMultisampleTexture").disabled = false;
+            document.getElementById("useFoveatedTexture").disabled = false;
+          }
 
           return gl;
         }
@@ -103,22 +127,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Assumed to be a XRWebGLLayer for now.
           let layer = session.renderState.baseLayer;
 
-          // Check to see if we need to resize the renderbuffer
-          if (layer.framebufferWidth != this.renderbufferWidth ||
-              layer.framebufferHeight != this.renderbufferHeight) {
-            this.renderbufferWidth = layer.framebufferWidth;
-            this.renderbufferHeight = layer.framebufferHeight;
-
-            gl.bindRenderbuffer(gl.RENDERBUFFER, this.colorRenderbuffer);
-            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbufferWidth, this.renderbufferHeight);
-
-            gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRenderbuffer);
-            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight);
-          }
-
           // Rather than binding the layer's framebuffer like usual, bind a framebuffer using a
           // multisampled renderbuffer as the color attachment.
           gl.bindFramebuffer(gl.FRAMEBUFFER, this.multisampleFramebuffer);
+
+          // Check to see if we need to resize the renderbuffer
+          if (layer.framebufferWidth != this.renderbufferWidth ||
+              layer.framebufferHeight != this.renderbufferHeight ||
+              ((this.target !== this.getXRTarget()) && session.isImmersive)) {
+            this.renderbufferWidth = layer.framebufferWidth;
+            this.renderbufferHeight = layer.framebufferHeight;
+
+            this.target = this.getXRTarget();
+            if (this.target === "useRenderbuffer") {
+              gl.bindRenderbuffer(gl.RENDERBUFFER, this.colorRenderbuffer);
+              gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbufferWidth, this.renderbufferHeight);
+
+              gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRenderbuffer);
+              gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight);
+
+              gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.colorRenderbuffer);
+              gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthRenderbuffer);
+            } else {
+              this.colorTexture = gl.createTexture();
+              this.depthTexture = gl.createTexture();
+
+              gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+
+              gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbufferWidth, this.renderbufferHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+              if (this.target === "useFoveatedTexture") {
+                let xrGLFactory = new XRWebGLBinding(frame.session, gl);
+                if (xrGLFactory.foveateBoundTexture) {
+                  xrGLFactory.foveateBoundTexture(gl.TEXTURE_2D, 1);
+                }
+              }
+
+              if (this.target === "useTexture") {
+                gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.depthTexture, 0);
+              } else {
+                gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRenderbuffer);
+                gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.DEPTH_COMPONENT16, this.renderbufferWidth, this.renderbufferHeight);
+
+                this.MRTR.framebufferTexture2DMultisampleEXT(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0, 4);
+              }
+
+            }
+          }
 
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
