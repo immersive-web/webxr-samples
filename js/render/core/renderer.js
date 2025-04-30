@@ -106,12 +106,13 @@ export function createWebGLContext(glAttribs) {
 }
 
 export class RenderView {
-  constructor(projectionMatrix, viewTransform, viewport = null, eye = 'left') {
+  constructor(projectionMatrix, viewTransform, viewport = null, eye = 'left', depthdata = null) {
     this.projectionMatrix = projectionMatrix;
     this.viewport = viewport;
     // If an eye isn't given the left eye is assumed.
     this._eye = eye;
     this._eyeIndex = (eye == 'left' ? 0 : 1);
+    this.depthdata = depthdata;
 
     // Compute the view matrix
     if (viewTransform instanceof Float32Array) {
@@ -722,8 +723,8 @@ export class Renderer {
             gl.viewport(vp.x, vp.y, vp.width, vp.height);
             gl.uniformMatrix4fv(program.uniform.LEFT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
             gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
-            gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
-            gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[0].viewMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
             gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
           }
@@ -762,6 +763,19 @@ export class Renderer {
               gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
+
+              // for older browser that don't support projectionMatrix and transform on the depth data
+              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, views[0].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, views[0].viewMatrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].viewMatrix);
+
+              if (view.depthdata && views[0].depthdata.projectionMatrix) {
+                gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, views[0].depthdata.projectionMatrix);
+                gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, views[0].depthdata.transform.inverse.matrix);
+                gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].depthdata.projectionMatrix);
+                gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].depthdata.transform.inverse.matrix);
+              }
             }
             // TODO(AB): modify shaders which use CAMERA_POSITION and EYE_INDEX to work with Multiview
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
