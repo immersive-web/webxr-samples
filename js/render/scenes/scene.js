@@ -26,12 +26,13 @@ import {vec3, quat} from '../math/gl-matrix.js';
 import {Ray} from '../math/ray.js';
 
 export class WebXRView extends RenderView {
-  constructor(view, layer, viewport) {
+  constructor(view, layer, viewport, depthdata) {
     super(
       view ? view.projectionMatrix : null,
       view ? view.transform : null,
       viewport ? viewport : ((layer && view) ? layer.getViewport(view) : null),
-      view ? view.eye : 'left'
+      view ? view.eye : 'left',
+      depthdata
     );
   }
 }

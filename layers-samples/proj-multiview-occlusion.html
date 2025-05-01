@@ -159,6 +159,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           depthSensing: {
             usagePreference: ["gpu-optimized"],
             dataFormatPreference: ["unsigned-short"],
+            matchDepthView: false
           }}).then((session) => {
         xrButton.setSession(session);
         session.isImmersive = true;
@@ -254,10 +255,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let views = [];
         for (let view of pose.views) {
           let viewport = null;
+          let depthData = null;
           if (session.isImmersive) {
-            const depthData = xrGLFactory.getDepthInformation(view);
-            if (depthData.isValid) {
+            depthData = xrGLFactory.getDepthInformation(view);
+            if (depthData) {
               renderer.addExternalTexture('scene_depth', depthData.texture, true);
+
+              if ((depthData.depthNear !== session.renderState.depthNear) || (depthData.depthFar !== session.renderState.depthFar)) {
+                session.updateRenderState({
+                  'depthNear': depthData.depthNear,
+                  'depthFar': depthData.depthFar
+                });
+              }
             }
             
             glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
@@ -291,7 +300,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           } else {
             viewport = glLayer.getViewport(view);
           }
-          views.push(new WebXRView(view, glLayer, viewport));
+          views.push(new WebXRView(view, glLayer, viewport, depthData));
         }
 
         scene.drawViewArray(views);

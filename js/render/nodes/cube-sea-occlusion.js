@@ -31,6 +31,7 @@ class CubeSeaMaterial extends Material {
 
     this.baseColor = this.defineSampler('baseColor');
     this.depthColor = this.defineSampler('depthColor');
+    
   }
 
   get materialName() {
@@ -71,6 +72,7 @@ class CubeSeaMaterial extends Material {
 
     out vec2 vTexCoord;
     out vec3 vLight;
+    out vec4 vWorldPosition;
 
     const vec3 lightDir = vec3(0.75, 0.5, 1.0);
     const vec3 ambientColor = vec3(0.5, 0.5, 0.5);
@@ -81,8 +83,9 @@ class CubeSeaMaterial extends Material {
       float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);
       vLight = ambientColor + (lightColor * lightFactor);
       vTexCoord = TEXCOORD_0;
-      return (VIEW_ID == 0u) ? left_proj * left_view * model * vec4(POSITION, 1.0) :
-                               right_proj * right_view * model * vec4(POSITION, 1.0);
+      vWorldPosition = model * vec4(POSITION, 1.0);
+      return (VIEW_ID == 0u) ? left_proj * left_view * vWorldPosition :
+                               right_proj * right_view * vWorldPosition;
     }`;
   }
 
@@ -96,6 +99,8 @@ class CubeSeaMaterial extends Material {
     uniform sampler2DArray depthColor;
     in vec2 vTexCoord;
     in vec3 vLight;
+    in vec4 vWorldPosition;
+    uniform mat4 LEFT_DEPTH_PROJECTION_MATRIX, LEFT_DEPTH_VIEW_MATRIX, RIGHT_DEPTH_PROJECTION_MATRIX, RIGHT_DEPTH_VIEW_MATRIX;
 
     float Depth_GetCameraDepthInMillimeters(const sampler2DArray depthTexture,
       const vec2 depthUv) {
@@ -204,7 +209,10 @@ class CubeSeaMaterial extends Material {
       }
 
     vec4 fragment_main() {
-      vec2 depthUv = vec2(gl_FragCoord.x/1680.0, gl_FragCoord.y/1760.0);
+      vec4 depthPosition = (VIEW_ID == 0u) ? LEFT_DEPTH_PROJECTION_MATRIX * LEFT_DEPTH_VIEW_MATRIX * vWorldPosition :
+                          RIGHT_DEPTH_PROJECTION_MATRIX * RIGHT_DEPTH_VIEW_MATRIX * vWorldPosition;
+      vec2 depthPositionHC = depthPosition.xy / depthPosition.w;
+      depthPositionHC = vec2 (depthPositionHC.x + 1.0,  depthPositionHC.y + 1.0 ) * 0.5;
 
       vec4 o_FragColor = vec4(vLight, 1) * texture(baseColor, vTexCoord);
       if (o_FragColor.a == 0.0) {
@@ -215,10 +223,10 @@ class CubeSeaMaterial extends Material {
       float assetDepthMm = gl_FragCoord.z * 1000.0;
   
       float occlusion = Depth_GetBlurredOcclusionAroundUV(
-        depthColor, depthUv, assetDepthMm);
+        depthColor, depthPositionHC, assetDepthMm);
 
       //float occlusion = Depth_GetOcclusion(depthColor,
-      //  depthUv, assetDepthMm);
+      //  depthPositionHC, assetDepthMm);
 
       float objectMaskEroded = pow(occlusion, 10.0);
 
