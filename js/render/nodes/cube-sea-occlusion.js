@@ -40,12 +40,13 @@ class CubeSeaMaterial extends Material {
 
   get vertexSource() {
     return `
-    attribute vec3 POSITION;
-    attribute vec2 TEXCOORD_0;
-    attribute vec3 NORMAL;
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
+    in vec3 NORMAL;
 
-    varying vec2 vTexCoord;
-    varying vec3 vLight;
+    out vec2 vTexCoord;
+    out vec3 vLight;
+    out vec4 vWorldPosition;
 
     const vec3 lightDir = vec3(0.75, 0.5, 1.0);
     const vec3 ambientColor = vec3(0.5, 0.5, 0.5);
@@ -56,12 +57,13 @@ class CubeSeaMaterial extends Material {
       float lightFactor = max(dot(normalize(lightDir), normalRotated), 0.0);
       vLight = ambientColor + (lightColor * lightFactor);
       vTexCoord = TEXCOORD_0;
+      vWorldPosition = model * vec4(POSITION, 1.0);
       return proj * view * model * vec4(POSITION, 1.0);
     }`;
   }
 
   get vertexSourceMultiview() {
-    return `#version 300 es
+    return `
     #extension GL_OVR_multiview2 : require
     #define NUM_VIEWS 2
     layout(num_views=NUM_VIEWS) in;
@@ -90,9 +92,14 @@ class CubeSeaMaterial extends Material {
   }
 
   get fragmentSourceMultiview() {
-    return `#version 300 es
+    return `
     #extension GL_OVR_multiview2 : require
     #define VIEW_ID gl_ViewID_OVR
+  ` + this.commonOcclusionFragment;
+  }
+
+  get commonOcclusionFragment() {
+    return `
     precision highp float;
     precision highp sampler2DArray;
     uniform sampler2D baseColor;
@@ -245,12 +252,11 @@ class CubeSeaMaterial extends Material {
       precision highp float;
       precision highp sampler2DArray;
       uniform sampler2D baseColor;
-      uniform sampler2DArray depthColor;
-      varying vec2 vTexCoord;
-      varying vec3 vLight;
+      in vec2 vTexCoord;
+      in vec3 vLight;
 
       vec4 fragment_main() {
-        return vec4(vLight, 1.0) * texture2D(baseColor, vTexCoord);
+        return vec4(vLight, 1.0) * texture(baseColor, vTexCoord);
       }`;
   }
 }
@@ -276,9 +282,19 @@ export class CubeSeaNode extends Node {
     this._texture = new UrlTexture(options.imageUrl || 'media/textures/cube-sea.png');
     this._material = new CubeSeaMaterial();
     this._material.baseColor.texture = this._texture;
-    this._material.depthColor.texture = new ExternalTexture("scene_depth");
+  //  this._material.depthColor.texture = new ExternalTexture("scene_depth");
+
+    this.heavyGpu = false;
 
     this._renderPrimitive = null;
+  }
+
+  hasDepthTexture(enable) {
+    if (enable) {
+      this._material.depthColor.texture = new ExternalTexture("scene_depth");
+    } else {
+      delete this._material.depthColor.texture;
+    }
   }
 
   onRendererChanged(renderer) {

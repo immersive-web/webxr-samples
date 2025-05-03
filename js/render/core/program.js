@@ -39,12 +39,12 @@ export class Program {
 
     this._vertShader = gl.createShader(gl.VERTEX_SHADER);
     gl.attachShader(this.program, this._vertShader);
-    gl.shaderSource(this._vertShader, definesString + vertSrc);
+    gl.shaderSource(this._vertShader, '#version 300 es\n' + definesString + vertSrc);
     gl.compileShader(this._vertShader);
 
     this._fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.attachShader(this.program, this._fragShader);
-    gl.shaderSource(this._fragShader, definesString + fragSrc);
+    gl.shaderSource(this._fragShader, '#version 300 es\n' + definesString + fragSrc);
     gl.compileShader(this._fragShader);
 
     if (attribMap) {

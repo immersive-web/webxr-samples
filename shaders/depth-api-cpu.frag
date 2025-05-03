@@ -1,6 +1,6 @@
 precision mediump float;
 
-varying float vDepthDistance;
+in float vDepthDistance;
 
 const highp float kMaxDepth = 8.0; // In meters.
 const float kInvalidDepthThreshold = 0.01;

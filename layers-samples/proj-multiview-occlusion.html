@@ -43,6 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       </p>
       <p id="mv-status"></p>
       <input type="checkbox" id="do_antialias" checked>antialias</input>
+      <input type="checkbox" id="do_multiview" checked>use multiview</input>
     </details>
   </header>
   <script type="module">
@@ -53,15 +54,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { InlineViewerHelper } from '../js/util/inline-viewer-helper.js';
     import { QueryArgs } from '../js/util/query-args.js';
 
-    // If requested, use the polyfill to provide support for mobile devices
-    // and devices which only support WebVR.
-    import WebXRPolyfill from '../js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
-    if (QueryArgs.getBool('usePolyfill', true)) {
-      let polyfill = new WebXRPolyfill();
-    }
-
     // XR globals.
     let do_antialias = document.getElementById('do_antialias');
+    let do_multiview = document.getElementById('do_multiview');
     let xrButton = null;
     let xrImmersiveRefSpace = null;
     let inlineViewerHelper = null;
@@ -76,8 +71,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let samples = 1;
     let mv_ext = null;
     let depthStencilTex = null;
+    let cubeSea = new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png'});
 
-    scene.addNode(new CubeSeaNode({ imageUrl: '../media/textures/cube-sea.png' }));
+    scene.addNode(cubeSea);
     scene.enableStats(false);
 
     function initXR() {
@@ -91,7 +87,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
           let mvCompat = testMultiViewCompatibility();
           if (!mvCompat) {
-            document.querySelector('#mv-status').textContent = "❌ - Multiview is required but unsupported in this browser";
+            document.querySelector('#mv-status').textContent = "❌ - Multiview is unsupported in this browser";
+            do_multiview.checked = false;
+            do_multiview.disable = true;
           } else {
             document.querySelector('#mv-status').textContent = "✔️- Multiview Supported";
           }
@@ -108,7 +106,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         webgl2: true
       });
 
-      return tempWebGLContext.getExtension('OCULUS_multiview') != null;
+      return tempWebGLContext.getExtension('OVR_multiview2') != null;
     }
 
     function initGL() {
@@ -123,22 +121,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       samples = gl.getParameter(gl.MAX_SAMPLES);
 
-      mv_ext = gl.getExtension('OCULUS_multiview');
+      mv_ext = gl.getExtension('OVR_multiview2');
       if (mv_ext) {
-        console.log("OCULUS_multiview extension is supported");
-        is_multisampled_supported = true;
+        console.log("OVR_multiview2 extension is supported");
       }
       else {
-        console.log("OCULUS_multiview extension is NOT supported");
-      }
-      if (!mv_ext) {
-        mv_ext = gl.getExtension('OVR_multiview2');
-        if (mv_ext) {
-          console.log("OVR_multiview2 extension is supported");
-        }
-        else {
-          console.log("Neither OCULUS_multiview nor OVR_multiview2 extension is NOT supported");
-        }
+        console.log("OVR_multiview2 extension is NOT supported");
       }
 
       function onResize() {
@@ -149,12 +137,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       onResize();
 
       // Set up a non-black clear color so that we can see if something renders wrong.
-      gl.clearColor(0, 0, 0, 0);
+      gl.clearColor(0.1, 0.2, 0.3, 1.0);
     }
 
     function onRequestSession() {
       return navigator.xr.requestSession('immersive-ar', {
-          requiredFeatures: ['layers','depth-sensing'],
+          requiredFeatures: ['depth-sensing'],
           optionalFeatures: [],
           depthSensing: {
             usagePreference: ["gpu-optimized"],
@@ -180,29 +168,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       initGL();
 
+      cubeSea.hasDepthTexture(session.isImmersive);
+
       if (session.isImmersive) {
         renderer = new Renderer(gl, true /* multiview */);
         renderer.useDepth = true;
 
         scene.setRenderer(renderer);
 
-
         xrFramebuffer = gl.createFramebuffer();
         xrGLFactory = new XRWebGLBinding(session, gl);
-        let layer = xrGLFactory.createProjectionLayer({
-          textureType: "texture-array",
-          depthFormat: gl.DEPTH_COMPONENT24,
-          useDepthSorting: true,
-        });
-        session.updateRenderState({ layers: [layer] });
+        if (mv_ext) {
+          let layer = xrGLFactory.createProjectionLayer({
+            textureType: "texture-array",
+            depthFormat: gl.DEPTH_COMPONENT24,
+            useDepthSorting: true,
+          });
+          session.updateRenderState({ layers: [layer] });
+        } else {
+          let glLayer = new XRWebGLLayer(session, gl);
+          session.updateRenderState({ baseLayer: glLayer });
+        }
+
+        gl.clearColor(0, 0, 0, 0);
       } else {
-        renderer = new Renderer(gl, false /* multiview */);
-        renderer.useDepth = false;
+        renderer = new Renderer(gl);
+       // renderer.useDepth = false;
 
         scene.setRenderer(renderer);
 
         let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
+        gl.clearColor(0.1, 0.2, 0.3, 1.0);
       }
 
       let refSpaceType = session.isImmersive ? 'local' : 'viewer';
@@ -231,33 +228,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     function onXRFrame(t, frame) {
       let session = frame.session;
+      session.requestAnimationFrame(onXRFrame);
       let refSpace = session.isImmersive ?
         xrImmersiveRefSpace :
         inlineViewerHelper.referenceSpace;
       let pose = frame.getViewerPose(refSpace);
 
       scene.startFrame();
-
-      session.requestAnimationFrame(onXRFrame);
+      scene.clear = session.isImmersive;
 
       if (pose) {
-        let glLayer = null;
-
-        if (session.isImmersive) {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-        } else {
-          glLayer = session.renderState.baseLayer;
-          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-          gl.disable(gl.SCISSOR_TEST);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        }
-
-        let views = [];
-        for (let view of pose.views) {
-          let viewport = null;
-          let depthData = null;
-          if (session.isImmersive) {
-            depthData = xrGLFactory.getDepthInformation(view);
+        if (session.isImmersive && mv_ext) {
+          let views = [];
+          for (let view of pose.views) {
+            let viewport = null;
+            let depthData = xrGLFactory.getDepthInformation(view);
             if (depthData) {
               renderer.addExternalTexture('scene_depth', depthData.texture, true);
 
@@ -268,8 +253,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 });
               }
             }
-            
-            glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
+
+            let glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
             viewport = glLayer.viewport;
             glLayer.framebuffer = xrFramebuffer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
@@ -297,13 +282,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               gl.disable(gl.SCISSOR_TEST);
               gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             }
-          } else {
-            viewport = glLayer.getViewport(view);
-          }
-          views.push(new WebXRView(view, glLayer, viewport, depthData));
-        }
 
-        scene.drawViewArray(views);
+            views.push(new WebXRView(view, glLayer, viewport, depthData));
+          }
+
+          scene.drawViewArray(views);
+        } else {
+          if (session.isImmersive) {
+            for (let view of pose.views) {
+              let viewport = null;
+              let depthData = xrGLFactory.getDepthInformation(view);
+              if (depthData) {
+                renderer.addExternalTexture('scene_depth', depthData.texture, true);
+
+                if ((depthData.depthNear !== session.renderState.depthNear) || (depthData.depthFar !== session.renderState.depthFar)) {
+                  session.updateRenderState({
+                    'depthNear': depthData.depthNear,
+                    'depthFar': depthData.depthFar
+                  });
+                }
+              }
+            }
+          }
+
+          //scene.updateInputSources(frame, refSpace);
+          scene.drawXRFrame(frame, pose);
+        }
       }
 
       scene.endFrame();

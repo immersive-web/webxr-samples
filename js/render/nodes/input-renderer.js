@@ -94,10 +94,10 @@ class LaserMaterial extends Material {
 
   get vertexSource() {
     return `
-    attribute vec3 POSITION;
-    attribute vec2 TEXCOORD_0;
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
 
-    varying vec2 vTexCoord;
+    out vec2 vTexCoord;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vTexCoord = TEXCOORD_0;
@@ -111,7 +111,7 @@ class LaserMaterial extends Material {
 
     uniform vec4 laserColor;
     uniform sampler2D diffuse;
-    varying vec2 vTexCoord;
+    in vec2 vTexCoord;
 
     const float fadePoint = ${LASER_FADE_POINT};
     const float fadeEnd = ${LASER_FADE_END};
@@ -120,7 +120,7 @@ class LaserMaterial extends Material {
       vec2 uv = vTexCoord;
       float front_fade_factor = 1.0 - clamp(1.0 - (uv.y - fadePoint) / (1.0 - fadePoint), 0.0, 1.0);
       float back_fade_factor = clamp((uv.y - fadePoint) / (fadeEnd - fadePoint), 0.0, 1.0);
-      vec4 color = laserColor * texture2D(diffuse, vTexCoord);
+      vec4 color = laserColor * texture(diffuse, vTexCoord);
       float opacity = color.a * front_fade_factor * back_fade_factor;
       return vec4(color.rgb * opacity, opacity);
     }`;
@@ -128,10 +128,10 @@ class LaserMaterial extends Material {
 }
 
 const CURSOR_VERTEX_SHADER = `
-attribute vec4 POSITION;
+in vec4 POSITION;
 
-varying float vLuminance;
-varying float vOpacity;
+out float vLuminance;
+out float vOpacity;
 
 vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
   vLuminance = POSITION.z;
@@ -148,8 +148,8 @@ const CURSOR_FRAGMENT_SHADER = `
 precision mediump float;
 
 uniform vec4 cursorColor;
-varying float vLuminance;
-varying float vOpacity;
+in float vLuminance;
+in float vOpacity;
 
 vec4 fragment_main() {
   vec3 color = cursorColor.rgb * vLuminance;

@@ -3,12 +3,12 @@ precision mediump float;
 uniform sampler2D uDepthTexture;
 uniform mat4 uUvTransform;
 
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
 
 float DepthGetMillimeters(in sampler2D depth_texture, in vec2 depth_uv) {
   // Depth is packed into the luminance and alpha components of its texture.
   // The texture is a normalized format, storing millimeters.
-  vec2 packedDepthAndVisibility = texture2D(depth_texture, depth_uv).ra;
+  vec2 packedDepthAndVisibility = texture(depth_texture, depth_uv).ra;
   return dot(packedDepthAndVisibility, vec2(255.0, 256.0 * 255.0));
 }
 

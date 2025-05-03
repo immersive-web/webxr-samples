@@ -49,10 +49,10 @@ class DropShadowMaterial extends Material {
 
   get vertexSource() {
     return `
-    attribute vec3 POSITION;
-    attribute vec2 TEXCOORD_0;
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
 
-    varying float vShadow;
+    out float vShadow;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vShadow = TEXCOORD_0.x;
@@ -62,7 +62,7 @@ class DropShadowMaterial extends Material {
 
   get fragmentSource() {
     return `
-    varying float vShadow;
+    in float vShadow;
 
     vec4 fragment_main() {
       return vec4(0.0, 0.0, 0.0, vShadow);

@@ -65,8 +65,9 @@ void main() {
 `;
 
 const FRAGMENT_SHADER_ENTRY = `
+out vec4 color;
 void main() {
-  gl_FragColor = fragment_main();
+  color = fragment_main();
 }
 `;
 
@@ -86,7 +87,7 @@ export function createWebGLContext(glAttribs) {
   glAttribs = glAttribs || {alpha: false};
 
   let webglCanvas = document.createElement('canvas');
-  let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
+  let contextTypes = ['webgl2'];
   let context = null;
 
   for (let contextType of contextTypes) {
@@ -810,7 +811,7 @@ export class Renderer {
   }
 
   addExternalTexture(key, texture, isArray) {
-    if (this._textureCache[key] === 'undefined') {
+    if (this._textureCache[key] === undefined) {
       this._textureCache[key] = {};
     }
     this._textureCache[key]._complete = true;

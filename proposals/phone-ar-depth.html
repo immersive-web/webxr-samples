@@ -47,10 +47,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script id="vertexShader" type="x-shader/x-vertex">
       precision mediump float;
 
-      attribute vec2 aVertexPosition;
-      attribute float aDepthDistance;
+      in vec2 aVertexPosition;
+      in float aDepthDistance;
 
-      varying float vDepthDistance;
+      out float vDepthDistance;
 
       void main(void) {
         gl_PointSize = 15.0;

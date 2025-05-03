@@ -37,10 +37,10 @@ class ButtonIconMaterial extends Material {
 
   get vertexSource() {
     return `
-    attribute vec3 POSITION;
-    attribute vec2 TEXCOORD_0;
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
 
-    varying vec2 vTexCoord;
+    out vec2 vTexCoord;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vTexCoord = TEXCOORD_0;
@@ -52,10 +52,10 @@ class ButtonIconMaterial extends Material {
   get fragmentSource() {
     return `
     uniform sampler2D icon;
-    varying vec2 vTexCoord;
+    in vec2 vTexCoord;
 
     vec4 fragment_main() {
-      return texture2D(icon, vTexCoord);
+      return texture(icon, vTexCoord);
     }`;
   }
 }

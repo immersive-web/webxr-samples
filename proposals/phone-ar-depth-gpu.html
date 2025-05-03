@@ -47,10 +47,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script id="vertexShader" type="x-shader/x-vertex">
       precision mediump float;
 
-      attribute vec2 aVertexPosition;
-      attribute vec2 aTexCoord;
+      in vec2 aVertexPosition;
+      in vec2 aTexCoord;
 
-      varying vec2 vTexCoord;
+      out vec2 vTexCoord;
 
       void main(void) {
         gl_Position = vec4(aVertexPosition, 0.0, 1.0);
