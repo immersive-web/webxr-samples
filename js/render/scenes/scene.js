@@ -229,53 +229,70 @@ export class Scene extends Node {
   }
 
   /** Draws the scene into the base layer of the XRFrame's session */
-  drawXRFrame(xrFrame, pose) {
+  drawXRFrame(xrFrame, pose, layer, depthData) {
     if (!this._renderer || !pose) {
       return;
     }
 
     let gl = this._renderer.gl;
+    let renderer = this._renderer;
     let session = xrFrame.session;
     // Assumed to be a XRWebGLLayer for now.
-    let layer = session.renderState.baseLayer;
-    if (!layer)
-      layer = session.renderState.layers[0];
-    else {
+    let xrlayer = session.renderState.baseLayer;
+    let views = [];
+
+    if (!xrlayer) {
+      xrlayer = layer ? layer : session.renderState.layers[0];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.xrFramebuffer);
+
+      for (let view of pose.views) {
+        let glLayer = renderer.getXrBinding(session).getViewSubImage(xrlayer, view);  
+
+        if (view == pose.views[0]) {
+          if (renderer.multisampledMultiview) {
+            renderer.multiviewExtension.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, renderer.maxSamples, 0, 2);
+          } else if (renderer.multiview) {
+            renderer.multiviewExtension.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
+          } else {
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
+          }
+
+          if (glLayer.depthStencilTexture) {
+            if (renderer.multisampledMultiview) {
+              renderer.multiviewExtension.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, glLayer.depthStencilTexture, 0, renderer.maxSamples, 0, 2);
+            } else if (renderer.multiview) {
+              renderer.multiviewExtension.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, glLayer.depthStencilTexture, 0, 0, 2);
+            } else {
+              gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
+            }
+          }
+        }
+        views.push(new WebXRView(view, glLayer, glLayer.viewport));
+      }
+    } else {
       // only baseLayer has framebuffer and we need to bind it
       // even if it is null (for inline sessions)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
-    }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, xrlayer.framebuffer);
 
-    if (!gl) {
-      return;
-    }
-
-    if (layer.colorTexture) {
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, layer.colorTexture, 0);
-    }
-    if (layer.depthStencilTexture) {
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, layer.depthStencilTexture, 0);
+      for (let view of pose.views) {
+        views.push(new WebXRView(view, xrlayer));
+      }
     }
 
     if (this.clear) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
-    let views = [];
-    for (let view of pose.views) {
-      views.push(new WebXRView(view, layer));
-    }
-
-    this.drawViewArray(views);
+    this.drawViewArray(views, depthData);
   }
 
-  drawViewArray(views) {
+  drawViewArray(views, depthData) {
     // Don't draw when we don't have a valid context
     if (!this._renderer) {
       return;
     }
 
-    this._renderer.drawViews(views, this);
+    this._renderer.drawViews(views, this, depthData);
   }
 
   startFrame() {

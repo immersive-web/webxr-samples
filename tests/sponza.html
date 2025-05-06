@@ -39,6 +39,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           Loads a larger scene than other samples for performance testing.
           <a class="back" href="./">Back</a>
         </p>
+        <input type="checkbox" id="do_multiview" checked>use multiview</input>
       </details>
     </header>
     <script type="module">
@@ -47,6 +48,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {SkyboxNode} from '../js/render/nodes/skybox.js';
       import {quat} from '../js/render/math/gl-matrix.js';
       import {QueryArgs} from '../js/util/query-args.js';
+      import { createWebGLContext } from '../js/render/core/renderer.js';
+
+      let do_multiview = document.getElementById('do_multiview');
+
+      function testMultiViewCompatibility() {
+        let tempWebGLContext = createWebGLContext({
+          xrCompatible: true,
+          webgl2: true
+        });
+
+        return tempWebGLContext.getExtension('OVR_multiview2') != null;
+      }
+
+      if (!testMultiViewCompatibility()) {
+        do_multiview.checked = false;
+        do_multiview.disable = true;
+      }
 
       // If requested, use the polyfill to provide support for mobile devices
       // and devices which only support WebVR.
@@ -66,7 +84,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       };
 
       let app = new CustomWebXRSampleApp({
-        referenceSpace: 'local-floor'
+        referenceSpace: 'local-floor', useMultiview: do_multiview.checked
       });
       document.querySelector('header').appendChild(app.xrButton.domElement);
 

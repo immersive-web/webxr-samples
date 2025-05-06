@@ -49,7 +49,7 @@ const DEF_LIGHT_COLOR = new Float32Array([3.0, 3.0, 3.0]);
 
 const PRECISION_REGEX = new RegExp('precision (lowp|mediump|highp) float;');
 
-const VERTEX_SHADER_SINGLE_ENTRY = `
+const VERTEX_SHADER_ENTRY = `
 uniform mat4 PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX;
 
 void main() {
@@ -60,7 +60,10 @@ void main() {
 const VERTEX_SHADER_MULTI_ENTRY = `
 uniform mat4 LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX;
 void main() {
-  gl_Position = vertex_main(LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX);
+  gl_Position = vertex_main(
+    (gl_ViewID_OVR == 0u) ? LEFT_PROJECTION_MATRIX : RIGHT_PROJECTION_MATRIX,
+    (gl_ViewID_OVR == 0u) ? LEFT_VIEW_MATRIX : RIGHT_VIEW_MATRIX,
+    MODEL_MATRIX);
 }
 `;
 
@@ -77,6 +80,148 @@ void main() {
   color = fragment_main();
 }
 `;
+
+const VERTEX_SHADER_MULTI_DEPTH_ENTRY = `
+uniform mat4 LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX;
+out vec4 vWorldPosition;
+
+const mat4 identity = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+
+void main() {
+  vWorldPosition = vertex_main(identity, identity, MODEL_MATRIX);
+  gl_Position = vertex_main(
+    (gl_ViewID_OVR == 0u) ? LEFT_PROJECTION_MATRIX : RIGHT_PROJECTION_MATRIX,
+    (gl_ViewID_OVR == 0u) ? LEFT_VIEW_MATRIX : RIGHT_VIEW_MATRIX,
+    MODEL_MATRIX);
+}
+`;
+
+const VERTEX_SHADER_DEPTH_ENTRY = `
+uniform mat4 PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX;
+out vec4 vWorldPosition;
+
+const mat4 identity = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+void main() {
+  vWorldPosition = vertex_main(identity, identity, MODEL_MATRIX);
+  gl_Position = vertex_main(PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX);
+}
+`;
+
+const FRAGMENT_SHADER_DEPTH_COMMON = `
+precision highp float;
+precision highp sampler2DArray;
+uniform sampler2DArray depthColor;
+out vec4 color;
+in vec4 vWorldPosition;
+uniform mat4 LEFT_DEPTH_PROJECTION_MATRIX, LEFT_DEPTH_VIEW_MATRIX, RIGHT_DEPTH_PROJECTION_MATRIX, RIGHT_DEPTH_VIEW_MATRIX;
+
+float Depth_GetCameraDepthInMillimeters(const sampler2DArray depthTexture,
+  const vec2 depthUv) {
+  return texture(depthColor, vec3(depthUv.x, depthUv.y, VIEW_ID)).r * 1000.0;
+}
+
+float Depth_GetOcclusion(const sampler2DArray depthTexture, const vec2 depthUv, float assetDepthMm) {
+  float depthMm = Depth_GetCameraDepthInMillimeters(depthTexture, depthUv);
+
+  // Instead of a hard z-buffer test, allow the asset to fade into the
+  // background along a 2 * kDepthTolerancePerMm * assetDepthMm
+  // range centered on the background depth.
+  const float kDepthTolerancePerMm = 0.01;
+  return clamp(1.0 -
+    0.5 * (depthMm - assetDepthMm) /
+        (kDepthTolerancePerMm * assetDepthMm) +
+    0.5, 0.0, 1.0);
+}
+
+float Depth_GetBlurredOcclusionAroundUV(const sampler2DArray depthTexture, const vec2 uv, float assetDepthMm) {
+  // Kernel used:
+  // 0   4   7   4   0
+  // 4   16  26  16  4
+  // 7   26  41  26  7
+  // 4   16  26  16  4
+  // 0   4   7   4   0
+  const float kKernelTotalWeights = 269.0;
+  float sum = 0.0;
+
+  const float kOcclusionBlurAmount = 0.01;
+  vec2 blurriness = vec2(kOcclusionBlurAmount /SideBySideMultiplier, kOcclusionBlurAmount /** u_DepthAspectRatio*/);
+
+  float current = 0.0;
+
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-1.0, -2.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+1.0, -2.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-1.0, +2.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+1.0, +2.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-2.0, +1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+2.0, +1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-2.0, -1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+2.0, -1.0) * blurriness, assetDepthMm);
+  sum += current * 4.0;
+
+  current = 0.0;
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-2.0, -0.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+2.0, +0.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+0.0, +2.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-0.0, -2.0) * blurriness, assetDepthMm);
+  sum += current * 7.0;
+
+  current = 0.0;
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-1.0, -1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+1.0, -1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-1.0, +1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+1.0, +1.0) * blurriness, assetDepthMm);
+  sum += current * 16.0;
+
+  current = 0.0;
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+0.0, +1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-0.0, -1.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(-1.0, -0.0) * blurriness, assetDepthMm);
+  current += Depth_GetOcclusion(depthTexture, uv + vec2(+1.0, +0.0) * blurriness, assetDepthMm);
+  sum += current * 26.0;
+
+  sum += Depth_GetOcclusion(depthTexture, uv, assetDepthMm) * 41.0;
+
+  return sum / kKernelTotalWeights;
+}
+
+void main() {
+  vec4 depthPosition = (VIEW_ID == 0u) ? LEFT_DEPTH_PROJECTION_MATRIX * LEFT_DEPTH_VIEW_MATRIX * vWorldPosition :
+                      RIGHT_DEPTH_PROJECTION_MATRIX * RIGHT_DEPTH_VIEW_MATRIX * vWorldPosition;
+  vec2 depthPositionHC = depthPosition.xy / depthPosition.w;
+  depthPositionHC = vec2 (depthPositionHC.x + 1.0,  depthPositionHC.y + 1.0 ) * 0.5;
+  color = fragment_main();
+  if (color.a == 0.0) {
+    // There's no sense in calculating occlusion for a fully transparent pixel.
+    return;
+  }
+
+  float assetDepthMm = gl_FragCoord.z * 1000.0;
+
+  float occlusion = Depth_GetBlurredOcclusionAroundUV(depthColor, depthPositionHC, assetDepthMm);
+
+  //float occlusion = Depth_GetOcclusion(depthColor, depthPositionHC, assetDepthMm);
+
+  float objectMaskEroded = pow(occlusion, 10.0);
+
+  float occlusionTransition = clamp(occlusion * (2.0 - objectMaskEroded), 0.0, 1.0);
+
+  float kMaxOcclusion = 1.0;
+  occlusionTransition = min(occlusionTransition, kMaxOcclusion);
+
+  color = color * (1.0 - occlusion);
+}
+`;
+
+const FRAGMENT_SHADER_MULTI_DEPTH_ENTRY = `
+#define VIEW_ID gl_ViewID_OVR
+#define SideBySideMultiplier 1.0
+` + FRAGMENT_SHADER_DEPTH_COMMON;
+
+
+const FRAGMENT_SHADER_DEPTH_ENTRY = `
+uniform uint VIEW_ID;
+#define SideBySideMultiplier 1.0
+` + FRAGMENT_SHADER_DEPTH_COMMON;
 
 function isPowerOfTwo(n) {
   return (n & (n - 1)) === 0;
@@ -534,7 +679,7 @@ class RenderMaterial {
 }
 
 export class Renderer {
-  constructor(gl, multiview) {
+  constructor(gl, multiview, multisampledMultiview, useDepth) {
     this._gl = gl || createWebGLContext();
     this._frameId = 0;
     this._programCache = {};
@@ -553,11 +698,51 @@ export class Renderer {
     this._globalLightColor = vec3.clone(DEF_LIGHT_COLOR);
     this._globalLightDir = vec3.clone(DEF_LIGHT_DIR);
 
-    this._multiview = multiview;
+    this._mv_ext = gl.getExtension('OVR_multiview2');
+
+    this._multiview = multiview && this._mv_ext;
+    this._multisampledMultiview = multisampledMultiview;
+    this._useDepth = useDepth;
   }
 
   get gl() {
     return this._gl;
+  }
+
+  get multiview() {
+    return this._multiview;
+  }
+
+  get multisampledMultiview() {
+    return this._multisampledMultiview && this._multiview;
+  }
+
+  get multiviewExtension() {
+    return this._mv_ext;
+  }
+
+  get xrFramebuffer() {
+    if (!this._xrFramebuffer) {
+      this._xrFramebuffer = this._gl.createFramebuffer();
+    }
+
+    return this._xrFramebuffer;
+  }
+
+  getXrBinding(session) {
+    if (this._xrBindingSession != session) {
+      this._xrBinding = new XRWebGLBinding(session, this._gl);
+      this._xrBindingSession = session;
+    }
+
+    return this._xrBinding;
+  }
+
+  get maxSamples() {
+    if (!this._maxSamples) {
+      this._maxSamples = this._gl.getParameter(this._gl.MAX_SAMPLES);
+    }
+    return this._maxSamples;
   }
 
   set globalLightColor(value) {
@@ -633,7 +818,7 @@ export class Renderer {
     return meshNode;
   }
 
-  drawViews(views, rootNode) {
+  drawViews(views, rootNode, depthData) {
     if (!rootNode) {
       return;
     }
@@ -669,7 +854,7 @@ export class Renderer {
     // Draw each set of render primitives in order
     for (let renderPrimitives of this._renderPrimitives) {
       if (renderPrimitives && renderPrimitives.length) {
-        this._drawRenderPrimitiveSet(views, renderPrimitives);
+        this._drawRenderPrimitiveSet(views, renderPrimitives, depthData);
       }
     }
 
@@ -685,7 +870,7 @@ export class Renderer {
     }
   }
 
-  _drawRenderPrimitiveSet(views, renderPrimitives) {
+  _drawRenderPrimitiveSet(views, renderPrimitives, depthData) {
     let gl = this._gl;
     let program = null;
     let material = null;
@@ -714,21 +899,10 @@ export class Renderer {
         }
 
         if (views.length == 1) {
-          if (!this._multiview) {
-            gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
-            gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, views[0].viewMatrix);
-            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
-            gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
-          } else {
-            let vp = views[0].viewport;
-            gl.viewport(vp.x, vp.y, vp.width, vp.height);
-            gl.uniformMatrix4fv(program.uniform.LEFT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
-            gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
-            gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
-            gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
-            gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
-            gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
-          }
+          gl.uniformMatrix4fv(program.uniform.PROJECTION_MATRIX, false, views[0].projectionMatrix);
+          gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, views[0].viewMatrix);
+          gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[0]);
+          gl.uniform1i(program.uniform.EYE_INDEX, views[0].eyeIndex);
         }
       }
 
@@ -758,25 +932,12 @@ export class Renderer {
             let vp = view.viewport;
             gl.viewport(vp.x, vp.y, vp.width, vp.height);
           }
-          if (this._multiview) {
+          if (this.multiview) {
             if (i == 0) {
               gl.uniformMatrix4fv(program.uniform.LEFT_PROJECTION_MATRIX, false, views[0].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.LEFT_VIEW_MATRIX, false, views[0].viewMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_PROJECTION_MATRIX, false, views[1].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_VIEW_MATRIX, false, views[1].viewMatrix);
-
-              // for older browser that don't support projectionMatrix and transform on the depth data
-              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, views[0].projectionMatrix);
-              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, views[0].viewMatrix);
-              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].projectionMatrix);
-              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].viewMatrix);
-
-              if (view.depthdata && views[0].depthdata.projectionMatrix) {
-                gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, views[0].depthdata.projectionMatrix);
-                gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, views[0].depthdata.transform.inverse.matrix);
-                gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].depthdata.projectionMatrix);
-                gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].depthdata.transform.inverse.matrix);
-              }
             }
             // TODO(AB): modify shaders which use CAMERA_POSITION and EYE_INDEX to work with Multiview
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
@@ -786,6 +947,29 @@ export class Renderer {
             gl.uniformMatrix4fv(program.uniform.VIEW_MATRIX, false, view.viewMatrix);
             gl.uniform3fv(program.uniform.CAMERA_POSITION, this._cameraPositions[i]);
             gl.uniform1i(program.uniform.EYE_INDEX, view.eyeIndex);
+
+            if (depthData && depthData.length) {
+              gl.uniform1ui(program.uniform.VIEW_ID, i);
+            }
+          }
+          if ((i == 0) && depthData && depthData.length) {
+            // for older browser that don't support projectionMatrix and transform on the depth data
+            gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, views[0].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, views[0].viewMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].projectionMatrix);
+            gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].viewMatrix);
+
+            if (depthData[0].projectionMatrix) {
+              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, depthData[0].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, depthData[0].transform.inverse.matrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, depthData[1].projectionMatrix);
+              gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, depthData[1].transform.inverse.matrix);
+
+              // Bind the depth texture to the slot after the material samplers
+              gl.activeTexture(gl.TEXTURE0 + material._samplers.length);
+              gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthData[0].texture);
+              gl.uniform1i(program.uniform.depthColor, material._samplers.length);
+            }
           }
         }
 
@@ -803,7 +987,7 @@ export class Renderer {
             gl.drawArrays(primitive._mode, 0, primitive._elementCount);
           }
         }
-        if (this._multiview) {
+        if (this.multiview) {
           break;
         }
       }
@@ -903,11 +1087,10 @@ export class Renderer {
   }
 
   _getMaterialProgram(material, renderPrimitive) {
-    const multiview = this._multiview;
     let materialName = material.materialName;
     material.useDepth = this.useDepth;
-    let vertexSource = (!multiview) ? material.vertexSource : material.vertexSourceMultiview;
-    let fragmentSource = (!multiview) ? material.fragmentSource : material.fragmentSourceMultiview;
+    let vertexSource = material.vertexSource;
+    let fragmentSource = material.fragmentSource;
 
     // These should always be defined for every material
     if (materialName == null) {
@@ -923,21 +1106,35 @@ export class Renderer {
     let defines = material.getProgramDefines(renderPrimitive);
     let key = this._getProgramKey(materialName, defines);
 
+    let extensions = [];
+    let layouts = [];
+    if (this.multiview) {
+      extensions = ['GL_OVR_multiview2'];
+      layouts = ['num_views=2'];
+    }
+
     if (key in this._programCache) {
       return this._programCache[key];
     } else {
       let fullVertexSource = vertexSource;
-      fullVertexSource += multiview ? VERTEX_SHADER_MULTI_ENTRY :
-                                      VERTEX_SHADER_SINGLE_ENTRY;
+      if (this._useDepth) {
+        fullVertexSource += this.multiview ? VERTEX_SHADER_MULTI_DEPTH_ENTRY : VERTEX_SHADER_DEPTH_ENTRY;
+      } else {
+        fullVertexSource += this.multiview ? VERTEX_SHADER_MULTI_ENTRY : VERTEX_SHADER_ENTRY;
+      }
 
       let precisionMatch = fragmentSource.match(PRECISION_REGEX);
       let fragPrecisionHeader = precisionMatch ? '' : `precision ${this._defaultFragPrecision} float;\n`;
 
       let fullFragmentSource = fragPrecisionHeader + fragmentSource;
-      fullFragmentSource += multiview ? FRAGMENT_SHADER_MULTI_ENTRY :
-                                        FRAGMENT_SHADER_ENTRY
 
-      let program = new Program(this._gl, fullVertexSource, fullFragmentSource, ATTRIB, defines);
+      if (this._useDepth) {
+        fullFragmentSource += this.multiview ? FRAGMENT_SHADER_MULTI_DEPTH_ENTRY : FRAGMENT_SHADER_DEPTH_ENTRY;
+      } else {
+        fullFragmentSource += this.multiview ? FRAGMENT_SHADER_MULTI_ENTRY : FRAGMENT_SHADER_ENTRY
+      }
+
+      let program = new Program(this._gl, fullVertexSource, fullFragmentSource, ATTRIB, defines, extensions, layouts);
       this._programCache[key] = program;
 
       program.onNextUse((program) => {
