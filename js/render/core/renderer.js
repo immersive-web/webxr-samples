@@ -85,7 +85,11 @@ const VERTEX_SHADER_MULTI_DEPTH_ENTRY = `
 uniform mat4 LEFT_PROJECTION_MATRIX, LEFT_VIEW_MATRIX, RIGHT_PROJECTION_MATRIX, RIGHT_VIEW_MATRIX, MODEL_MATRIX;
 out vec4 vWorldPosition;
 
-const mat4 identity = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+const mat4 identity = mat4(
+  1, 0, 0, 0,
+  0, 1, 0, 0,
+  0, 0, 1, 0,
+  0, 0, 0, 1);
 
 void main() {
   vWorldPosition = vertex_main(identity, identity, MODEL_MATRIX);
@@ -100,7 +104,12 @@ const VERTEX_SHADER_DEPTH_ENTRY = `
 uniform mat4 PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX;
 out vec4 vWorldPosition;
 
-const mat4 identity = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+const mat4 identity = mat4(
+  1, 0, 0, 0,
+  0, 1, 0, 0,
+  0, 0, 1, 0,
+  0, 0, 0, 1);
+
 void main() {
   vWorldPosition = vertex_main(identity, identity, MODEL_MATRIX);
   gl_Position = vertex_main(PROJECTION_MATRIX, VIEW_MATRIX, MODEL_MATRIX);
@@ -111,13 +120,14 @@ const FRAGMENT_SHADER_DEPTH_COMMON = `
 precision highp float;
 precision highp sampler2DArray;
 uniform sampler2DArray depthColor;
+uniform float rawValueToMeters;
 out vec4 color;
 in vec4 vWorldPosition;
 uniform mat4 LEFT_DEPTH_PROJECTION_MATRIX, LEFT_DEPTH_VIEW_MATRIX, RIGHT_DEPTH_PROJECTION_MATRIX, RIGHT_DEPTH_VIEW_MATRIX;
 
 float Depth_GetCameraDepthInMillimeters(const sampler2DArray depthTexture,
   const vec2 depthUv) {
-  return texture(depthColor, vec3(depthUv.x, depthUv.y, VIEW_ID)).r * 1000.0;
+  return texture(depthColor, vec3(depthUv.x, depthUv.y, VIEW_ID)).r * 1000.0 * rawValueToMeters;
 }
 
 float Depth_GetOcclusion(const sampler2DArray depthTexture, const vec2 depthUv, float assetDepthMm) {
@@ -195,7 +205,7 @@ void main() {
     return;
   }
 
-  float assetDepthMm = gl_FragCoord.z * 1000.0;
+  float assetDepthMm = gl_FragCoord.z * 1000.0 * rawValueToMeters;
 
   float occlusion = Depth_GetBlurredOcclusionAroundUV(depthColor, depthPositionHC, assetDepthMm);
 
@@ -959,17 +969,18 @@ export class Renderer {
             gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, views[1].projectionMatrix);
             gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, views[1].viewMatrix);
 
+            gl.uniform1f(program.uniform.rawValueToMeters, depthData[0].rawValueToMeters);
+
             if (depthData[0].projectionMatrix) {
               gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_PROJECTION_MATRIX, false, depthData[0].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.LEFT_DEPTH_VIEW_MATRIX, false, depthData[0].transform.inverse.matrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_PROJECTION_MATRIX, false, depthData[1].projectionMatrix);
               gl.uniformMatrix4fv(program.uniform.RIGHT_DEPTH_VIEW_MATRIX, false, depthData[1].transform.inverse.matrix);
-
-              // Bind the depth texture to the slot after the material samplers
-              gl.activeTexture(gl.TEXTURE0 + material._samplers.length);
-              gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthData[0].texture);
-              gl.uniform1i(program.uniform.depthColor, material._samplers.length);
             }
+            // Bind the depth texture to the slot after the material samplers
+            gl.activeTexture(gl.TEXTURE0 + material._samplers.length);
+            gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthData[0].texture);
+            gl.uniform1i(program.uniform.depthColor, material._samplers.length);
           }
         }
 
