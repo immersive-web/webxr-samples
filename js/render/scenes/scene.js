@@ -241,6 +241,7 @@ export class Scene extends Node {
     let xrlayer = session.renderState.baseLayer;
     let views = [];
 
+    // If there is no base layer, we know that we're dealing with xr layers
     if (!xrlayer) {
       xrlayer = layer ? layer : session.renderState.layers[0];
       gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.xrFramebuffer);
