@@ -178,10 +178,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       initGL();
 
       if (session.isImmersive) {
-        renderer = new Renderer(gl, true /* multiview */);
-
-        scene.setRenderer(renderer);
-
+        renderer = new Renderer(gl, true /* multiview */, do_antialias.checked);
 
         xrFramebuffer = gl.createFramebuffer();
         xrGLFactory = new XRWebGLBinding(session, gl);
@@ -191,13 +188,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         session.updateRenderState({ layers: [layer] });
       } else {
-        renderer = new Renderer(gl, false /* multiview */);
-
-        scene.setRenderer(renderer);
+        renderer = new Renderer(gl);     
 
         let glLayer = new XRWebGLLayer(session, gl);
         session.updateRenderState({ baseLayer: glLayer });
       }
+      scene.setRenderer(renderer);
 
       let refSpaceType = session.isImmersive ? 'local' : 'viewer';
       session.requestReferenceSpace(refSpaceType).then((refSpace) => {
@@ -221,6 +217,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       if (event.session.isImmersive) {
         xrButton.setSession(null);
       }
+      renderer = new Renderer(gl);
+      scene.setRenderer(renderer);
     }
 
     function onXRFrame(t, frame) {
@@ -234,58 +232,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       session.requestAnimationFrame(onXRFrame);
 
-      if (pose) {
-        let glLayer = null;
-
-        if (session.isImmersive) {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-        } else {
-          glLayer = session.renderState.baseLayer;
-          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-          gl.disable(gl.SCISSOR_TEST);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        }
-
-        let views = [];
-        for (let view of pose.views) {
-          let viewport = null;
-          if (session.isImmersive) {
-            glLayer = xrGLFactory.getViewSubImage(session.renderState.layers[0], view);
-            viewport = glLayer.viewport;
-            glLayer.framebuffer = xrFramebuffer;
-            gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-            if (views.length == 0) { // for multiview we need to set fbo only once
-              if (!is_multisampled_supported || !do_antialias.checked)
-                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, 0, 2);
-              else
-                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, glLayer.colorTexture, 0, samples, 0, 2);
-
-              if (glLayer.depthStencilTexture === null) {
-                if (depthStencilTex === null) {
-                  console.log("MaxViews = " + gl.getParameter(mv_ext.MAX_VIEWS_OVR));
-                  depthStencilTex = gl.createTexture();
-                  gl.bindTexture(gl.TEXTURE_2D_ARRAY, depthStencilTex);
-                  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT24, viewport.width, viewport.height, 2);
-                }
-              } else {
-                depthStencilTex = glLayer.depthStencilTexture;
-              }
-              if (!is_multisampled_supported || !do_antialias.checked)
-                mv_ext.framebufferTextureMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, 0, 2);
-              else
-                mv_ext.framebufferTextureMultisampleMultiviewOVR(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, depthStencilTex, 0, samples, 0, 2);
-
-              gl.disable(gl.SCISSOR_TEST);
-              gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            }
-          } else {
-            viewport = glLayer.getViewport(view);
-          }
-          views.push(new WebXRView(view, glLayer, viewport));
-        }
-
-        scene.drawViewArray(views);
-      }
+      scene.drawXRFrame(frame, pose);
 
       scene.endFrame();
     }

@@ -19,16 +19,32 @@
 // SOFTWARE.
 
 export class Program {
-  constructor(gl, vertSrc, fragSrc, attribMap, defines) {
+  constructor(gl, vertSrc, fragSrc, attribMap, defines, extensions, layouts) {
     this._gl = gl;
     this.program = gl.createProgram();
     this.attrib = null;
     this.uniform = null;
     this.defines = {};
+    this.extensions = [];
+    this.layouts = [];
 
     this._firstUse = true;
     this._nextUseCallbacks = [];
 
+    let extensionsString = '';
+    if (extensions) {
+      for (let extension of extensions) {
+        this.extensions.push(extension);
+        extensionsString += `#extension ${extension} : require\n`;
+      }
+    }
+    let layoutsString = '';
+    if (layouts) {
+      for (let layout of layouts) {
+        this.layouts.push(layout);
+        layoutsString += `layout(${layout}) in;\n`;
+      }
+    }
     let definesString = '';
     if (defines) {
       for (let define in defines) {
@@ -39,12 +55,12 @@ export class Program {
 
     this._vertShader = gl.createShader(gl.VERTEX_SHADER);
     gl.attachShader(this.program, this._vertShader);
-    gl.shaderSource(this._vertShader, definesString + vertSrc);
+    gl.shaderSource(this._vertShader, '#version 300 es\n' + extensionsString + layoutsString + definesString + vertSrc);
     gl.compileShader(this._vertShader);
 
     this._fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.attachShader(this.program, this._fragShader);
-    gl.shaderSource(this._fragShader, definesString + fragSrc);
+    gl.shaderSource(this._fragShader, '#version 300 es\n' + extensionsString + definesString + fragSrc);
     gl.compileShader(this._fragShader);
 
     if (attribMap) {

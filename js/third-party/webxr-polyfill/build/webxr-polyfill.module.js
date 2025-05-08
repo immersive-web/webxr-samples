@@ -2390,7 +2390,7 @@ function WGLUPreserveGLState(gl, bindings, callback) {
 }
 var glPreserveState = WGLUPreserveGLState;
 var distortionVS = ['attribute vec2 position;', 'attribute vec3 texCoord;', 'varying vec2 vTexCoord;', 'uniform vec4 viewportOffsetScale[2];', 'void main() {', '  vec4 viewport = viewportOffsetScale[int(texCoord.z)];', '  vTexCoord = (texCoord.xy * viewport.zw) + viewport.xy;', '  gl_Position = vec4( position, 1.0, 1.0 );', '}'].join('\n');
-var distortionFS = ['precision mediump float;', 'uniform sampler2D diffuse;', 'varying vec2 vTexCoord;', 'void main() {', '  gl_FragColor = texture2D(diffuse, vTexCoord);', '}'].join('\n');
+var distortionFS = ['precision mediump float;', 'uniform sampler2D diffuse;', 'varying vec2 vTexCoord;', 'void main() {', '  gl_FragColor = texture(diffuse, vTexCoord);', '}'].join('\n');
 function CardboardDistorter(gl, cardboardUI, bufferScale, dirtySubmitFrameBindings) {
   this.gl = gl;
   this.cardboardUI = cardboardUI;

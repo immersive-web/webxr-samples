@@ -270,7 +270,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function onXRFrame(time, frame) {
-      let pose = frame.getViewerPose(xrRefSpace);
       xrSession.requestAnimationFrame(onXRFrame);
 
       if (cubeLayer && cubeLayer.needsRedraw) {
@@ -286,24 +285,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
         }
       }
-
-      if (pose) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-        scene.updateInputSources(frame, xrRefSpace);
-
-        let views = [];
-        for (let view of pose.views) {
-          let viewport = null;
-          let glLayer = xrGLFactory.getViewSubImage(projLayer, view);
-          glLayer.framebuffer = xrFramebuffer;
-          viewport = glLayer.viewport;
-          gl.bindFramebuffer(gl.FRAMEBUFFER, xrFramebuffer);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glLayer.colorTexture, 0);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, glLayer.depthStencilTexture, 0);
-          views.push(new WebXRView(view, glLayer, viewport));
-        }
-        scene.drawViewArray(views);
-      }
+      
+      let pose = frame.getViewerPose(xrRefSpace);
+      scene.updateInputSources(frame, xrRefSpace);
+      scene.drawXRFrame(frame, pose, projLayer, undefined);
       scene.endFrame();
     }
 

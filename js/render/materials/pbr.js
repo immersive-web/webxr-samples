@@ -22,26 +22,26 @@ import {Material} from '../core/material.js';
 import {ATTRIB_MASK} from '../core/renderer.js';
 
 const VERTEX_SOURCE = `
-attribute vec3 POSITION, NORMAL;
-attribute vec2 TEXCOORD_0, TEXCOORD_1;
+in vec3 POSITION, NORMAL;
+in vec2 TEXCOORD_0, TEXCOORD_1;
 
 uniform vec3 CAMERA_POSITION;
 uniform vec3 LIGHT_DIRECTION;
 
-varying vec3 vLight; // Vector from vertex to light.
-varying vec3 vView; // Vector from vertex to camera.
-varying vec2 vTex;
+out vec3 vLight; // Vector from vertex to light.
+out vec3 vView; // Vector from vertex to camera.
+out vec2 vTex;
 
 #ifdef USE_NORMAL_MAP
-attribute vec4 TANGENT;
-varying mat3 vTBN;
+in vec4 TANGENT;
+out mat3 vTBN;
 #else
-varying vec3 vNorm;
+out vec3 vNorm;
 #endif
 
 #ifdef USE_VERTEX_COLOR
-attribute vec4 COLOR_0;
-varying vec4 vCol;
+in vec4 COLOR_0;
+out vec4 vCol;
 #endif
 
 vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
@@ -100,19 +100,19 @@ uniform vec4 baseColorFactor;
 uniform sampler2D baseColorTex;
 #endif
 
-varying vec3 vLight;
-varying vec3 vView;
-varying vec2 vTex;
+in vec3 vLight;
+in vec3 vView;
+in vec2 vTex;
 
 #ifdef USE_VERTEX_COLOR
-varying vec4 vCol;
+in vec4 vCol;
 #endif
 
 #ifdef USE_NORMAL_MAP
 uniform sampler2D normalTex;
-varying mat3 vTBN;
+in mat3 vTBN;
 #else
-varying vec3 vNorm;
+in vec3 vNorm;
 #endif
 
 #ifdef USE_METAL_ROUGH_MAP
@@ -139,7 +139,7 @@ ${EPIC_PBR_FUNCTIONS}
 
 vec4 fragment_main() {
 #ifdef USE_BASE_COLOR_MAP
-  vec4 baseColor = texture2D(baseColorTex, vTex) * baseColorFactor;
+  vec4 baseColor = texture(baseColorTex, vTex) * baseColorFactor;
 #else
   vec4 baseColor = baseColorFactor;
 #endif
@@ -149,7 +149,7 @@ vec4 fragment_main() {
 #endif
 
 #ifdef USE_NORMAL_MAP
-  vec3 n = texture2D(normalTex, vTex).rgb;
+  vec3 n = texture(normalTex, vTex).rgb;
   n = normalize(vTBN * (2.0 * n - 1.0));
 #else
   vec3 n = normalize(vNorm);
@@ -164,7 +164,7 @@ vec4 fragment_main() {
   float roughness = metallicRoughnessFactor.y;
 
 #ifdef USE_METAL_ROUGH_MAP
-  vec4 metallicRoughness = texture2D(metallicRoughnessTex, vTex);
+  vec4 metallicRoughness = texture(metallicRoughnessTex, vTex);
   metallic *= metallicRoughness.b;
   roughness *= metallicRoughness.g;
 #endif
@@ -197,13 +197,13 @@ vec4 fragment_main() {
   vec3 color = (halfLambert * LIGHT_COLOR * lambertDiffuse(cDiff)) + specular;
 
 #ifdef USE_OCCLUSION
-  float occlusion = texture2D(occlusionTex, vTex).r;
+  float occlusion = texture(occlusionTex, vTex).r;
   color = mix(color, color * occlusion, occlusionStrength);
 #endif
   
   vec3 emissive = emissiveFactor;
 #ifdef USE_EMISSIVE_TEXTURE
-  emissive *= texture2D(emissiveTex, vTex).rgb;
+  emissive *= texture(emissiveTex, vTex).rgb;
 #endif
   color += emissive;
 

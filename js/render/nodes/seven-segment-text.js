@@ -36,7 +36,7 @@ class SevenSegmentMaterial extends Material {
 
   get vertexSource() {
     return `
-    attribute vec2 POSITION;
+    in vec2 POSITION;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       return proj * view * model * vec4(POSITION, 0.0, 1.0);
@@ -46,10 +46,10 @@ class SevenSegmentMaterial extends Material {
   get fragmentSource() {
     return `
     precision mediump float;
-    const vec4 color = vec4(0.0, 1.0, 0.0, 1.0);
+    const vec4 fragColor = vec4(0.0, 1.0, 0.0, 1.0);
 
     vec4 fragment_main() {
-      return color;
+      return fragColor;
     }`;
   }
 }

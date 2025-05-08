@@ -48,9 +48,9 @@ class VideoMaterial extends Material {
     return `
     uniform int EYE_INDEX;
     uniform vec4 texCoordScaleOffset[2];
-    attribute vec3 POSITION;
-    attribute vec2 TEXCOORD_0;
-    varying vec2 vTexCoord;
+    in vec3 POSITION;
+    in vec2 TEXCOORD_0;
+    out vec2 vTexCoord;
 
     vec4 vertex_main(mat4 proj, mat4 view, mat4 model) {
       vec4 scaleOffset = texCoordScaleOffset[EYE_INDEX];
@@ -63,10 +63,10 @@ class VideoMaterial extends Material {
   get fragmentSource() {
     return `
     uniform sampler2D diffuse;
-    varying vec2 vTexCoord;
+    in vec2 vTexCoord;
 
     vec4 fragment_main() {
-      return texture2D(diffuse, vTexCoord);
+      return texture(diffuse, vTexCoord);
     }`;
   }
 }
