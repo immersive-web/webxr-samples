@@ -55,7 +55,9 @@ export class Gltf2Node extends Node {
       this._resolver = null;
       this._rejecter = null;
     }).catch((err) => {
-      this._rejecter(err);
+      if (this._rejecter) {
+        this._rejecter(err);
+      }
       this._resolver = null;
       this._rejecter = null;
     });
