@@ -63,7 +63,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // This sample will create an offscreen canvas for WebGL rather than
           // the usual canvas Dom element.
           let offscreenCanvas = new OffscreenCanvas(16, 16);
-          return offscreenCanvas.getContext('webgl', {
+          return offscreenCanvas.getContext('webgl2', {
             xrCompatible: true
           });
         }

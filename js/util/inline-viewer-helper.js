@@ -40,7 +40,9 @@ export class InlineViewerHelper {
 
     this.dirty = false;
 
-    canvas.style.cursor = 'grab';
+    if (canvas.style) {
+      canvas.style.cursor = 'grab';
+    }
 
     canvas.addEventListener('mousemove', (event) => {
       // Only rotate when the left button is pressed
