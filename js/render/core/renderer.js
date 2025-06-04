@@ -123,6 +123,8 @@ uniform sampler2DArray depthColor;
 uniform float rawValueToMeters;
 out vec4 color;
 in vec4 vWorldPosition;
+uniform bool sortDepth;
+
 uniform mat4 LEFT_DEPTH_PROJECTION_MATRIX, LEFT_DEPTH_VIEW_MATRIX, RIGHT_DEPTH_PROJECTION_MATRIX, RIGHT_DEPTH_VIEW_MATRIX;
 
 float Depth_GetCameraDepthInMillimeters(const sampler2DArray depthTexture,
@@ -202,6 +204,10 @@ void main() {
   color = fragment_main();
   if (color.a == 0.0) {
     // There's no sense in calculating occlusion for a fully transparent pixel.
+    return;
+  }
+
+  if (!sortDepth) {
     return;
   }
 
@@ -961,6 +967,9 @@ export class Renderer {
             if (depthData && depthData.length) {
               gl.uniform1ui(program.uniform.VIEW_ID, i);
             }
+          }
+          if (depthData) {
+            gl.uniform1i(program.uniform.sortDepth, depthData.length > 0);
           }
           if ((i == 0) && depthData && depthData.length) {
             // for older browser that don't support projectionMatrix and transform on the depth data
