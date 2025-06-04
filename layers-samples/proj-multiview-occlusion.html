@@ -163,11 +163,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 
     function onSelectStart(ev) {
-      ev.frame.session.pauseDepthSensing()
-    }
-
-    function onSelectEnd(ev) {
-      ev.frame.session.resumeDepthSensing()
+      let session = ev.frame.session;
+      session.depthActive ? session.pauseDepthSensing() : session.resumeDepthSensing();
     }
 
     function onSessionStarted(session) {
@@ -175,7 +172,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       session.addEventListener('visibilitychange', onVisibilityChange);
 
       session.addEventListener('selectstart', onSelectStart);
-      session.addEventListener('selectend', onSelectEnd);
 
       initGL();
 
