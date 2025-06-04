@@ -162,9 +162,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         + event.session.visibilityState);
     }
 
+    function onSelectStart(ev) {
+      ev.frame.session.pauseDepthSensing()
+    }
+
+    function onSelectEnd(ev) {
+      ev.frame.session.resumeDepthSensing()
+    }
+
     function onSessionStarted(session) {
       session.addEventListener('end', onSessionEnded);
       session.addEventListener('visibilitychange', onVisibilityChange);
+
+      session.addEventListener('selectstart', onSelectStart);
+      session.addEventListener('selectend', onSelectEnd);
 
       initGL();
 
