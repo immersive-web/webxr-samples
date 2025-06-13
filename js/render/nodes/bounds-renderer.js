@@ -62,7 +62,7 @@ class BoundsMaterial extends Material {
   get fragmentSource() {
     return `
     precision mediump float;
-    out vec3 v_pos;
+    in vec3 v_pos;
     vec4 fragment_main() {
       return vec4(0.25, 1.0, 0.5, (${BOUNDS_HEIGHT} - v_pos.y) / ${BOUNDS_HEIGHT});
     }`;
