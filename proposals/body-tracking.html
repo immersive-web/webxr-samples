@@ -49,12 +49,14 @@
     import { BoxLineGeometry } from 'three/addons/geometries/BoxLineGeometry.js';
     import { WebXRButton } from '../js/util/webxr-button.js';
     import { hitTest, filterHitTestResults } from '../js/hit-test.js';
+    import { mat4 } from '../js/render/math/gl-matrix.js';
 
     let arButton = null;
     let vrButton = null;
     let camera, scene, renderer;
     let room, spheres, skeleton;
     const scalehand = new THREE.Matrix4().makeScale(3, 3, 3);
+    let positions = new Float32Array(16 * 83);
 
     const jointHierarchy = {
       'spine-lower': 'spine-middle',
@@ -216,20 +218,22 @@
           }
 
           let i = 0;
+          let position = [];
           const matrix = new THREE.Matrix4();
+          const scaledMatrix = new THREE.Matrix4();
           let space = renderer.xr.getReferenceSpace();
+          frame.fillPoses(body.values(), space, positions);
           body.forEach(part => {
-            const pose = frame.getPose(part, space);
-            const position = pose.transform.position;
+            matrix.fromArray(positions.slice(i * 16, (i + 1) * 16));
 
             if (!part.jointName.includes("hand")) {
-              matrix.copy(scalehand);
+              scaledMatrix.makeScale(3, 3, 3);
             } else {
-              matrix.identity();
+              -             scaledMatrix.identity();
             }
+            scaledMatrix.copyPosition(matrix);
 
-            matrix.setPosition(position.x, position.y, position.z);
-            spheres.setMatrixAt(i++, matrix);
+            spheres.setMatrixAt(i++, scaledMatrix);
           });
 
           i = 0;
