@@ -21,7 +21,7 @@
 import {CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc} from './material.js';
 import {Node} from './node.js';
 import {Program} from './program.js';
-import {DataTexture, ExternalTexture, VideoTexture} from './texture.js';
+import {ArrayTexture, Custom2DTexture, DataTexture, ExternalTexture, VideoTexture} from './texture.js';
 import {mat4, vec3} from '../math/gl-matrix.js';
 
 export const ATTRIB = {
@@ -1042,19 +1042,31 @@ export class Renderer {
       let renderTexture = new RenderTexture(textureHandle);
       this._textureCache[key] = renderTexture;
 
+      const target = texture instanceof ArrayTexture ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D;
+
       if (texture instanceof ExternalTexture) {
         renderTexture._isExternalTexture = true;
+      } else if (texture instanceof ArrayTexture) {
+        gl.bindTexture(target, textureHandle);
+        gl.texStorage3D(target, 1, gl.RGBA8, texture.width, texture.height, texture.depth);
+        this._setSamplerParameters(texture, target);
+        renderTexture._complete = true;
+      } else if (texture instanceof Custom2DTexture) {
+          gl.bindTexture(target, textureHandle);
+          gl.texStorage2D(target, 1, gl.RGBA8, texture.width, texture.height);
+          this._setSamplerParameters(texture, target);
+          renderTexture._complete = true;
       } else if (texture instanceof DataTexture) {
         gl.bindTexture(gl.TEXTURE_2D, textureHandle);
         gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height,
                                      0, texture.format, texture._type, texture._data);
-        this._setSamplerParameters(texture);
+        this._setSamplerParameters(texture, target);
         renderTexture._complete = true;
       } else {
         texture.waitForComplete().then(() => {
           gl.bindTexture(gl.TEXTURE_2D, textureHandle);
           gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, gl.UNSIGNED_BYTE, texture.source);
-          this._setSamplerParameters(texture);
+          this._setSamplerParameters(texture, target);
           renderTexture._complete = true;
 
           if (texture instanceof VideoTexture) {
@@ -1076,24 +1088,24 @@ export class Renderer {
     }
   }
 
-  _setSamplerParameters(texture) {
+  _setSamplerParameters(texture, target) {
     let gl = this._gl;
 
     let sampler = texture.sampler;
     let powerOfTwo = isPowerOfTwo(texture.width) && isPowerOfTwo(texture.height);
     let mipmap = powerOfTwo && texture.mipmap;
     if (mipmap) {
-      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.generateMipmap(target);
     }
 
     let minFilter = sampler.minFilter || (mipmap ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
     let wrapS = sampler.wrapS || (powerOfTwo ? gl.REPEAT : gl.CLAMP_TO_EDGE);
     let wrapT = sampler.wrapT || (powerOfTwo ? gl.REPEAT : gl.CLAMP_TO_EDGE);
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, sampler.magFilter || gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+    gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, sampler.magFilter || gl.LINEAR);
+    gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, minFilter);
+    gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrapS);
+    gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrapT);
   }
 
   _getProgramKey(name, defines) {
