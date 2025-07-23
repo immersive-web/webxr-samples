@@ -47,23 +47,72 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p>Click 'Enter XR' to see content</p> 
     </main>
     <script type="module">
+      import {mat4, vec3, quat} from './js/render/math/gl-matrix.js';
+
       import {WebXRButton} from './js/util/webxr-button.js';
+      import { Node } from './js/render/core/node.js';
+      import {ArrayTexture, Custom2DTexture} from './js/render/core/texture.js';
+
       import {Scene} from './js/render/scenes/scene.js';
       import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
       import {Gltf2Node} from './js/render/nodes/gltf2.js';
       import {SkyboxNode} from './js/render/nodes/skybox.js';
       import {QueryArgs} from './js/util/query-args.js';
+      import {BoxBuilder} from './js/render/geometry/box-builder.js';
+      import {PbrMaterial} from './js/render/materials/pbr.js';
 
       // If requested, use the polyfill to provide support for mobile devices
       // and devices which only support WebVR.
-      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
-      if (QueryArgs.getBool('usePolyfill', true)) {
-        let polyfill = new WebXRPolyfill();
+      // import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      // if (QueryArgs.getBool('usePolyfill', true)) {
+      //   // let polyfill = new WebXRPolyfill();
+      // }
+
+      function rand(min, max) {
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function randomColorString() {
+          const r = rand(50, 255);
+          const g = rand(50, 255);
+          const b = rand(50, 255);
+          return `rgb(${r},${g},${b})`;
       }
 
       // XR globals.
       let xrButton = null;
       let xrRefSpace = null;
+
+      /* @test: 2d canvas setup */
+
+      const test = {
+        multipleUpload: true,
+        multipleTextures: false,
+        useMultipleCanvases: false,
+        useTexture2D: false,
+        canvasSize: [512, 512],
+        atlasSize: 1024,
+        layers: 1
+      };
+
+      const textures = new Array(2)
+        .fill()
+        .map(_ => {
+            if(test.useTexture2D) {
+                return new Custom2DTexture(test.atlasSize, test.atlasSize);
+            }
+            return new ArrayTexture(test.atlasSize, test.atlasSize, test.layers);
+        });
+
+      const canvases = new Array(2)
+        .fill()
+        .map(_ => {
+          const canvas = document.createElement('canvas');
+          canvas.width = test.canvasSize[0];
+          canvas.height = test.canvasSize[1];
+          canvas.style.background = '#FF0000';
+          return canvas;
+        });
 
       // WebGL scene globals.
       let gl = null;
@@ -71,6 +120,86 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let scene = new Scene();
       scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
       scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+      const boxMaterial = new PbrMaterial();
+      boxMaterial.baseColorFactor.value = [1.0, 1.0, 1.0, 1.0];
+      boxMaterial.baseColor.texture = textures[0];
+      boxMaterial.arrayLayer.value = 5.0;
+
+      function uploadTextureLayer(texture, layer, img, offsets = [0, 0]) {
+          const textureGL = renderer._getRenderTexture(texture);
+          if(test.useTexture2D) {
+            gl.bindTexture(gl.TEXTURE_2D, textureGL._texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texSubImage2D(
+                gl.TEXTURE_2D,
+                0,
+                offsets[0],
+                offsets[1],
+                img.width,
+                img.height,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                img
+            );
+          } else {
+            gl.bindTexture(gl.TEXTURE_2D_ARRAY, textureGL._texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texSubImage3D(
+                gl.TEXTURE_2D_ARRAY,
+                0,
+                offsets[0],
+                offsets[1],
+                layer,
+                img.width,
+                img.height,
+                1,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                img
+            );
+          }
+      }
+
+      function updateCanvas(canvas) {
+          const ctx = canvas.getContext('2d');
+          const numSquares = 30;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          for (let i = 0; i < numSquares; i++) {
+              const size = rand(30, 150);
+              const x = rand(0, canvas.width - size);
+              const y = rand(0, canvas.height - size);
+              ctx.fillStyle = randomColorString();
+              ctx.fillRect(x, y, size, size);
+          }
+      }
+
+      function initCanvasTexture() {
+          const boxBuilder = new BoxBuilder();
+          boxBuilder.pushCube([0, 0, 0], 5.0);
+          const boxPrimitive = boxBuilder.finishPrimitive(renderer);
+
+          const boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+          const node = new Node();
+          node.addRenderPrimitive(boxRenderPrimitive);
+          mat4.translate(node.matrix, node.matrix, [-10, 0, -10]);
+
+          scene.addNode(node);
+
+          const canvas = canvases[0];
+          const ctx = canvas.getContext('2d');
+          for(let layer = 0; layer < test.layers; ++layer) {
+            const r = Math.floor(layer*25);
+            ctx.fillStyle = `rgb(${r},${0},${0})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            uploadTextureLayer(textures[0], layer, canvas);
+
+            if(test.multipleTextures) {
+              ctx.fillStyle = `rgb(${0},${r},${0})`;
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              uploadTextureLayer(textures[1], layer, canvas);
+            }
+          }
+      }
 
       // Checks to see if WebXR is available and, if so, queries a list of
       // XRDevices that are connected to the system.
@@ -101,7 +230,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       // Called when we've successfully acquired a XRSession. In response we
       // will set up the necessary session state and kick off the frame loop.
-      function onSessionStarted(session) {
+      async function onSessionStarted(session) {
         // This informs the 'Enter XR' button that the session has started and
         // that it should display 'Exit XR' instead.
         xrButton.setSession(session);
@@ -113,8 +242,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Create a WebGL context to render with, initialized to be compatible
         // with the XRDisplay we're presenting to.
         gl = createWebGLContext({
-          xrCompatible: true
+            "alpha": true,
+            "depth": true,
+            "stencil": true,
+            "antialias": true,
+            "premultipliedAlpha": false,
+            "preserveDrawingBuffer": false,
+            "powerPreference": "default",
+            "failIfMajorPerformanceCaveat": false,
+            "majorVersion": 2,
+            "minorVersion": 0,
+            "enableExtensionsByDefault": 1,
+            "explicitSwapControl": 0,
+            "proxyContextToMainThread": 0,
+            "renderViaOffscreenBackBuffer": 0
         });
+        await gl.makeXRCompatible();
 
         // Create a renderer with that GL context (this is just for the samples
         // framework and has nothing to do with WebXR specifically.)
@@ -137,6 +280,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           // Inform the session that we're ready to begin drawing.
           session.requestAnimationFrame(onXRFrame);
         });
+
+        /* @test */
+        initCanvasTexture(renderer);
       }
 
       // Called when the user clicks the 'Exit XR' button. In response we end
@@ -157,12 +303,43 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         renderer = null;
       }
 
+      let currentLayerToUpdate = 0;
+
       // Called every time the XRSession requests that a new frame be drawn.
       function onXRFrame(t, frame) {
         let session = frame.session;
 
         // Per-frame scene setup. Nothing WebXR specific here.
         scene.startFrame();
+
+        /* Upload canvas to texture */
+
+        updateCanvas(canvases[0]);
+        if(test.useMultipleCanvases) {
+            updateCanvas(canvases[1]);
+        }
+
+        let currentTexture = textures[0];
+        let nextTexture = textures[0];
+        if(test.multipleTextures) {
+            nextTexture = textures[1];
+            if (boxMaterial.baseColor.texture === textures[0]) {
+              currentTexture = textures[1];
+              nextTexture = textures[0];
+            }
+        }
+        boxMaterial.baseColor.texture = currentTexture;
+
+        // console.log(`Drawing to image ${nextTexture.textureKey}, displaying image ${boxMaterial.baseColor.texture.textureKey}`);
+
+        uploadTextureLayer(nextTexture, currentLayerToUpdate++, canvases[0]);
+        currentLayerToUpdate = currentLayerToUpdate%test.layers;
+        if(test.multipleUpload) {
+          const canvas = test.useMultipleCanvases ? canvases[1] : canvases[0];
+          const offsets = [canvas.width*0.5, canvas.height*0.5];
+          uploadTextureLayer(nextTexture, currentLayerToUpdate, canvas, offsets);
+          currentLayerToUpdate = currentLayerToUpdate%test.layers;
+        }
 
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
