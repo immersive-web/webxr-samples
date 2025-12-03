@@ -217,7 +217,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             continue;
           }
           const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
-          anchoredObject.matrix = anchorPose.transform.matrix;
+          if (anchorPose) {
+            anchoredObject.matrix = anchorPose.transform.matrix;
+          }
         }
 
         scene.startFrame();
