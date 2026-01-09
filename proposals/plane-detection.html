@@ -141,11 +141,12 @@
         gridTexture.wrapS = THREE.RepeatWrapping;
         gridTexture.wrapT = THREE.RepeatWrapping;
 
-        const createPlaneMaterial = (params) => 
+        const createPlaneMaterial = (params) =>
           new THREE.MeshBasicMaterial(Object.assign(params, {
             map: gridTexture,
             opacity: 0.5,
             transparent: true,
+            side: THREE.DoubleSide,
           }));
         planeMaterials.push(createPlaneMaterial({color: 0xff0000}));
         planeMaterials.push(createPlaneMaterial({color: 0x00ff00}));
@@ -329,13 +330,13 @@
               }
             } else {
               // new plane
-              
+
               // Create geometry:
               const geometry = createGeometryFromPolygon(plane.polygon);
               planeMesh = new THREE.Mesh(geometry,
                 planeMaterials[planeId % planeMaterials.length]
               );
-              
+
               planeMesh.matrixAutoUpdate = false;
 
               scene.add(planeMesh);
