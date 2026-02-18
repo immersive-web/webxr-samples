@@ -20,6 +20,7 @@
 
 import {Material} from '../core/material.js';
 import {ATTRIB_MASK} from '../core/renderer.js';
+import { ArrayTexture } from '../core/texture.js';
 
 const VERTEX_SOURCE = `
 in vec3 POSITION, NORMAL;
@@ -100,6 +101,11 @@ uniform vec4 baseColorFactor;
 uniform sampler2D baseColorTex;
 #endif
 
+#ifdef USE_BASE_COLOR_MAP_ARRAY
+uniform mediump sampler2DArray baseColorTexArray;
+uniform float arrayLayer;
+#endif
+
 in vec3 vLight;
 in vec3 vView;
 in vec2 vTex;
@@ -138,10 +144,12 @@ const vec3 black = vec3(0.0);
 ${EPIC_PBR_FUNCTIONS}
 
 vec4 fragment_main() {
-#ifdef USE_BASE_COLOR_MAP
-  vec4 baseColor = texture(baseColorTex, vTex) * baseColorFactor;
-#else
   vec4 baseColor = baseColorFactor;
+#ifdef USE_BASE_COLOR_MAP
+  baseColor *= texture(baseColorTex, vTex);
+#endif
+#ifdef USE_BASE_COLOR_MAP_ARRAY
+  baseColor *= textureLod(baseColorTexArray, vec3(vTex, arrayLayer), 0.0);
 #endif
 
 #ifdef USE_VERTEX_COLOR
@@ -223,6 +231,8 @@ export class PbrMaterial extends Material {
     this.occlusion = this.defineSampler('occlusionTex');
     this.emissive = this.defineSampler('emissiveTex');
 
+    this.arrayLayer = this.defineUniform('arrayLayer', 0);
+
     this.baseColorFactor = this.defineUniform('baseColorFactor', [1.0, 1.0, 1.0, 1.0]);
     this.metallicRoughnessFactor = this.defineUniform('metallicRoughnessFactor', [1.0, 1.0]);
     this.occlusionStrength = this.defineUniform('occlusionStrength', 1.0);
@@ -249,7 +259,9 @@ export class PbrMaterial extends Material {
     }
 
     if (renderPrimitive._attributeMask & ATTRIB_MASK.TEXCOORD_0) {
-      if (this.baseColor.texture) {
+      if (this.baseColor.texture instanceof ArrayTexture) {
+        programDefines['USE_BASE_COLOR_MAP_ARRAY'] = 1;
+      } else if(this.baseColor.texture) {
         programDefines['USE_BASE_COLOR_MAP'] = 1;
       }
 
