@@ -44,6 +44,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p id="mv-status"></p>
       <input type="checkbox" id="do_antialias" checked>antialias</input>
       <input type="checkbox" id="do_multiview" checked>use multiview</input>
+      <input type="checkbox" id="do_reprojection">webgl based reprojection</input>
     </details>
   </header>
   <script type="module">
@@ -57,6 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // XR globals.
     let do_antialias = document.getElementById('do_antialias');
     let do_multiview = document.getElementById('do_multiview');
+    let do_reprojection = document.getElementById('do_reprojection');
     let xrButton = null;
     let xrImmersiveRefSpace = null;
     let inlineViewerHelper = null;
@@ -147,7 +149,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           depthSensing: {
             usagePreference: ["gpu-optimized"],
             dataFormatPreference: ["unsigned-short"],
-            matchDepthView: false
+            matchDepthView: !do_reprojection
           }}).then((session) => {
         xrButton.setSession(session);
         session.isImmersive = true;
