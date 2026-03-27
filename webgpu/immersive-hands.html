@@ -1,0 +1,398 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+  <link rel='stylesheet' href='../css/common.css'>
+
+  <title>Immersive Session with hands (WebGPU)</title>
+</head>
+
+<body>
+  <header>
+    <details open>
+      <summary>Immersive VR Session with hands (WebGPU)</summary>
+      <p>
+        This sample demonstrates a simple VR session that shows the user's hands
+        using WebGPU rendering. If your device supports this feature, you will
+        see your hands using a set of cubes. Each cube represents a joint in
+        your hand.
+        <a class="back" href="./">Back</a>
+      </p>
+      <label><input type='checkbox' id='trackedSources' checked> Request tracked-sources</label>
+    </details>
+  </header>
+  <main style='text-align: center;'>
+    <p>Click 'Enter XR' to see content</p>
+  </main>
+  <script type="module">
+    import {WebXRButton} from '../js/util/webxr-button.js';
+    import {GPUScene} from '../js/render/scenes/scene-gpu.js';
+    import {GPURenderer, createWebGPUContext} from '../js/render/core/renderer-gpu.js';
+    import {Node} from '../js/render/core/node.js';
+    import {Gltf2GPUNode} from '../js/render/nodes/gltf2-gpu.js';
+    import {SkyboxGPUNode} from '../js/render/nodes/skybox-gpu.js';
+    import {BoxBuilder} from '../js/render/geometry/box-builder.js';
+    import {PbrGPUMaterial} from '../js/render/materials/pbr-gpu.js';
+    import {mat4} from '../js/render/math/gl-matrix.js';
+    import {vec3} from '../js/render/math/gl-matrix.js';
+
+    // XR globals.
+    let xrButton = null;
+    let xrRefSpace = null;
+    let isAR = false;
+    let radii = new Float32Array(25);
+    let positions = new Float32Array(16*25);
+
+    // WebGPU globals.
+    let device = null;
+    let renderer = null;
+    let binding = null;
+    let layer = null;
+
+    // Boxes
+    let boxes_left = [];
+    let boxes_right = [];
+    let boxes_none = [];
+    let tracked_boxes_left = [];
+    let tracked_boxes_right = [];
+    let tracked_boxes_none = [];
+    let boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
+    let indexFingerBoxes = { input_left: null, input_right: null, tracked_left: null, tracked_right: null };
+    const defaultBoxColor = {r: 0.5, g: 0.5, b: 0.5};
+    const leftBoxColor = {r: 1, g: 0, b: 1};
+    const rightBoxColor = {r: 0, g: 1, b: 1};
+    let interactionBox = null;
+    let leftInteractionBox = null;
+    let rightInteractionBox = null;
+
+    // Scene globals.
+    let scene = new GPUScene();
+    scene.addNode(new Gltf2GPUNode({url: '../media/gltf/space/space.gltf'}));
+    scene.addNode(new SkyboxGPUNode({url: '../media/textures/milky-way-4k.png'}));
+    scene.enableStats(true);
+    scene.standingStats(true);
+
+    function createBoxPrimitive(r, g, b) {
+      let boxBuilder = new BoxBuilder();
+      boxBuilder.pushCube([0, 0, 0], 1);
+      let boxPrimitive = boxBuilder.finishPrimitiveGPU(renderer);
+      let boxMaterial = new PbrGPUMaterial();
+      boxMaterial.baseColorFactor.value = [r, g, b, 1];
+      boxMaterial.metallicRoughnessFactor.value = [0.0, 0.8];
+      return renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+    }
+
+    function addBox(x, y, z, r, g, b, offset) {
+      let boxRenderPrimitive = createBoxPrimitive(r, g, b);
+      let boxNode = new Node();
+      boxNode.addRenderPrimitive(boxRenderPrimitive);
+      boxNode.selectable = true;
+      return boxNode;
+    }
+
+    function initHands() {
+      for (const box of boxes_left) {
+        scene.removeNode(box);
+      }
+      for (const box of boxes_right) {
+        scene.removeNode(box);
+      }
+      boxes_left = [];
+      boxes_right = [];
+      boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
+      if (typeof XRHand !== 'undefined') {
+        for (let i = 0; i <= 24; i++) {
+          const r = .6 + Math.random() * .4;
+          const g = .6 + Math.random() * .4;
+          const b = .6 + Math.random() * .4;
+          boxes_left.push(addBox(0, 0, 0, r, g, b));
+          boxes_right.push(addBox(0, 0, 0, r, g, b));
+          tracked_boxes_left.push(addBox(0, 0, 0, r, g, b));
+          tracked_boxes_right.push(addBox(0, 0, 0, r, g, b));
+        }
+      }
+      if (indexFingerBoxes.input_left) {
+        scene.removeNode(indexFingerBoxes.left);
+      }
+      if (indexFingerBoxes.input_right) {
+        scene.removeNode(indexFingerBoxes.input_right);
+      }
+      if (indexFingerBoxes.tracked_left) {
+        scene.removeNode(indexFingerBoxes.tracked_left);
+      }
+      if (indexFingerBoxes.tracked_right) {
+        scene.removeNode(indexFingerBoxes.tracked_right);
+      }
+      indexFingerBoxes.input_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+      indexFingerBoxes.input_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+      indexFingerBoxes.tracked_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+      indexFingerBoxes.tracked_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+    }
+
+    async function initXR() {
+      if (!navigator.gpu) {
+        console.error('WebGPU is not supported.');
+        return;
+      }
+
+      // Initialize WebGPU device early.
+      device = await createWebGPUContext({xrCompatible: true});
+      if (!device) {
+        return;
+      }
+
+      xrButton = new WebXRButton({
+        onRequestSession: onRequestSession,
+        onEndSession: onEndSession
+      });
+      document.querySelector('header').appendChild(xrButton.domElement);
+
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          if (supported)
+            xrButton.enabled = supported;
+          else
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              isAR = true;
+              xrButton.enabled = supported;
+            });
+        });
+      }
+    }
+
+    function onRequestSession() {
+      let optionalFeatures = ['local-floor', 'bounded-floor', 'hand-tracking'];
+      if (document.getElementById('trackedSources').checked) {
+        optionalFeatures.push('tracked-sources');
+      }
+      return navigator.xr.requestSession(isAR ? 'immersive-ar' : 'immersive-vr', {
+        requiredFeatures: ['webgpu'],
+        optionalFeatures,
+      }).then(onSessionStarted);
+    }
+
+    function onSessionStarted(session) {
+      xrButton.setSession(session);
+
+      session.addEventListener('end', onSessionEnded);
+      session.addEventListener('inputsourceschange', onInputSourcesChange);
+      session.addEventListener('trackedsourceschange', onInputSourcesChange);
+
+      session.addEventListener('visibilitychange', e => {
+        if(e.session.visibilityState === 'visible-blurred') {
+          for (const box of boxes['input_left']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['input_right']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['tracked_left']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['tracked_right']) {
+            scene.removeNode(box);
+          }
+        }
+      });
+
+      // Create the XRGPUBinding.
+      binding = new XRGPUBinding(session, device);
+
+      let colorFormat = binding.getPreferredColorFormat();
+
+      layer = binding.createProjectionLayer({
+        colorFormat: colorFormat,
+        depthStencilFormat: 'depth24plus',
+      });
+
+      session.updateRenderState({ layers: [layer] });
+
+      renderer = new GPURenderer(device, colorFormat);
+
+      initHands();
+
+      scene.setRenderer(renderer);
+
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: 0, z: 0 }));
+        session.requestAnimationFrame(onXRFrame);
+      });
+    }
+
+    function onEndSession(session) {
+      session.end();
+    }
+
+    function onSessionEnded(event) {
+      xrButton.setSession(null);
+      binding = null;
+      layer = null;
+      renderer = null;
+    }
+
+    function onInputSourcesChange(event) {
+      onSourcesChange(event, "input_");
+    }
+
+    function onTrackedSourcesChange(event) {
+      onSourcesChange(event, "tracked_");
+    }
+
+    function onSourcesChange(event, type) {
+      }
+
+    function updateInputSources(session, frame, refSpace) {
+      updateSources(session, frame, refSpace, session.inputSources, "input_");
+    }
+
+    function updateTrackedSources(session, frame, refSpace) {
+      if (session.trackedSources) {
+        updateSources(session, frame, refSpace, session.trackedSources, "tracked_");
+      }
+    }
+
+    function updateSources(session, frame, refSpace, sources, type) {
+      if(session.visibilityState === 'visible-blurred') {
+        return;
+      }
+      for (let inputSource of sources) {
+        let hand_type = type + inputSource.handedness;
+        let offset = 0;
+        if (!inputSource.hand) {
+          for (const box of boxes[hand_type]) {
+            scene.removeNode(box);
+          }
+          scene.removeNode(indexFingerBoxes[hand_type]);
+
+          continue;
+        } else {
+          let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
+          if (pose === undefined) {
+            console.log("no pose");
+          }
+
+          if (!frame.fillJointRadii(inputSource.hand.values(), radii)) {
+            console.log("no fillJointRadii");
+            continue;
+          }
+          if (!frame.fillPoses(inputSource.hand.values(), refSpace, positions)) {
+            console.log("no fillPoses");
+            continue;
+          }
+          for (const box of boxes[hand_type]) {
+            scene.addNode(box);
+            let matrix = positions.slice(offset * 16, (offset + 1) * 16);
+            let jointRadius = radii[offset];
+            offset++;
+            mat4.getTranslation(box.translation, matrix);
+            mat4.getRotation(box.rotation, matrix);
+            box.scale = [jointRadius, jointRadius, jointRadius];
+          }
+
+          // Render a special box for each index finger on each hand
+          const indexFingerBox = indexFingerBoxes[hand_type];
+          scene.addNode(indexFingerBox);
+          let joint = inputSource.hand.get('index-finger-tip');
+          let jointPose = frame.getJointPose(joint, xrRefSpace);
+          if (jointPose) {
+            let matrix = jointPose.transform.matrix;
+            mat4.getTranslation(indexFingerBox.translation, matrix);
+            mat4.getRotation(indexFingerBox.rotation, matrix);
+            indexFingerBox.scale = [0.02, 0.02, 0.02];
+          }
+        }
+      }
+    }
+
+    function UpdateInteractables(time) {
+      if (!interactionBox) {
+        function AddInteractionBox(r, g, b) {
+          let box = new Node();
+          box.addRenderPrimitive(createBoxPrimitive(r, g, b));
+          box.translation = [0, -0.3, -0.65];
+          box.scale = [0.25, 0.25, 0.25];
+          return box;
+        }
+        interactionBox = AddInteractionBox(defaultBoxColor.r, defaultBoxColor.g, defaultBoxColor.b);
+        leftInteractionBox = AddInteractionBox(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+        rightInteractionBox = AddInteractionBox(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+        scene.addNode(interactionBox);
+        scene.addNode(leftInteractionBox);
+        scene.addNode(rightInteractionBox);
+      }
+
+      function Distance(nodeA, nodeB) {
+        return Math.sqrt(
+          Math.pow(nodeA.translation[0] - nodeB.translation[0], 2) +
+          Math.pow(nodeA.translation[1] - nodeB.translation[1], 2) +
+          Math.pow(nodeA.translation[2] - nodeB.translation[2], 2));
+      }
+
+      const interactionDistance = interactionBox.scale[0];
+      leftInteractionBox.visible = false;
+      rightInteractionBox.visible = false;
+      if (Distance(indexFingerBoxes.input_left, interactionBox) < interactionDistance) {
+        leftInteractionBox.visible = true;
+      } else if (Distance(indexFingerBoxes.input_right, interactionBox) < interactionDistance) {
+        rightInteractionBox.visible = true;
+      }
+      interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
+
+      mat4.rotateX(interactionBox.matrix, interactionBox.matrix, time/1000);
+      mat4.rotateY(interactionBox.matrix, interactionBox.matrix, time/1500);
+      leftInteractionBox.matrix = interactionBox.matrix;
+      rightInteractionBox.matrix = interactionBox.matrix;
+    }
+
+    function onXRFrame(t, frame) {
+      let session = frame.session;
+
+      scene.startFrame();
+
+      session.requestAnimationFrame(onXRFrame);
+
+      updateInputSources(session, frame, xrRefSpace);
+      updateTrackedSources(session, frame, xrRefSpace);
+      UpdateInteractables(t);
+
+      let pose = frame.getViewerPose(xrRefSpace);
+
+      if (pose) {
+        scene.drawXRFrame(frame, pose, binding, layer);
+      }
+
+      scene.endFrame();
+    }
+
+    // Start the XR application.
+    initXR();
+  </script>
+</body>
+
+</html>

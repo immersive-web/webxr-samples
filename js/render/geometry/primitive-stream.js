@@ -210,6 +210,27 @@ export class PrimitiveStream {
 
     return primitive;
   }
+
+  finishPrimitiveGPU(renderer) {
+    if (!this._vertexOffset) {
+      throw new Error(`Attempted to call finishPrimitiveGPU() before creating any geometry.`);
+    }
+
+    let vertexBuffer = renderer.createRenderBuffer(new Float32Array(this._vertices), 'vertex');
+    let indexBuffer = renderer.createRenderBuffer(new Uint16Array(this._indices), 'index');
+
+    let attribs = [
+      new PrimitiveAttribute('POSITION', vertexBuffer, 3, 5126, 32, 0),
+      new PrimitiveAttribute('TEXCOORD_0', vertexBuffer, 2, 5126, 32, 12),
+      new PrimitiveAttribute('NORMAL', vertexBuffer, 3, 5126, 32, 20),
+    ];
+
+    let primitive = new Primitive(attribs, this._indices.length);
+    primitive.setIndexBuffer(indexBuffer);
+    primitive.setBounds(this._min, this._max);
+
+    return primitive;
+  }
 }
 
 export class GeometryBuilderBase {
@@ -231,6 +252,10 @@ export class GeometryBuilderBase {
 
   finishPrimitive(renderer) {
     return this._stream.finishPrimitive(renderer);
+  }
+
+  finishPrimitiveGPU(renderer) {
+    return this._stream.finishPrimitiveGPU(renderer);
   }
 
   clear() {

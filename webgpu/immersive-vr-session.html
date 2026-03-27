@@ -1,0 +1,165 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>Immersive VR Session (WebGPU)</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Immersive VR Session (WebGPU)</summary>
+        <p>
+          This sample demonstrates how to use an 'immersive-vr' XRSession with
+          WebGPU to present a scene to an XR device. The scene is rendered using
+          the WebGPU rendering library with XRGPUBinding and XRProjectionLayer.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>Click 'Enter XR' to see content</p>
+    </main>
+    <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
+      import {GPUScene} from '../js/render/scenes/scene-gpu.js';
+      import {GPURenderer, createWebGPUContext} from '../js/render/core/renderer-gpu.js';
+      import {Gltf2GPUNode} from '../js/render/nodes/gltf2-gpu.js';
+      import {SkyboxGPUNode} from '../js/render/nodes/skybox-gpu.js';
+
+      // XR globals.
+      let xrButton = null;
+      let xrRefSpace = null;
+
+      // WebGPU globals.
+      let device = null;
+      let renderer = null;
+      let binding = null;
+      let layer = null;
+
+      // Scene globals.
+      let scene = new GPUScene();
+      scene.addNode(new Gltf2GPUNode({url: '../media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxGPUNode({url: '../media/textures/milky-way-4k.png'}));
+      scene.enableStats(true);
+      scene.standingStats(true);
+
+      async function initXR() {
+        if (!navigator.gpu) {
+          console.error('WebGPU is not supported.');
+          return;
+        }
+
+        // Initialize WebGPU device early.
+        device = await createWebGPUContext({xrCompatible: true});
+        if (!device) {
+          return;
+        }
+
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        return navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['webgpu'],
+        }).then(onSessionStarted);
+      }
+
+      function onSessionStarted(session) {
+        xrButton.setSession(session);
+
+        session.addEventListener('end', onSessionEnded);
+
+        // Create the XRGPUBinding.
+        binding = new XRGPUBinding(session, device);
+
+        // Get the preferred color format.
+        let colorFormat = binding.getPreferredColorFormat();
+
+        // Create a projection layer.
+        layer = binding.createProjectionLayer({
+          colorFormat: colorFormat,
+          depthStencilFormat: 'depth24plus',
+        });
+
+        // Set the layer on the session.
+        session.updateRenderState({ layers: [layer] });
+
+        // Create the renderer with the matching color format.
+        renderer = new GPURenderer(device, colorFormat);
+        scene.setRenderer(renderer);
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded(event) {
+        xrButton.setSession(null);
+        binding = null;
+        layer = null;
+        renderer = null;
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        if (pose) {
+          scene.drawXRFrame(frame, pose, binding, layer);
+        }
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
+      initXR();
+    </script>
+  </body>
+</html>
