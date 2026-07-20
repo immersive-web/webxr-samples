@@ -46,6 +46,8 @@ SOFTWARE.
         <p>
           <button id='requestTracking' disabled>Request Tracking Permission</button>
           <button id='endSession' disabled>End Session</button>
+          <br>
+          <label><input id='showEyeMarkers' type='checkbox'> Show eye markers</label>
         </p>
         <p id='stereoStatus'>Checking inline session support...</p>
       </details>
@@ -71,6 +73,7 @@ SOFTWARE.
 
       let requestTrackingButton = document.getElementById('requestTracking');
       let endSessionButton = document.getElementById('endSession');
+      let showEyeMarkersCheckbox = document.getElementById('showEyeMarkers');
       let stereoStatus = document.getElementById('stereoStatus');
       let lastStatus = '';
 
@@ -287,7 +290,9 @@ SOFTWARE.
             gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
 
             scene.draw(view.projectionMatrix, view.transform, view.eye);
-            drawEyeMarker(view, viewport);
+            if (showEyeMarkersCheckbox.checked) {
+              drawEyeMarker(view, viewport);
+            }
           }
 
           updateViewStatus(session, viewports);
