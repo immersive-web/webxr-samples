@@ -1,0 +1,309 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+
+    <title>Inline Stereo Session</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Inline Stereo Session</summary>
+        <p>
+          This sample requests an "inline" XRSession with the "inline-stereo"
+          feature and renders every XRView into the viewport provided by
+          getViewport(). It starts without tracking; use the permission button
+          to switch to local tracking.
+          <a class="back" href="./">Back</a>
+        </p>
+        <p>
+          <button id='requestTracking' disabled>Request Tracking Permission</button>
+          <button id='endSession' disabled>End Session</button>
+          <br>
+          <label><input id='showEyeMarkers' type='checkbox'> Show eye markers</label>
+        </p>
+        <p id='stereoStatus'>Checking inline session support...</p>
+      </details>
+    </header>
+    <script type="module">
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+
+      let inlineSession = null;
+      let inlineViewerHelper = null;
+      let xrReferenceSpace = null;
+      let inlineSupported = false;
+      let trackingEnabled = false;
+
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+
+      let requestTrackingButton = document.getElementById('requestTracking');
+      let endSessionButton = document.getElementById('endSession');
+      let showEyeMarkersCheckbox = document.getElementById('showEyeMarkers');
+      let stereoStatus = document.getElementById('stereoStatus');
+      let lastStatus = '';
+
+      function setStatus(message) {
+        if (lastStatus == message) {
+          return;
+        }
+
+        lastStatus = message;
+        stereoStatus.textContent = message;
+      }
+
+      function updateControls(requesting = false) {
+        requestTrackingButton.disabled = requesting || !navigator.xr ||
+            !inlineSupported || trackingEnabled;
+        requestTrackingButton.textContent = trackingEnabled ?
+            'Tracking Permission Granted' :
+            'Request Tracking Permission';
+        endSessionButton.disabled = requesting || !inlineSession;
+      }
+
+      requestTrackingButton.addEventListener('click', () => {
+        startInlineStereoSession(true);
+      });
+      endSessionButton.addEventListener('click', () => {
+        if (inlineSession) {
+          inlineSession.end();
+        }
+      });
+
+      function initXR() {
+        if (!navigator.xr) {
+          setStatus('WebXR unavailable');
+          updateControls();
+          return;
+        }
+
+        navigator.xr.isSessionSupported('inline').then((supported) => {
+          if (!supported) {
+            inlineSupported = false;
+            setStatus('Inline sessions are not supported');
+            updateControls();
+            return;
+          }
+
+          inlineSupported = true;
+          startInlineStereoSession(false);
+        }).catch((error) => {
+          setStatus(`Unable to query inline support: ${error.message}`);
+          updateControls();
+        });
+      }
+
+      async function startInlineStereoSession(withTrackingPermission) {
+        if (!navigator.xr) {
+          setStatus('WebXR unavailable');
+          updateControls();
+          return;
+        }
+        if (!inlineSupported) {
+          setStatus('Inline sessions are not supported');
+          updateControls();
+          return;
+        }
+
+        updateControls(true);
+        setStatus(withTrackingPermission ?
+            'Requesting inline-stereo with local tracking permission...' :
+            'Requesting fixed inline-stereo session...');
+
+        let previousSession = inlineSession;
+
+        try {
+          let requiredFeatures = ['inline-stereo'];
+          if (withTrackingPermission) {
+            requiredFeatures.push('local');
+          }
+
+          let session = await navigator.xr.requestSession('inline', {
+            requiredFeatures
+          });
+          inlineSession = session;
+          trackingEnabled = withTrackingPermission;
+          await onSessionStarted(session, withTrackingPermission);
+          if (previousSession && previousSession != session) {
+            previousSession.end().catch(() => {});
+          }
+        } catch (error) {
+          if (!previousSession) {
+            inlineSession = null;
+            inlineViewerHelper = null;
+            xrReferenceSpace = null;
+            trackingEnabled = false;
+          }
+          setStatus(`Unable to start inline-stereo: ${error.message}`);
+          updateControls();
+        }
+      }
+
+      async function onSessionStarted(session, withTrackingPermission) {
+        session.addEventListener('end', (event) => {
+          if (event.session != inlineSession) {
+            return;
+          }
+
+          inlineSession = null;
+          inlineViewerHelper = null;
+          xrReferenceSpace = null;
+          trackingEnabled = false;
+          setStatus('Inline-stereo session ended');
+          updateControls();
+        });
+
+        if (!gl) {
+          gl = createWebGLContext();
+          if (!gl) {
+            setStatus('WebGL 2 unavailable');
+            session.end();
+            updateControls();
+            return;
+          }
+
+          document.body.appendChild(gl.canvas);
+
+          function onResize() {
+            gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+            gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+          }
+          window.addEventListener('resize', onResize);
+          onResize();
+
+          renderer = new Renderer(gl);
+          scene.setRenderer(renderer);
+        }
+
+        let glLayer = new XRWebGLLayer(session, gl);
+        session.updateRenderState({
+          baseLayer: glLayer
+        });
+
+        try {
+          let refSpaceType = withTrackingPermission ? 'local' : 'viewer';
+          let refSpace = await session.requestReferenceSpace(refSpaceType);
+          xrReferenceSpace = refSpace;
+          inlineViewerHelper = withTrackingPermission ?
+              null :
+              new InlineViewerHelper(gl.canvas, refSpace);
+          session.requestAnimationFrame(onXRFrame);
+          updateControls();
+        } catch (error) {
+          setStatus(`Unable to request reference space: ${error.message}`);
+          session.end();
+          updateControls();
+        }
+      }
+
+      function updateViewStatus(session, viewports) {
+        let enabledFeatures = session.enabledFeatures ?
+            Array.from(session.enabledFeatures).join(', ') :
+            'enabledFeatures unavailable';
+        let mode = trackingEnabled ? 'local tracking' : 'fixed viewer';
+        let views = viewports.map((entry) => {
+          let viewport = entry.viewport;
+          return `${entry.eye}: ${viewport.width}x${viewport.height} @ ${viewport.x},${viewport.y}`;
+        }).join('; ');
+
+        setStatus(`Mode: ${mode} | Features: ${enabledFeatures || '(none)'} | Views: ${views}`);
+      }
+
+      function drawEyeMarker(view, viewport) {
+        let markerHeight = Math.max(4, Math.floor(viewport.height * 0.035));
+        let y = viewport.y + viewport.height - markerHeight;
+
+        if (view.eye == 'left') {
+          gl.clearColor(0.0, 0.45, 1.0, 1.0);
+        } else if (view.eye == 'right') {
+          gl.clearColor(1.0, 0.18, 0.65, 1.0);
+        } else {
+          gl.clearColor(0.3, 0.9, 0.35, 1.0);
+        }
+
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(viewport.x, y, viewport.width, markerHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.SCISSOR_TEST);
+      }
+
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        if (session != inlineSession || !xrReferenceSpace) {
+          return;
+        }
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.startFrame();
+
+        let refSpace = trackingEnabled ?
+            xrReferenceSpace :
+            inlineViewerHelper.referenceSpace;
+        let pose = frame.getViewerPose(refSpace);
+
+        if (pose) {
+          let glLayer = session.renderState.baseLayer;
+          let viewports = [];
+
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+          for (let view of pose.views) {
+            let viewport = glLayer.getViewport(view);
+            viewports.push({eye: view.eye, viewport});
+            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+
+            scene.draw(view.projectionMatrix, view.transform, view.eye);
+            if (showEyeMarkersCheckbox.checked) {
+              drawEyeMarker(view, viewport);
+            }
+          }
+
+          updateViewStatus(session, viewports);
+        } else {
+          setStatus('Waiting for viewer pose...');
+        }
+
+        scene.endFrame();
+      }
+
+      initXR();
+    </script>
+  </body>
+</html>
