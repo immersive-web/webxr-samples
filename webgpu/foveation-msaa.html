@@ -1,0 +1,749 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>WebGPU Foveation and MSAA</title>
+    <style>
+      .controls {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1rem;
+        margin-top: 0.75rem;
+      }
+
+      .controls label {
+        align-items: center;
+        display: inline-flex;
+        gap: 0.35rem;
+      }
+
+      #status {
+        display: block;
+        margin-top: 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>WebGPU Foveation and MSAA</summary>
+        <p>
+          This sample renders a WebGPU XR projection layer with maximum fixed
+          foveation and 4x MSAA resolve into the XR color texture.
+          The scene uses thin radial spokes to make the foveation pattern
+          easier to see.
+          <a class="back" href="./">Back</a>
+        </p>
+        <div class="controls">
+          <button id="xr-button" class="barebones-button" disabled>WebXR or WebGPU not supported</button>
+          <label>
+            <input id="use-view-instancing" type="checkbox" disabled>
+            View instancing
+          </label>
+        </div>
+        <small id="status">Initializing...</small>
+      </details>
+    </header>
+
+    <script type="module">
+      const MAX_VIEWS = 2;
+      const FIXED_FOVEATION = 1.0;
+      const SAMPLE_COUNT = 4;
+      const UNIFORM_FLOATS_PER_VIEW = 64;
+      const UNIFORM_BYTES_PER_VIEW =
+          Float32Array.BYTES_PER_ELEMENT * UNIFORM_FLOATS_PER_VIEW;
+      const VIEW_INSTANCING_UNIFORM_FLOATS_PER_VIEW = 4;
+      const VIEW_INSTANCING_UNIFORM_BYTES =
+          Float32Array.BYTES_PER_ELEMENT *
+          VIEW_INSTANCING_UNIFORM_FLOATS_PER_VIEW * MAX_VIEWS;
+
+      const VIEW_INSTANCING_FEATURES = [
+        {feature: 'view-instancing', wgslEnable: 'view_instancing'},
+        {
+          feature: 'chromium-experimental-multiview',
+          wgslEnable: 'chromium_experimental_multiview',
+        },
+      ];
+
+      const MULTISAMPLED_ARRAY_TEXTURE_FEATURES = [
+        'multisampled-array-textures',
+        'chromium-experimental-multisampled-array-textures',
+      ];
+
+      const SHADER_SRC = `
+        struct Pattern {
+          time: f32,
+          aspect: f32,
+          viewIndex: f32,
+          padding: f32,
+        };
+
+        @group(0) @binding(0) var<uniform> pattern: Pattern;
+
+        struct VertexOut {
+          @builtin(position) position: vec4f,
+          @location(0) uv: vec2f,
+        };
+
+        @vertex
+        fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOut {
+          var positions = array<vec2f, 3>(
+            vec2f(-1.0, -1.0),
+            vec2f( 3.0, -1.0),
+            vec2f(-1.0,  3.0)
+          );
+
+          let position = positions[vertexIndex];
+          var out: VertexOut;
+          out.position = vec4f(position, 0.0, 1.0);
+          out.uv = position * 0.5 + vec2f(0.5);
+          return out;
+        }
+
+        @fragment
+        fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+          let pi = 3.14159265359;
+          let centered = in.uv * 2.0 - vec2f(1.0);
+          let p = vec2f(centered.x * pattern.aspect, centered.y);
+          let radius = length(p);
+          let angle = atan2(p.y, p.x);
+
+          let spokeCount = 96.0;
+          let spokeSignal = abs(sin(angle * spokeCount * 0.5));
+          let spokeAa = max(fwidth(spokeSignal), 0.00075);
+          let spoke = 1.0 - smoothstep(0.0, 0.012 + spokeAa, spokeSignal);
+
+          let radialMask =
+              smoothstep(0.035, 0.075, radius) *
+              (1.0 - smoothstep(1.25, 1.65, radius));
+          let centerDot = 1.0 - smoothstep(0.018, 0.035, radius);
+          let centerRing =
+              1.0 - smoothstep(0.0025, 0.008 + fwidth(radius),
+                                abs(radius - 0.06));
+
+          let colorCycle = 0.5 + 0.5 * cos(
+              vec3f(0.0, 2.0 * pi / 3.0, 4.0 * pi / 3.0) +
+              angle);
+          let lineColor = mix(vec3f(0.92, 0.96, 1.0), colorCycle, 0.35);
+          let lineIntensity = spoke * radialMask;
+          let background = vec3f(0.015, 0.018, 0.026);
+          let color =
+              background +
+              lineColor * lineIntensity * 1.2 +
+              vec3f(1.0, 0.9, 0.65) * max(centerDot, centerRing * 0.65);
+
+          return vec4f(clamp(color, vec3f(0.0), vec3f(1.0)), 1.0);
+        }
+      `;
+
+      function createViewInstancingShaderSource(wgslEnable) {
+        return `
+          enable ${wgslEnable};
+
+          struct Pattern {
+            time: f32,
+            aspect: f32,
+            viewIndex: f32,
+            padding: f32,
+          };
+
+          struct Patterns {
+            views: array<Pattern, 2>,
+          };
+
+          @group(0) @binding(0) var<uniform> patterns: Patterns;
+
+          struct VertexOut {
+            @builtin(position) position: vec4f,
+            @location(0) uv: vec2f,
+            @location(1) @interpolate(flat) viewIndex: u32,
+          };
+
+          @vertex
+          fn vertexMain(
+              @builtin(vertex_index) vertexIndex: u32,
+              @builtin(view_index) rawViewIndex: u32) -> VertexOut {
+            var positions = array<vec2f, 3>(
+              vec2f(-1.0, -1.0),
+              vec2f( 3.0, -1.0),
+              vec2f(-1.0,  3.0)
+            );
+
+            let position = positions[vertexIndex];
+            var out: VertexOut;
+            out.position = vec4f(position, 0.0, 1.0);
+            out.uv = position * 0.5 + vec2f(0.5);
+            out.viewIndex = rawViewIndex;
+            return out;
+          }
+
+          @fragment
+          fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+            let pattern = patterns.views[in.viewIndex];
+            let pi = 3.14159265359;
+            let centered = in.uv * 2.0 - vec2f(1.0);
+            let p = vec2f(centered.x * pattern.aspect, centered.y);
+            let radius = length(p);
+            let angle = atan2(p.y, p.x);
+
+            let spokeCount = 96.0;
+            let spokeSignal = abs(sin(angle * spokeCount * 0.5));
+            let spokeAa = max(fwidth(spokeSignal), 0.00075);
+            let spoke = 1.0 - smoothstep(0.0, 0.012 + spokeAa, spokeSignal);
+
+            let radialMask =
+                smoothstep(0.035, 0.075, radius) *
+                (1.0 - smoothstep(1.25, 1.65, radius));
+            let centerDot = 1.0 - smoothstep(0.018, 0.035, radius);
+            let centerRing =
+                1.0 - smoothstep(0.0025, 0.008 + fwidth(radius),
+                                  abs(radius - 0.06));
+
+            let colorCycle = 0.5 + 0.5 * cos(
+                vec3f(0.0, 2.0 * pi / 3.0, 4.0 * pi / 3.0) +
+                angle);
+            let lineColor = mix(vec3f(0.92, 0.96, 1.0), colorCycle, 0.35);
+            let lineIntensity = spoke * radialMask;
+            let background = vec3f(0.015, 0.018, 0.026);
+            let color =
+                background +
+                lineColor * lineIntensity * 1.2 +
+                vec3f(1.0, 0.9, 0.65) * max(centerDot, centerRing * 0.65);
+
+            return vec4f(clamp(color, vec3f(0.0), vec3f(1.0)), 1.0);
+          }
+        `;
+      }
+
+      const xrButton = document.getElementById('xr-button');
+      const useViewInstancing = document.getElementById('use-view-instancing');
+      const status = document.getElementById('status');
+
+      let gpuDevice = null;
+      let gpuPipeline = null;
+      let gpuUniformBuffer = null;
+      let gpuUniformArray = new Float32Array(UNIFORM_FLOATS_PER_VIEW * MAX_VIEWS);
+      let gpuViewInstancingUniformBuffer = null;
+      let gpuViewInstancingUniformArray =
+          new Float32Array(VIEW_INSTANCING_UNIFORM_FLOATS_PER_VIEW * MAX_VIEWS);
+      let gpuBindGroupLayout = null;
+      let gpuViewInstancingBindGroupLayout = null;
+      let gpuBindGroups = [];
+      let gpuViewInstancingBindGroup = null;
+      let webgpuCapabilities = {
+        viewInstancing: null,
+        multisampledArrayTextures: null,
+      };
+
+      let xrSession = null;
+      let xrRefSpace = null;
+      let xrGpuBinding = null;
+      let projectionLayer = null;
+      let viewInstancingEnabled = false;
+      let colorFormat = null;
+      const depthStencilFormat = 'depth24plus';
+
+      let msaaColorTexture = null;
+      let msaaDepthTexture = null;
+      let msaaWidth = 0;
+      let msaaHeight = 0;
+      let msaaLayers = 0;
+
+      function setStatus(text) {
+        status.textContent = text;
+      }
+
+      function getSupportedGPUFeature(features, candidates) {
+        for (const candidate of candidates) {
+          const feature =
+              typeof candidate == 'string' ? candidate : candidate.feature;
+          if (features && features.has(feature)) {
+            return candidate;
+          }
+        }
+        return null;
+      }
+
+      function canUseViewInstancing() {
+        if (!gpuDevice || !webgpuCapabilities.viewInstancing) {
+          return false;
+        }
+
+        const maxViewCount = 'maxViewInstanceCount' in gpuDevice.limits ?
+            gpuDevice.limits.maxViewInstanceCount :
+            MAX_VIEWS;
+        return maxViewCount >= MAX_VIEWS;
+      }
+
+      function canUseViewInstancingWithMsaa() {
+        if (!canUseViewInstancing()) {
+          return false;
+        }
+        return !!webgpuCapabilities.multisampledArrayTextures;
+      }
+
+      function updateFeatureControls() {
+        const canViewInstanceWithMsaa = canUseViewInstancingWithMsaa();
+        useViewInstancing.disabled =
+            !!xrSession || !canViewInstanceWithMsaa;
+        if (!canViewInstanceWithMsaa && !xrSession) {
+          useViewInstancing.checked = false;
+        }
+        if (useViewInstancing.checked &&
+            !canViewInstanceWithMsaa) {
+          setStatus('View instancing MSAA needs multisampled array texture support.');
+        }
+      }
+
+      function transientAttachmentUsage() {
+        let usage = GPUTextureUsage.RENDER_ATTACHMENT;
+        if ('TRANSIENT_ATTACHMENT' in GPUTextureUsage) {
+          usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
+        }
+        return usage;
+      }
+
+      function createPipeline() {
+        if (!gpuDevice || !colorFormat || !gpuBindGroupLayout ||
+            !gpuViewInstancingBindGroupLayout) {
+          return;
+        }
+
+        const viewInstancing =
+            viewInstancingEnabled && canUseViewInstancingWithMsaa();
+        const shaderSource = viewInstancing ?
+            createViewInstancingShaderSource(
+                webgpuCapabilities.viewInstancing.wgslEnable) :
+            SHADER_SRC;
+        const shaderModule = gpuDevice.createShaderModule({code: shaderSource});
+
+        gpuPipeline = gpuDevice.createRenderPipeline({
+          layout: gpuDevice.createPipelineLayout({
+            bindGroupLayouts: [
+              viewInstancing ? gpuViewInstancingBindGroupLayout :
+                               gpuBindGroupLayout,
+            ],
+          }),
+          vertex: {
+            module: shaderModule,
+            entryPoint: 'vertexMain',
+          },
+          fragment: {
+            module: shaderModule,
+            entryPoint: 'fragmentMain',
+            targets: [{format: colorFormat}],
+          },
+          depthStencil: {
+            format: depthStencilFormat,
+            depthWriteEnabled: false,
+            depthCompare: 'always',
+          },
+          multisample: {
+            count: SAMPLE_COUNT,
+          },
+        });
+      }
+
+      function destroyTransientTextures() {
+        msaaColorTexture?.destroy();
+        msaaDepthTexture?.destroy();
+        msaaColorTexture = null;
+        msaaDepthTexture = null;
+        msaaWidth = 0;
+        msaaHeight = 0;
+        msaaLayers = 0;
+      }
+
+      function ensureMsaaTargets(width, height, layers = 1) {
+        if (msaaColorTexture &&
+            msaaWidth == width &&
+            msaaHeight == height &&
+            msaaLayers == layers) {
+          return;
+        }
+
+        destroyTransientTextures();
+        msaaWidth = width;
+        msaaHeight = height;
+        msaaLayers = layers;
+        msaaColorTexture = gpuDevice.createTexture({
+          size: {width, height, depthOrArrayLayers: layers},
+          format: colorFormat,
+          sampleCount: SAMPLE_COUNT,
+          usage: transientAttachmentUsage(),
+        });
+        msaaDepthTexture = gpuDevice.createTexture({
+          size: {width, height, depthOrArrayLayers: layers},
+          format: depthStencilFormat,
+          sampleCount: SAMPLE_COUNT,
+          usage: transientAttachmentUsage(),
+        });
+      }
+
+      async function initWebGPU() {
+        const adapter = await navigator.gpu.requestAdapter({xrCompatible: true});
+        if (!adapter) {
+          setStatus('No WebGPU adapter available.');
+          return false;
+        }
+
+        const adapterViewInstancing =
+            getSupportedGPUFeature(adapter.features, VIEW_INSTANCING_FEATURES);
+        const adapterMultisampledArrayTextures =
+            getSupportedGPUFeature(
+                adapter.features,
+                MULTISAMPLED_ARRAY_TEXTURE_FEATURES);
+        const requiredFeatures = [];
+        if (adapterViewInstancing) {
+          requiredFeatures.push(adapterViewInstancing.feature);
+        }
+        if (adapterMultisampledArrayTextures) {
+          requiredFeatures.push(adapterMultisampledArrayTextures);
+        }
+
+        gpuDevice = await adapter.requestDevice(
+            requiredFeatures.length ? {requiredFeatures} : {});
+        webgpuCapabilities.viewInstancing =
+            getSupportedGPUFeature(
+                gpuDevice.features,
+                VIEW_INSTANCING_FEATURES);
+        webgpuCapabilities.multisampledArrayTextures =
+            getSupportedGPUFeature(
+                gpuDevice.features,
+                MULTISAMPLED_ARRAY_TEXTURE_FEATURES);
+        gpuDevice.lost.then((info) => {
+          setStatus(`WebGPU device lost: ${info.message}`);
+        });
+
+        gpuUniformBuffer = gpuDevice.createBuffer({
+          size: UNIFORM_BYTES_PER_VIEW * MAX_VIEWS,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        gpuViewInstancingUniformBuffer = gpuDevice.createBuffer({
+          size: VIEW_INSTANCING_UNIFORM_BYTES,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        gpuBindGroupLayout = gpuDevice.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.FRAGMENT,
+            buffer: {
+              type: 'uniform',
+              minBindingSize: Float32Array.BYTES_PER_ELEMENT * 4,
+            },
+          }],
+        });
+        gpuViewInstancingBindGroupLayout = gpuDevice.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.FRAGMENT,
+            buffer: {
+              type: 'uniform',
+              minBindingSize: VIEW_INSTANCING_UNIFORM_BYTES,
+            },
+          }],
+        });
+
+        for (let i = 0; i < MAX_VIEWS; ++i) {
+          gpuBindGroups.push(gpuDevice.createBindGroup({
+            layout: gpuBindGroupLayout,
+            entries: [{
+              binding: 0,
+              resource: {
+                buffer: gpuUniformBuffer,
+                offset: UNIFORM_BYTES_PER_VIEW * i,
+                size: Float32Array.BYTES_PER_ELEMENT * 4,
+              },
+            }],
+          }));
+        }
+        gpuViewInstancingBindGroup = gpuDevice.createBindGroup({
+          layout: gpuViewInstancingBindGroupLayout,
+          entries: [{
+            binding: 0,
+            resource: {
+              buffer: gpuViewInstancingUniformBuffer,
+              offset: 0,
+              size: VIEW_INSTANCING_UNIFORM_BYTES,
+            },
+          }],
+        });
+        return true;
+      }
+
+      async function initXR() {
+        if (!navigator.xr) {
+          setStatus('WebXR is not supported.');
+          return;
+        }
+        if (!navigator.gpu) {
+          setStatus('WebGPU is not supported.');
+          return;
+        }
+        if (!('XRGPUBinding' in window)) {
+          setStatus('WebXR/WebGPU interop is not supported.');
+          return;
+        }
+        if (!await initWebGPU()) {
+          return;
+        }
+
+        const supported = await navigator.xr.isSessionSupported('immersive-vr');
+        if (!supported) {
+          setStatus('Immersive VR is not supported.');
+          return;
+        }
+
+        xrButton.addEventListener('click', onButtonClicked);
+        xrButton.textContent = 'Enter VR';
+        xrButton.disabled = false;
+        updateFeatureControls();
+        setStatus('Ready.');
+      }
+
+      async function onButtonClicked() {
+        if (xrSession) {
+          xrSession.end();
+          return;
+        }
+
+        const session = await navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['webgpu'],
+          optionalFeatures: ['local-floor'],
+        });
+        await onSessionStarted(session);
+      }
+
+      async function onSessionStarted(session) {
+        xrSession = session;
+        xrButton.textContent = 'Exit VR';
+        setStatus('Starting XR session...');
+        session.addEventListener('end', onSessionEnded);
+        viewInstancingEnabled =
+            useViewInstancing.checked && canUseViewInstancingWithMsaa();
+        updateFeatureControls();
+
+        xrGpuBinding = new XRGPUBinding(session, gpuDevice);
+        colorFormat = xrGpuBinding.getPreferredColorFormat();
+        createPipeline();
+
+        const layerInit = {
+          colorFormat,
+          depthStencilFormat,
+        };
+        if (viewInstancingEnabled) {
+          layerInit.textureType = 'texture-array';
+        }
+        projectionLayer = xrGpuBinding.createProjectionLayer(layerInit);
+        applyMaxFoveation();
+        session.updateRenderState({layers: [projectionLayer]});
+
+        try {
+          xrRefSpace = await session.requestReferenceSpace('local-floor');
+        } catch (e) {
+          xrRefSpace = await session.requestReferenceSpace('local');
+        }
+
+        setStatus('XR session running.');
+        session.requestAnimationFrame(onXRFrame);
+      }
+
+      function onSessionEnded() {
+        xrSession = null;
+        xrRefSpace = null;
+        xrGpuBinding = null;
+        projectionLayer = null;
+        viewInstancingEnabled = false;
+        xrButton.textContent = 'Enter VR';
+        destroyTransientTextures();
+        updateFeatureControls();
+        setStatus('Ready.');
+      }
+
+      function applyMaxFoveation() {
+        if (!projectionLayer) {
+          return;
+        }
+
+        if (!('fixedFoveation' in projectionLayer)) {
+          setStatus('Projection layer fixedFoveation is not supported.');
+          return;
+        }
+
+        try {
+          projectionLayer.fixedFoveation = FIXED_FOVEATION;
+          setStatus('Foveation set to maximum.');
+        } catch (e) {
+          setStatus(`Unable to set foveation: ${e.message}`);
+        }
+      }
+
+      function updateUniformsForView(time, viewIndex, viewport) {
+        const offset = UNIFORM_FLOATS_PER_VIEW * viewIndex;
+        gpuUniformArray[offset] = time * 0.001;
+        gpuUniformArray[offset + 1] = viewport.width / viewport.height;
+        gpuUniformArray[offset + 2] = viewIndex;
+        gpuUniformArray[offset + 3] = 0;
+
+        const viewInstancingOffset =
+            VIEW_INSTANCING_UNIFORM_FLOATS_PER_VIEW * viewIndex;
+        gpuViewInstancingUniformArray[viewInstancingOffset] = time * 0.001;
+        gpuViewInstancingUniformArray[viewInstancingOffset + 1] =
+            viewport.width / viewport.height;
+        gpuViewInstancingUniformArray[viewInstancingOffset + 2] = viewIndex;
+        gpuViewInstancingUniformArray[viewInstancingOffset + 3] = 0;
+      }
+
+      function drawScene(renderPass, viewIndex) {
+        renderPass.setPipeline(gpuPipeline);
+        renderPass.setBindGroup(0, gpuBindGroups[viewIndex]);
+        renderPass.draw(3);
+      }
+
+      function drawViewInstancedScene(renderPass) {
+        renderPass.setPipeline(gpuPipeline);
+        renderPass.setBindGroup(0, gpuViewInstancingBindGroup);
+        renderPass.draw(3);
+      }
+
+      function onXRFrame(time, frame) {
+        const session = frame.session;
+        session.requestAnimationFrame(onXRFrame);
+
+        const pose = frame.getViewerPose(xrRefSpace);
+        if (!pose || !gpuPipeline) {
+          return;
+        }
+
+        const viewStates = [];
+        const commandEncoder = gpuDevice.createCommandEncoder();
+        const useViewInstancingForFrame =
+            viewInstancingEnabled && canUseViewInstancingWithMsaa();
+
+        for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
+          const view = pose.views[viewIndex];
+          const subImage = xrGpuBinding.getViewSubImage(projectionLayer, view);
+          const vp = subImage.viewport;
+          updateUniformsForView(time, viewIndex, vp);
+          viewStates.push({subImage, viewport: vp});
+        }
+
+        gpuDevice.queue.writeBuffer(gpuUniformBuffer, 0, gpuUniformArray);
+        if (useViewInstancingForFrame && viewStates.length > 0) {
+          gpuDevice.queue.writeBuffer(
+              gpuViewInstancingUniformBuffer,
+              0,
+              gpuViewInstancingUniformArray);
+        }
+
+        if (useViewInstancingForFrame && viewStates.length > 0) {
+          const viewCount = Math.min(viewStates.length, MAX_VIEWS);
+          const {subImage, viewport: vp} = viewStates[0];
+          const textureArrayViewDescriptor = {
+            dimension: '2d-array',
+            baseArrayLayer: 0,
+            arrayLayerCount: viewCount,
+          };
+          const colorView =
+              subImage.colorTexture.createView(textureArrayViewDescriptor);
+          ensureMsaaTargets(
+              projectionLayer.textureWidth,
+              projectionLayer.textureHeight,
+              viewCount);
+          const colorAttachment = {
+            view: msaaColorTexture.createView(textureArrayViewDescriptor),
+            resolveTarget: colorView,
+            loadOp: 'clear',
+            storeOp: 'discard',
+            clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+          };
+          const depthView =
+              msaaDepthTexture.createView(textureArrayViewDescriptor);
+
+          const renderPass = commandEncoder.beginRenderPass({
+            colorAttachments: [colorAttachment],
+            depthStencilAttachment: {
+              view: depthView,
+              depthLoadOp: 'clear',
+              depthStoreOp: 'discard',
+              depthClearValue: 1.0,
+            },
+            viewCount,
+          });
+
+          renderPass.setViewport(vp.x, vp.y, vp.width, vp.height, 0.0, 1.0);
+          drawViewInstancedScene(renderPass);
+          renderPass.end();
+
+          gpuDevice.queue.submit([commandEncoder.finish()]);
+          return;
+        }
+
+        for (let viewIndex = 0; viewIndex < viewStates.length; ++viewIndex) {
+          const {subImage, viewport: vp} = viewStates[viewIndex];
+          const viewDescriptor = subImage.getViewDescriptor();
+          const colorView = subImage.colorTexture.createView(viewDescriptor);
+          ensureMsaaTargets(projectionLayer.textureWidth,
+                            projectionLayer.textureHeight);
+          const colorAttachment = {
+            view: msaaColorTexture.createView(),
+            resolveTarget: colorView,
+            loadOp: 'clear',
+            storeOp: 'discard',
+            clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+          };
+          const depthView = msaaDepthTexture.createView();
+
+          const renderPass = commandEncoder.beginRenderPass({
+            colorAttachments: [colorAttachment],
+            depthStencilAttachment: {
+              view: depthView,
+              depthLoadOp: 'clear',
+              depthStoreOp: 'discard',
+              depthClearValue: 1.0,
+            },
+          });
+
+          renderPass.setViewport(vp.x, vp.y, vp.width, vp.height, 0.0, 1.0);
+          drawScene(renderPass, viewIndex);
+          renderPass.end();
+        }
+
+        gpuDevice.queue.submit([commandEncoder.finish()]);
+      }
+
+      useViewInstancing.addEventListener('change', updateFeatureControls);
+
+      initXR();
+    </script>
+  </body>
+</html>
