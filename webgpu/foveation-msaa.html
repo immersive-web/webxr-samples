@@ -45,6 +45,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gap: 0.35rem;
       }
 
+      #foveation-level {
+        width: min(16rem, 55vw);
+      }
+
       #status {
         display: block;
         margin-top: 0.75rem;
@@ -56,14 +60,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <details open>
         <summary>WebGPU Foveation and MSAA</summary>
         <p>
-          This sample renders a WebGPU XR projection layer with maximum fixed
-          foveation and 4x MSAA resolve into the XR color texture.
+          This sample renders a WebGPU XR projection layer with configurable
+          fixed foveation and 4x MSAA resolve into the XR color texture. Both
+          are enabled by default.
           The scene uses thin radial spokes to make the foveation pattern
           easier to see.
           <a class="back" href="./">Back</a>
         </p>
         <div class="controls">
           <button id="xr-button" class="barebones-button" disabled>WebXR or WebGPU not supported</button>
+          <label>
+            <input id="use-foveation" type="checkbox" checked>
+            Foveation
+          </label>
+          <label>
+            Level
+            <input id="foveation-level" type="range" min="0" max="1" value="1" step="0.01">
+            <output id="foveation-value">1.00</output>
+          </label>
+          <label>
+            <input id="use-msaa" type="checkbox" checked>
+            4x MSAA
+          </label>
           <label>
             <input id="use-view-instancing" type="checkbox" disabled>
             View instancing
@@ -75,8 +93,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <script type="module">
       const MAX_VIEWS = 2;
-      const FIXED_FOVEATION = 1.0;
-      const SAMPLE_COUNT = 4;
+      const MSAA_SAMPLE_COUNT = 4;
       const UNIFORM_FLOATS_PER_VIEW = 64;
       const UNIFORM_BYTES_PER_VIEW =
           Float32Array.BYTES_PER_ELEMENT * UNIFORM_FLOATS_PER_VIEW;
@@ -244,6 +261,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       const xrButton = document.getElementById('xr-button');
+      const useFoveation = document.getElementById('use-foveation');
+      const foveationLevel = document.getElementById('foveation-level');
+      const foveationValue = document.getElementById('foveation-value');
+      const useMsaa = document.getElementById('use-msaa');
       const useViewInstancing = document.getElementById('use-view-instancing');
       const status = document.getElementById('status');
 
@@ -281,6 +302,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         status.textContent = text;
       }
 
+      function currentSampleCount() {
+        return useMsaa.checked ? MSAA_SAMPLE_COUNT : 1;
+      }
+
       function getSupportedGPUFeature(features, candidates) {
         for (const candidate of candidates) {
           const feature =
@@ -303,22 +328,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         return maxViewCount >= MAX_VIEWS;
       }
 
-      function canUseViewInstancingWithMsaa() {
+      function canUseViewInstancingWithCurrentMsaa() {
         if (!canUseViewInstancing()) {
           return false;
         }
-        return !!webgpuCapabilities.multisampledArrayTextures;
+        return currentSampleCount() == 1 ||
+            !!webgpuCapabilities.multisampledArrayTextures;
       }
 
       function updateFeatureControls() {
-        const canViewInstanceWithMsaa = canUseViewInstancingWithMsaa();
+        const canViewInstanceWithCurrentMsaa =
+            canUseViewInstancingWithCurrentMsaa();
         useViewInstancing.disabled =
-            !!xrSession || !canViewInstanceWithMsaa;
-        if (!canViewInstanceWithMsaa && !xrSession) {
+            !!xrSession || !canViewInstanceWithCurrentMsaa;
+        if (!canViewInstanceWithCurrentMsaa && !xrSession) {
           useViewInstancing.checked = false;
         }
         if (useViewInstancing.checked &&
-            !canViewInstanceWithMsaa) {
+            !canViewInstanceWithCurrentMsaa) {
           setStatus('View instancing MSAA needs multisampled array texture support.');
         }
       }
@@ -338,7 +365,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         const viewInstancing =
-            viewInstancingEnabled && canUseViewInstancingWithMsaa();
+            viewInstancingEnabled && canUseViewInstancingWithCurrentMsaa();
         const shaderSource = viewInstancing ?
             createViewInstancingShaderSource(
                 webgpuCapabilities.viewInstancing.wgslEnable) :
@@ -367,7 +394,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             depthCompare: 'always',
           },
           multisample: {
-            count: SAMPLE_COUNT,
+            count: currentSampleCount(),
           },
         });
       }
@@ -397,13 +424,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         msaaColorTexture = gpuDevice.createTexture({
           size: {width, height, depthOrArrayLayers: layers},
           format: colorFormat,
-          sampleCount: SAMPLE_COUNT,
+          sampleCount: MSAA_SAMPLE_COUNT,
           usage: transientAttachmentUsage(),
         });
         msaaDepthTexture = gpuDevice.createTexture({
           size: {width, height, depthOrArrayLayers: layers},
           format: depthStencilFormat,
-          sampleCount: SAMPLE_COUNT,
+          sampleCount: MSAA_SAMPLE_COUNT,
           usage: transientAttachmentUsage(),
         });
       }
@@ -549,7 +576,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         setStatus('Starting XR session...');
         session.addEventListener('end', onSessionEnded);
         viewInstancingEnabled =
-            useViewInstancing.checked && canUseViewInstancingWithMsaa();
+            useViewInstancing.checked &&
+            canUseViewInstancingWithCurrentMsaa();
         updateFeatureControls();
 
         xrGpuBinding = new XRGPUBinding(session, gpuDevice);
@@ -564,7 +592,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           layerInit.textureType = 'texture-array';
         }
         projectionLayer = xrGpuBinding.createProjectionLayer(layerInit);
-        applyMaxFoveation();
+        applyFoveationLevel();
         session.updateRenderState({layers: [projectionLayer]});
 
         try {
@@ -589,7 +617,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         setStatus('Ready.');
       }
 
-      function applyMaxFoveation() {
+      function applyFoveationLevel() {
+        foveationValue.value = Number(foveationLevel.value).toFixed(2);
+        foveationLevel.disabled = !useFoveation.checked;
+
         if (!projectionLayer) {
           return;
         }
@@ -599,11 +630,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           return;
         }
 
+        const level = useFoveation.checked ? Number(foveationLevel.value) : 0;
         try {
-          projectionLayer.fixedFoveation = FIXED_FOVEATION;
-          setStatus('Foveation set to maximum.');
+          projectionLayer.fixedFoveation = level;
+          setStatus(`Foveation ${useFoveation.checked ? level.toFixed(2) : 'off'}.`);
         } catch (e) {
           setStatus(`Unable to set foveation: ${e.message}`);
+        }
+      }
+
+      function onMsaaChanged() {
+        destroyTransientTextures();
+        if (xrSession &&
+            viewInstancingEnabled &&
+            useMsaa.checked &&
+            !webgpuCapabilities.multisampledArrayTextures) {
+          useMsaa.checked = false;
+          updateFeatureControls();
+          setStatus('MSAA with view instancing needs multisampled array texture support.');
+          return;
+        }
+        if (useMsaa.checked &&
+            useViewInstancing.checked &&
+            !webgpuCapabilities.multisampledArrayTextures) {
+          useViewInstancing.checked = false;
+          setStatus('Disabled view instancing; MSAA needs multisampled array texture support.');
+        }
+        updateFeatureControls();
+        createPipeline();
+        if (xrSession) {
+          setStatus(`MSAA ${useMsaa.checked ? 'on' : 'off'}.`);
         }
       }
 
@@ -646,8 +702,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         const viewStates = [];
         const commandEncoder = gpuDevice.createCommandEncoder();
+        const useMultisampling = currentSampleCount() > 1;
         const useViewInstancingForFrame =
-            viewInstancingEnabled && canUseViewInstancingWithMsaa();
+            viewInstancingEnabled && canUseViewInstancingWithCurrentMsaa();
 
         for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
           const view = pose.views[viewIndex];
@@ -675,26 +732,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           };
           const colorView =
               subImage.colorTexture.createView(textureArrayViewDescriptor);
-          ensureMsaaTargets(
-              projectionLayer.textureWidth,
-              projectionLayer.textureHeight,
-              viewCount);
-          const colorAttachment = {
-            view: msaaColorTexture.createView(textureArrayViewDescriptor),
-            resolveTarget: colorView,
-            loadOp: 'clear',
-            storeOp: 'discard',
-            clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
-          };
-          const depthView =
-              msaaDepthTexture.createView(textureArrayViewDescriptor);
+          let colorAttachment = null;
+          let depthView = null;
+
+          if (useMultisampling) {
+            ensureMsaaTargets(
+                projectionLayer.textureWidth,
+                projectionLayer.textureHeight,
+                viewCount);
+            colorAttachment = {
+              view: msaaColorTexture.createView(textureArrayViewDescriptor),
+              resolveTarget: colorView,
+              loadOp: 'clear',
+              storeOp: 'discard',
+              clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+            };
+            depthView = msaaDepthTexture.createView(textureArrayViewDescriptor);
+          } else {
+            colorAttachment = {
+              view: colorView,
+              loadOp: 'clear',
+              storeOp: 'store',
+              clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+            };
+            depthView =
+                subImage.depthStencilTexture.createView(textureArrayViewDescriptor);
+          }
 
           const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [colorAttachment],
             depthStencilAttachment: {
               view: depthView,
               depthLoadOp: 'clear',
-              depthStoreOp: 'discard',
+              depthStoreOp: useMultisampling ? 'discard' : 'store',
               depthClearValue: 1.0,
             },
             viewCount,
@@ -712,23 +782,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           const {subImage, viewport: vp} = viewStates[viewIndex];
           const viewDescriptor = subImage.getViewDescriptor();
           const colorView = subImage.colorTexture.createView(viewDescriptor);
-          ensureMsaaTargets(projectionLayer.textureWidth,
-                            projectionLayer.textureHeight);
-          const colorAttachment = {
-            view: msaaColorTexture.createView(),
-            resolveTarget: colorView,
-            loadOp: 'clear',
-            storeOp: 'discard',
-            clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
-          };
-          const depthView = msaaDepthTexture.createView();
+          let colorAttachment = null;
+          let depthView = null;
+
+          if (useMultisampling) {
+            ensureMsaaTargets(projectionLayer.textureWidth,
+                              projectionLayer.textureHeight);
+            colorAttachment = {
+              view: msaaColorTexture.createView(),
+              resolveTarget: colorView,
+              loadOp: 'clear',
+              storeOp: 'discard',
+              clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+            };
+            depthView = msaaDepthTexture.createView();
+          } else {
+            colorAttachment = {
+              view: colorView,
+              loadOp: 'clear',
+              storeOp: 'store',
+              clearValue: {r: 0.02, g: 0.03, b: 0.08, a: 1.0},
+            };
+            depthView = subImage.depthStencilTexture.createView(viewDescriptor);
+          }
 
           const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [colorAttachment],
             depthStencilAttachment: {
               view: depthView,
               depthLoadOp: 'clear',
-              depthStoreOp: 'discard',
+              depthStoreOp: useMultisampling ? 'discard' : 'store',
               depthClearValue: 1.0,
             },
           });
@@ -741,6 +824,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gpuDevice.queue.submit([commandEncoder.finish()]);
       }
 
+      useFoveation.addEventListener('change', applyFoveationLevel);
+      foveationLevel.addEventListener('input', applyFoveationLevel);
+      useMsaa.addEventListener('change', onMsaaChanged);
       useViewInstancing.addEventListener('change', updateFeatureControls);
 
       initXR();
