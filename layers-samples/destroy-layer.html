@@ -1,0 +1,426 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+    <title>Composition Layer destroy()</title>
+    <style>
+      #results {
+        margin-bottom: 0;
+        padding-left: 1.5em;
+      }
+
+      #results .pass {
+        color: #176b2c;
+      }
+
+      #results .fail {
+        color: #a31515;
+        font-weight: bold;
+      }
+
+      #results .info {
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <header style='max-width: 800px;'>
+      <details open>
+        <summary>Composition Layer destroy()</summary>
+        <p>
+          A bright green quad layer appears for eight seconds and is then destroyed. It
+          should disappear while the space scene in the projection layer continues rendering.
+          The page also checks the observable requirements of <code>destroy()</code>.
+          <a class='back' href='./index.html'>Back</a>
+        </p>
+        <p id='status' role='status'>Checking WebXR Layers support...</p>
+        <ol id='results' aria-live='polite'></ol>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>Enter VR to run the test.</p>
+    </main>
+    <script type='module'>
+      import { WebXRButton } from '../js/util/webxr-button.js';
+      import { Scene } from '../js/render/scenes/scene.js';
+      import { Renderer, createWebGLContext } from '../js/render/core/renderer.js';
+      import { Gltf2Node } from '../js/render/nodes/gltf2.js';
+      import { SkyboxNode } from '../js/render/nodes/skybox.js';
+
+      const DESTROY_DELAY_MS = 8000;
+
+      const statusElement = document.getElementById('status');
+      const resultsElement = document.getElementById('results');
+
+      let xrButton = null;
+      let xrSession = null;
+      let xrReferenceSpace = null;
+      let xrBinding = null;
+      let projectionLayer = null;
+      let testLayer = null;
+
+      let gl = null;
+      let renderer = null;
+      const scene = new Scene();
+      scene.addNode(new Gltf2Node({ url: '../media/gltf/space/space.gltf' }));
+      scene.addNode(new SkyboxNode({ url: '../media/textures/milky-way-4k.png' }));
+
+      let testLayerContent = null;
+      let retainedSubImage = null;
+      let retainedColorTexture = null;
+
+      let destroyAt = null;
+      let lastCountdownSecond = null;
+      let layerDestroyed = false;
+      let removalChecked = false;
+      let fatalError = false;
+      let passed = 0;
+      let failed = 0;
+
+      function setStatus(message) {
+        statusElement.textContent = message;
+      }
+
+      function addResult(kind, message) {
+        const result = document.createElement('li');
+        result.className = kind;
+        result.textContent = `${kind.toUpperCase()}: ${message}`;
+        resultsElement.appendChild(result);
+
+        if (kind === 'pass') {
+          passed++;
+          console.log(`PASS: ${message}`);
+        } else if (kind === 'fail') {
+          failed++;
+          console.error(`FAIL: ${message}`);
+        } else {
+          console.log(message);
+        }
+      }
+
+      function expect(condition, message) {
+        addResult(condition ? 'pass' : 'fail', message);
+      }
+
+      function expectDOMException(callback, expectedName, message) {
+        try {
+          callback();
+          addResult('fail', `${message}; no exception was thrown`);
+        } catch (error) {
+          expect(error.name === expectedName,
+            `${message}; got ${error.name || error.constructor.name}`);
+        }
+      }
+
+      function resetTest() {
+        resultsElement.replaceChildren();
+        retainedSubImage = null;
+        retainedColorTexture = null;
+        destroyAt = null;
+        lastCountdownSecond = null;
+        layerDestroyed = false;
+        removalChecked = false;
+        fatalError = false;
+        passed = 0;
+        failed = 0;
+      }
+
+      function clearGLErrors() {
+        while (gl.getError() !== gl.NO_ERROR) {
+          // Discard errors from earlier rendering before checking destroy().
+        }
+      }
+
+      function initializeGL() {
+        gl = createWebGLContext({ xrCompatible: true, webgl2: true });
+        document.body.appendChild(gl.canvas);
+        renderer = new Renderer(gl);
+        scene.setRenderer(renderer);
+        testLayerContent = createTestLayerContent();
+      }
+
+      function createTestLayerContent() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 320;
+
+        const context = canvas.getContext('2d');
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#62ff78');
+        gradient.addColorStop(1, '#08a83c');
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        context.strokeStyle = '#ffffff';
+        context.lineWidth = 12;
+        context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+        context.fillStyle = '#062d14';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.font = 'bold 54px sans-serif';
+        context.fillText('DESTROY() TEST', canvas.width / 2, 105);
+        context.font = 'bold 30px sans-serif';
+        context.fillText('This layer disappears', canvas.width / 2, 190);
+        context.fillText('after 8 seconds', canvas.width / 2, 235);
+
+        return canvas;
+      }
+
+      async function onRequestSession() {
+        resetTest();
+        setStatus('Starting the destroy() test...');
+
+        const session = await navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['layers'],
+        });
+
+        try {
+          await onSessionStarted(session);
+        } catch (error) {
+          addResult('fail', `Unable to start the test: ${error.message}`);
+          await session.end();
+          throw error;
+        }
+      }
+
+      async function onSessionStarted(session) {
+        xrSession = session;
+        xrButton.setSession(session);
+        session.addEventListener('end', () => onSessionEnded(session), { once: true });
+
+        initializeGL();
+        scene.inputRenderer.useProfileControllerMeshes(session);
+        xrBinding = new XRWebGLBinding(session, gl);
+        xrReferenceSpace = await session.requestReferenceSpace('local');
+
+        projectionLayer = xrBinding.createProjectionLayer({
+          textureType: 'texture',
+          stencil: false,
+        });
+        testLayer = xrBinding.createQuadLayer({
+          space: xrReferenceSpace,
+          viewPixelWidth: 512,
+          viewPixelHeight: 320,
+          textureType: 'texture',
+          layout: 'mono',
+          isStatic: true,
+        });
+        testLayer.width = 2.2;
+        testLayer.height = 1.375;
+        testLayer.transform = new XRRigidTransform({ x: 0, y: 0, z: -2 });
+
+        // Layers are composited back-to-front, so put the quad after the
+        // projection layer to keep it visible over the space scene.
+        session.updateRenderState({ layers: [projectionLayer, testLayer] });
+        addResult('info', 'The green quad will be destroyed after eight seconds.');
+        setStatus('Rendering the test layer...');
+        session.requestAnimationFrame(onXRFrame);
+      }
+
+      function drawTestLayer(frame) {
+        retainedSubImage = xrBinding.getSubImage(testLayer, frame);
+        retainedColorTexture = retainedSubImage.colorTexture;
+
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, retainedColorTexture);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          testLayerContent,
+        );
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.flush();
+      }
+
+      function runDestroyTests(frame) {
+        if (typeof testLayer.destroy !== 'function') {
+          addResult('fail', 'XRCompositionLayer.destroy() is not implemented');
+          setStatus('The user agent does not implement destroy().');
+          fatalError = true;
+          return;
+        }
+
+        clearGLErrors();
+        testLayer.destroy();
+        layerDestroyed = true;
+        expect(gl.getError() === gl.NO_ERROR,
+          'destroy() does not generate a WebGL error');
+
+        expect(retainedSubImage.colorTexture === retainedColorTexture,
+          'a previously returned subimage retains the same texture object');
+
+        clearGLErrors();
+        gl.bindTexture(gl.TEXTURE_2D, retainedColorTexture);
+        expect(gl.getError() === gl.INVALID_OPERATION,
+          'the retained texture rejects new WebGL rendering operations');
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        clearGLErrors();
+
+        expectDOMException(
+          () => xrBinding.getSubImage(testLayer, frame),
+          'InvalidStateError',
+          'getSubImage() rejects a destroyed layer with InvalidStateError',
+        );
+        expectDOMException(
+          () => xrSession.updateRenderState({ layers: [projectionLayer, testLayer] }),
+          'InvalidStateError',
+          'updateRenderState() rejects a destroyed layer with InvalidStateError',
+        );
+
+        try {
+          testLayer.destroy();
+          addResult('pass', 'calling destroy() a second time does nothing');
+        } catch (error) {
+          addResult('fail', `calling destroy() twice threw ${error.name}`);
+        }
+
+        setStatus('Layer destroyed; checking the next render state...');
+      }
+
+      function checkRemovalOnNextFrame() {
+        const layers = xrSession.renderState.layers || [];
+        expect(!layers.includes(testLayer),
+          'the destroyed layer is absent from renderState.layers on the next frame');
+        expect(layers.includes(projectionLayer),
+          'the remaining projection layer stays in renderState.layers');
+        removalChecked = true;
+
+        const summary = `${passed} passed, ${failed} failed.`;
+        setStatus(`Destroy test complete: ${summary}`);
+        console.log(`Destroy test complete: ${summary}`);
+      }
+
+      function onXRFrame(time, frame) {
+        if (frame.session !== xrSession || fatalError) {
+          return;
+        }
+        xrSession.requestAnimationFrame(onXRFrame);
+
+        try {
+          const pose = frame.getViewerPose(xrReferenceSpace);
+
+          if (!layerDestroyed && !retainedSubImage && testLayer.needsRedraw) {
+            drawTestLayer(frame);
+            destroyAt = time + DESTROY_DELAY_MS;
+          }
+
+          if (pose) {
+            scene.updateInputSources(frame, xrReferenceSpace);
+            scene.drawXRFrame(frame, pose, projectionLayer);
+          }
+
+          if (!layerDestroyed && destroyAt !== null) {
+            const countdownSecond = Math.max(0, Math.ceil((destroyAt - time) / 1000));
+            if (countdownSecond !== lastCountdownSecond) {
+              lastCountdownSecond = countdownSecond;
+              setStatus(`Green layer visible; destroying in ${countdownSecond} seconds...`);
+            }
+          }
+
+          if (!layerDestroyed && destroyAt !== null && time >= destroyAt) {
+            runDestroyTests(frame);
+          } else if (layerDestroyed && !removalChecked) {
+            checkRemovalOnNextFrame();
+          }
+          scene.endFrame();
+        } catch (error) {
+          addResult('fail', `Unexpected ${error.name}: ${error.message}`);
+          setStatus('The destroy test stopped after an unexpected error.');
+          fatalError = true;
+        }
+      }
+
+      function onEndSession(session) {
+        return session.end();
+      }
+
+      function onSessionEnded(endedSession) {
+        if (endedSession !== xrSession) {
+          return;
+        }
+
+        try {
+          if (!layerDestroyed && typeof testLayer?.destroy === 'function') {
+            testLayer.destroy();
+          }
+          if (typeof projectionLayer?.destroy === 'function') {
+            projectionLayer.destroy();
+          }
+        } catch (error) {
+          console.warn('Layer cleanup failed:', error);
+        }
+
+        xrButton.setSession(null);
+        xrSession = null;
+        xrReferenceSpace = null;
+        xrBinding = null;
+        projectionLayer = null;
+        testLayer = null;
+        retainedSubImage = null;
+        retainedColorTexture = null;
+        testLayerContent = null;
+        scene.loseRenderer();
+        renderer = null;
+        gl?.canvas.remove();
+        gl = null;
+      }
+
+      async function initializeXR() {
+        xrButton = new WebXRButton({
+          onRequestSession,
+          onEndSession,
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (!navigator.xr || !('XRWebGLBinding' in window)) {
+          setStatus('WebXR Layers is not supported.');
+          return;
+        }
+
+        const supported = await navigator.xr.isSessionSupported('immersive-vr');
+        xrButton.enabled = supported;
+        setStatus(supported
+          ? 'Ready. Enter VR to run the destroy() test.'
+          : 'Immersive VR is not supported.');
+      }
+
+      initializeXR().catch((error) => {
+        setStatus(`Unable to initialize: ${error.message}`);
+        console.error(error);
+      });
+    </script>
+  </body>
+</html>
