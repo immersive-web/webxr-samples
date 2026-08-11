@@ -174,6 +174,22 @@
               path: 'immersive-hands.html',
               description: 'Demonstrates a simple VR session that shows the user\'s hands using hand tracking. Each joint is represented as a cube.',
               noPolyfill: true },
+            { title: 'Quad Layer', category: 'Layers',
+              path: 'quad-layer.html',
+              description: 'Copies mono or stereo image content into a WebGPU-backed spatial panel.',
+              noPolyfill: true },
+            { title: 'Cylinder Layer', category: 'Layers',
+              path: 'cylinder-layer.html',
+              description: 'Copies mono or stereo image content into a curved panel and exercises forced mono presentation.',
+              noPolyfill: true },
+            { title: 'Equirect Layer', category: 'Layers',
+              path: 'equirect-layer.html',
+              description: 'Presents mono or stereo 180-degree and 360-degree equirectangular content.',
+              noPolyfill: true },
+            { title: 'Cube Layer', category: 'Layers',
+              path: 'cube-layer.html',
+              description: 'Copies mono or stereo cubemap strips into all six faces for each eye.',
+              noPolyfill: true },
           ];
 
           let mainElement = document.getElementById("main");
@@ -213,7 +229,7 @@
             links.classList.add('links');
 
             let sourceLink = document.createElement('a');
-            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/main' + page.path;
+            sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/main/webgpu/' + page.path;
             sourceLink.textContent = 'Source';
             links.appendChild(sourceLink);
 

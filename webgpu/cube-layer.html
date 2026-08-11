@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+    <title>WebGPU Cube Layer</title>
+  </head>
+  <body>
+    <header style='max-width: 800px;'>
+      <details open>
+        <summary>WebGPU Cube Layer</summary>
+        <p>
+          This sample copies a cubemap strip into a WebGPU-backed cube layer.
+          Cube layers are efficient static backgrounds because all six faces
+          only need updating when needsRedraw is true, rather than rendering a
+          complete projection layer every frame.
+          <a class='back' href='./'>Back</a>
+        </p>
+        <p>
+          Mono cubemap image by Eric Cheng<br>
+          Stereo cubemap image by Jon Griffith
+        </p>
+        <label>
+          <input type='checkbox' id='layer-is-stereo'>
+          Stereo cube layer
+        </label>
+        <br>
+        <button id='xr-button' class='barebones-button' disabled>Checking support...</button>
+        <p id='status' role='status'>Checking WebXR and WebGPU support...</p>
+      </details>
+    </header>
+    <script type='module'>
+      import { startLayerTest } from './layer-test.js';
+
+      const MONO_IMAGE_PATH = '../media/textures/mono_cube_map.png';
+      const STEREO_IMAGE_PATH = '../media/textures/stereo_cube_map.png';
+
+      startLayerTest({
+        layerName: 'Cube',
+        isCube: true,
+        flipSourceX: true,
+        getSettings() {
+          const stereo = document.getElementById('layer-is-stereo').checked;
+          return {
+            stereo,
+            layout: stereo ? 'stereo' : 'mono',
+          };
+        },
+        getImagePath(settings) {
+          return settings.stereo ? STEREO_IMAGE_PATH : MONO_IMAGE_PATH;
+        },
+        describeSettings(settings) {
+          return settings.stereo ? 'stereo' : 'mono';
+        },
+        createLayer({ binding, colorFormat, image, settings, space }) {
+          const faceSize = image.naturalHeight;
+          return binding.createCubeLayer({
+            colorFormat,
+            textureUsage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+            space,
+            viewPixelWidth: faceSize,
+            viewPixelHeight: faceSize,
+            layout: settings.layout,
+            isStatic: true,
+            orientation: new DOMPointReadOnly(0, 0, 0, 1),
+          });
+        },
+      });
+    </script>
+  </body>
+</html>
