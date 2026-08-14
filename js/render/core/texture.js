@@ -73,7 +73,7 @@ export class ImageTexture extends Texture {
       } else {
         this._promise = Promise.reject('Image provided had failed to load.');
       }
-    } else {
+    } else if(!(img instanceof HTMLCanvasElement)) {
       this._promise = new Promise((resolve, reject) => {
         img.addEventListener('load', () => resolve(this._finishImage()));
         img.addEventListener('error', reject);
@@ -114,6 +114,38 @@ export class ImageTexture extends Texture {
 
   get source() {
     return this._imgBitmap || this._img;
+  }
+
+  genDataKey() {
+    this._manualKey = `DATA_${nextDataTextureIndex}`;
+    nextDataTextureIndex++;
+  }
+}
+
+export class Custom2DTexture extends Texture {
+  constructor(width, height) {
+    super();
+    this._width = width;
+    this._height = height;
+    this.mipmap = false;
+    this.genDataKey();
+  }
+
+  get format() {
+    // TODO: Can be RGB in some cases.
+    return GL.RGBA;
+  }
+
+  get width() {
+    return this._width;
+  }
+
+  get height() {
+    return this._height;
+  }
+
+  get textureKey() {
+    return this._manualKey;
   }
 
   genDataKey() {
@@ -235,5 +267,35 @@ export class ColorTexture extends DataTexture {
 
     this.mipmap = false;
     this._key = `COLOR_${colorData[0]}_${colorData[1]}_${colorData[2]}_${colorData[3]}`;
+  }
+}
+
+
+export class ArrayTexture extends Texture {
+  constructor(width, height, depth) {
+    super();
+    this._width = width;
+    this._height = height;
+    this._depth = depth;
+    this.mipmap = false;
+    this.genDataKey();
+  }
+
+  get width() { return this._width; }
+  get height() { return this._height; }
+  get depth() { return this._depth; }
+
+  get format() {
+    // TODO: Can be RGB in some cases.
+    return GL.RGBA;
+  }
+
+  get textureKey() {
+    return this._manualKey;
+  }
+
+  genDataKey() {
+    this._manualKey = `DATA_${nextDataTextureIndex}`;
+    nextDataTextureIndex++;
   }
 }
