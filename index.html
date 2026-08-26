@@ -168,6 +168,10 @@
               path: 'inline-stereo.html',
               description: 'Demonstrates requesting the "inline-stereo" feature for an "inline" XRSession and rendering stereo inline views.' },
 
+            { title: 'Visibility Mask Change', category: 'Basics',
+              path: 'visibility-mask-change.html',
+              description: 'Demonstrates listening for visibilitymaskchange events on an immersive XR session.' },
+
             { tag: 'hr' },
             { tag: 'br' },
 
@@ -247,78 +251,53 @@
 
             { title: 'Barebones VR', category: 'No Dependencies',
               path: 'vr-barebones.html',
-              description: 'Extremely simple use of "immersive-vr" sessions with no library dependencies. Doesn\'t render anything exciting.',
-              noPolyfill: true },
+              description: 'A minimal immersive-vr sample.' },
 
             { title: 'Barebones AR', category: 'No Dependencies',
               path: 'ar-barebones.html',
-              description: 'Extremely simple use of "immersive-ar" sessions with no library dependencies. Doesn\'t render anything exciting.',
-              noPolyfill: true },
+              description: 'A minimal immersive-ar sample.' }
           ];
 
-          let mainElement = document.getElementById("main");
-
-          // Append an element for every item in the pages list.
-          let pageIndex = 0;
-          for (var i = 0; i < pages.length; ++i) {
-            var page = pages[i];
-
+          const main = document.getElementById('main');
+          pages.forEach((page, index) => {
             if (page.tag) {
-              mainElement.appendChild(document.createElement(page.tag));
-              continue;
-            } else {
-              pageIndex++;
+              main.appendChild(document.createElement(page.tag));
+              return;
             }
 
-            let article = document.createElement('article');
-
-            let title = document.createElement('h3');
-            title.setAttribute('data-index', pageIndex);
-
-            let titleLink = document.createElement('a');
-            titleLink.href = page.path;
-            titleLink.textContent = page.title;
-            title.appendChild(titleLink);
+            const article = document.createElement('article');
+            const title = document.createElement('h3');
+            title.dataset.index = index + 1;
+            title.textContent = page.title;
             article.appendChild(title);
 
-            let category = document.createElement('h4');
+            const category = document.createElement('h4');
             category.textContent = page.category;
             article.appendChild(category);
 
-            let description = document.createElement('p');
+            const description = document.createElement('p');
             description.textContent = page.description;
             article.appendChild(description);
 
-            let links = document.createElement('div');
-            links.classList.add('links');
+            const links = document.createElement('div');
+            links.className = 'links';
 
-            let sourceLink = document.createElement('a');
+            const sampleLink = document.createElement('a');
+            sampleLink.href = page.path;
+            sampleLink.textContent = 'Sample';
+            links.appendChild(sampleLink);
+
+            const sourceLink = document.createElement('a');
             sourceLink.href = 'https://github.com/immersive-web/webxr-samples/blob/main/' + page.path;
             sourceLink.textContent = 'Source';
+            sourceLink.className = 'github-link';
             links.appendChild(sourceLink);
 
-            if (!page.noPolyfill) {
-              let polyfillLink = document.createElement('a');
-              polyfillLink.href = page.path + '?usePolyfill=0';
-              polyfillLink.textContent = 'Run Without Polyfill';
-              links.appendChild(polyfillLink);
-            }
-
             article.appendChild(links);
-
-            mainElement.appendChild(article);
-          }
+            main.appendChild(article);
+          });
         </script>
       </main>
-
-      <p>Models used in these samples come from <a href="https://poly.google.com">Poly</a>, and many were modeled in <a href="https://vr.google.com/blocks/">Blocks</a>.<br/>
-      They are stored and loaded using the <a href="https://www.khronos.org/gltf/">glTF 2.0 format</a>.<br/>
-      Attribution for individual models can be found under the <a href="https://github.com/immersive-web/webxr-samples/tree/main/media/gltf">media/gltf</a> folders for this repository.</p>
-
-      <h3><a class='github-link' href='https://github.com/immersive-web/webxr-samples'>View samples source on GitHub</a></h3>
-
-      <footer class='footer'>
-      </footer>
     </div>
   </body>
 </html>
