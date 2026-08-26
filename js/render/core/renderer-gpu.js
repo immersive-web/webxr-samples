@@ -67,6 +67,29 @@ const GL_DEPTH_FUNC_TO_GPU = [
   'greater', 'not-equal', 'greater-equal', 'always'
 ];
 
+export const VIEW_INSTANCING_FEATURES = [
+  {feature: 'view-instancing', wgslEnable: 'view_instancing'},
+  {
+    feature: 'chromium-experimental-multiview',
+    wgslEnable: 'chromium_experimental_multiview',
+  },
+];
+
+export const MULTISAMPLED_ARRAY_TEXTURE_FEATURES = [
+  'multisampled-array-textures',
+  'chromium-experimental-multisampled-array-textures',
+];
+
+export function getSupportedGPUFeature(features, candidates) {
+  for (let candidate of candidates) {
+    const feature = typeof candidate == 'string' ? candidate : candidate.feature;
+    if (features && features.has(feature)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 // Creates a WebGPU device with XR compatibility.
 export async function createWebGPUContext(options) {
   if (!navigator.gpu) {
@@ -82,7 +105,22 @@ export async function createWebGPUContext(options) {
     return null;
   }
 
-  const device = await adapter.requestDevice();
+  const requiredFeatures = [];
+  for (let feature of options?.requiredFeatures || []) {
+    if (!adapter.features.has(feature)) {
+      throw new Error(`Required WebGPU feature is not supported: ${feature}`);
+    }
+    requiredFeatures.push(feature);
+  }
+
+  for (let feature of options?.optionalFeatures || []) {
+    if (adapter.features.has(feature) && !requiredFeatures.includes(feature)) {
+      requiredFeatures.push(feature);
+    }
+  }
+
+  const deviceDescriptor = requiredFeatures.length ? {requiredFeatures} : {};
+  const device = await adapter.requestDevice(deviceDescriptor);
   return device;
 }
 
@@ -302,12 +340,83 @@ class GPURenderMaterial {
 }
 
 // Byte sizes for uniform buffer layout (std140-aligned).
-// Frame uniforms: projection(64) + view(64) + lightDir(16) + lightColor(16) + cameraPos(16) = 176
+// Frame uniforms: projection(64) + view(64) + cameraPos(16) + lightDir(16) + lightColor(16) = 176
 const FRAME_UNIFORM_SIZE = 176;
+// Multiview frame uniforms: 2 view-projection matrices, 2 projection matrices,
+// 2 view matrices, 2 vec4 camera positions, lightDir, and lightColor = 448
+const VIEW_INSTANCING_FRAME_UNIFORM_SIZE = 448;
 // Model uniforms: modelMatrix(64)
 const MODEL_UNIFORM_SIZE = 64;
 // Material uniforms: baseColorFactor(16) + metallicRoughnessFactor(8+pad8) + emissiveFactor(12+pad4) + occlusionStrength(4+pad12) = 64
 const MATERIAL_UNIFORM_SIZE = 64;
+const MAX_VIEW_INSTANCE_COUNT = 2;
+
+const STANDARD_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
+  projectionMatrix: mat4x4f,
+  viewMatrix: mat4x4f,
+  cameraPosition: vec3f,
+  lightDirection: vec3f,
+  lightColor: vec3f,
+};`;
+
+const VIEW_INSTANCING_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
+  viewProjectionMatrices: array<mat4x4f, 2>,
+  projectionMatrices: array<mat4x4f, 2>,
+  viewMatrices: array<mat4x4f, 2>,
+  cameraPositions: array<vec4f, 2>,
+  lightDirection: vec3f,
+  lightColor: vec3f,
+};`;
+
+const MOTION_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
+  projectionMatrix: mat4x4f,
+  viewMatrix: mat4x4f,
+  previousProjectionMatrix: mat4x4f,
+  previousViewMatrix: mat4x4f,
+};`;
+
+const VIEW_INSTANCING_MOTION_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
+  projectionMatrices: array<mat4x4f, 2>,
+  viewMatrices: array<mat4x4f, 2>,
+  previousProjectionMatrices: array<mat4x4f, 2>,
+  previousViewMatrices: array<mat4x4f, 2>,
+};`;
+
+function applyViewInstancingToWgsl(source, wgslEnable) {
+  let output = `enable ${wgslEnable};\n` + source;
+
+  if (output.includes(STANDARD_FRAME_UNIFORM_WGSL)) {
+    output = output
+        .replace(STANDARD_FRAME_UNIFORM_WGSL, VIEW_INSTANCING_FRAME_UNIFORM_WGSL)
+        .replaceAll(
+            'frame.projectionMatrix * frame.viewMatrix *',
+            'frame.viewProjectionMatrices[viewIndex] *')
+        .replaceAll('frame.projectionMatrix', 'frame.projectionMatrices[viewIndex]')
+        .replaceAll('frame.viewMatrix', 'frame.viewMatrices[viewIndex]')
+        .replaceAll('frame.cameraPosition', 'frame.cameraPositions[viewIndex].xyz');
+  } else if (output.includes(MOTION_FRAME_UNIFORM_WGSL)) {
+    output = output
+        .replace(MOTION_FRAME_UNIFORM_WGSL, VIEW_INSTANCING_MOTION_FRAME_UNIFORM_WGSL)
+        .replaceAll('frame.previousProjectionMatrix', 'frame.previousProjectionMatrices[viewIndex]')
+        .replaceAll('frame.previousViewMatrix', 'frame.previousViewMatrices[viewIndex]')
+        .replaceAll('frame.projectionMatrix', 'frame.projectionMatrices[viewIndex]')
+        .replaceAll('frame.viewMatrix', 'frame.viewMatrices[viewIndex]');
+  }
+
+  return output.replace(
+      'fn vs_main(input: VertexInput) -> VertexOutput {\n',
+      'fn vs_main(input: VertexInput, @builtin(view_index) rawViewIndex: u32) -> VertexOutput {\n  let viewIndex = rawViewIndex;\n');
+}
+
+function vertexFormatForAttribute(attribute) {
+  switch (attribute._componentCount) {
+    case 1: return 'float32';
+    case 2: return 'float32x2';
+    case 3: return 'float32x3';
+    case 4: return 'float32x4';
+  }
+  throw new Error(`Unsupported vertex component count: ${attribute._componentCount}`);
+}
 
 export class GPURenderer {
   constructor(device, colorFormat, options = {}) {
@@ -317,12 +426,24 @@ export class GPURenderer {
     this._colorFormat = colorFormat || 'rgba8unorm';
     this._depthFormat = 'depth24plus';
     this._sampleCount = options.sampleCount > 1 ? 4 : 1;
+    this._viewInstancing = !!options.viewInstancing;
+    this._viewInstancingWgslEnable =
+        options.viewInstancingWgslEnable || 'view_instancing';
+    this._transientMsaaAttachments =
+        !this._viewInstancing ||
+        !!getSupportedGPUFeature(
+            device.features,
+            MULTISAMPLED_ARRAY_TEXTURE_FEATURES);
+    this._frameUniformSize = this._viewInstancing ?
+        VIEW_INSTANCING_FRAME_UNIFORM_SIZE :
+        FRAME_UNIFORM_SIZE;
     this._frameId = 0;
     this._pipelineCache = {};
     this._shaderCache = {};
     this._textureCache = {};
     this._msaaColorAttachments = [];
     this._msaaDepthAttachments = [];
+    this._viewProjectionMatrices = [mat4.create(), mat4.create()];
     this._renderPrimitives = Array(RENDER_ORDER.DEFAULT);
     this._cameraPositions = [];
 
@@ -353,7 +474,7 @@ export class GPURenderer {
     // Frame uniforms are double-buffered by view so both eyes can be encoded
     // into one command buffer without racing on the same uniform contents.
     this._frameUniforms = [];
-    this._frameData = new Float32Array(FRAME_UNIFORM_SIZE / 4);
+    this._frameData = new Float32Array(this._frameUniformSize / 4);
 
     // Create the frame bind group layout (group 0).
     this._frameBindGroupLayout = device.createBindGroupLayout({
@@ -406,7 +527,7 @@ export class GPURenderer {
     }
 
     let buffer = this._device.createBuffer({
-      size: FRAME_UNIFORM_SIZE,
+      size: this._frameUniformSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let bindGroup = this._device.createBindGroup({
@@ -441,12 +562,21 @@ export class GPURenderer {
     return modelUniform;
   }
 
-  _getMsaaAttachment(attachments, viewIndex, width, height, format) {
+  _getMsaaAttachment(
+      attachments,
+      viewIndex,
+      width,
+      height,
+      format,
+      depthOrArrayLayers = 1,
+      viewDimension = '2d') {
     let attachment = attachments[viewIndex];
     if (attachment &&
         attachment.width == width &&
         attachment.height == height &&
         attachment.format == format &&
+        attachment.depthOrArrayLayers == depthOrArrayLayers &&
+        attachment.viewDimension == viewDimension &&
         attachment.sampleCount == this._sampleCount) {
       return attachment;
     }
@@ -455,18 +585,29 @@ export class GPURenderer {
       attachment.texture.destroy();
     }
 
+    let usage = GPUTextureUsage.RENDER_ATTACHMENT;
+    if (GPUTextureUsage.TRANSIENT_ATTACHMENT && this._transientMsaaAttachments) {
+      usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
+    }
+
     let texture = this._device.createTexture({
-      size: [width, height],
+      size: [width, height, depthOrArrayLayers],
       sampleCount: this._sampleCount,
       format: format,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      usage: usage,
     });
     attachment = {
       texture,
-      view: texture.createView(),
+      view: texture.createView({
+        dimension: viewDimension,
+        baseArrayLayer: 0,
+        arrayLayerCount: depthOrArrayLayers,
+      }),
       width,
       height,
       format,
+      depthOrArrayLayers,
+      viewDimension,
       sampleCount: this._sampleCount,
     };
     attachments[viewIndex] = attachment;
@@ -594,7 +735,11 @@ export class GPURenderer {
   }
 
   _getShaderModule(material, renderPrimitive) {
-    let defines = material.getProgramDefines(renderPrimitive);
+    let defines = material.getProgramDefines(renderPrimitive) || {};
+    if (this._viewInstancing) {
+      defines['VIEW_INSTANCING'] = 1;
+      defines['VIEW_INSTANCING_WGSL_ENABLE'] = this._viewInstancingWgslEnable;
+    }
     let key = `${material.materialName}:${JSON.stringify(defines)}`;
 
     if (key in this._shaderCache) {
@@ -605,6 +750,11 @@ export class GPURenderer {
     if (!wgslSource) {
       console.error('Material does not provide WGSL source. Use a GPU-compatible material (e.g., PbrGPUMaterial).');
       return null;
+    }
+    if (this._viewInstancing) {
+      wgslSource = applyViewInstancingToWgsl(
+          wgslSource,
+          this._viewInstancingWgslEnable);
     }
 
     let module = this._device.createShaderModule({
@@ -618,13 +768,7 @@ export class GPURenderer {
     let layouts = [];
     for (let ab of renderPrimitive._attributeBuffers) {
       let a = ab.attrib;
-      let format;
-      switch (a._componentCount) {
-        case 1: format = 'float32'; break;
-        case 2: format = 'float32x2'; break;
-        case 3: format = 'float32x3'; break;
-        case 4: format = 'float32x4'; break;
-      }
+      let format = vertexFormatForAttribute(a);
       layouts.push({
         arrayStride: a._stride || (a._componentCount * 4),
         attributes: [{
@@ -637,8 +781,20 @@ export class GPURenderer {
     return layouts;
   }
 
+  _vertexBufferLayoutKeyForPrimitive(renderPrimitive) {
+    return renderPrimitive._attributeBuffers.map((ab) => {
+      let a = ab.attrib;
+      let stride = a._stride || (a._componentCount * 4);
+      let format = vertexFormatForAttribute(a);
+      return `${a._attribIndex}:${format}:${stride}:${a._byteOffset}`;
+    }).join('|');
+  }
+
   _getOrCreatePipeline(renderPrimitive, renderMaterial) {
-    let key = `${renderPrimitive._attributeMask}:${renderMaterial._state}:${renderMaterial._materialName}:${this._sampleCount}`;
+    // WebGPU pipelines bake vertex buffer layouts, so primitives with the same
+    // attribute mask but different buffer slot order need distinct pipelines.
+    let vertexLayoutKey = this._vertexBufferLayoutKeyForPrimitive(renderPrimitive);
+    let key = `${renderPrimitive._attributeMask}:${vertexLayoutKey}:${renderMaterial._state}:${renderMaterial._materialName}:${this._sampleCount}:${this._viewInstancing}`;
     if (key in this._pipelineCache) {
       return this._pipelineCache[key];
     }
@@ -826,25 +982,74 @@ export class GPURenderer {
       this._cameraPositions[i][2] = p.z;
     }
 
+    if (this._viewInstancing) {
+      this._drawViewInstanced(views);
+      return;
+    }
+
+    this._drawViewsOneByOne(views);
+  }
+
+  _writeFrameUniformForView(view, viewIndex, frameUniform) {
+    let frameData = this._frameData;
+    frameData.set(view.projectionMatrix, 0);    // offset 0: projection (16 floats)
+    frameData.set(view.viewMatrix, 16);          // offset 64: view (16 floats)
+    frameData.set(this._cameraPositions[viewIndex], 32); // offset 128: cameraPos (3 floats)
+    frameData.set(this._globalLightDir, 36);     // offset 144: lightDir (3 floats)
+    frameData.set(this._globalLightColor, 40);   // offset 160: lightColor (3 floats)
+    this._device.queue.writeBuffer(frameUniform.buffer, 0, frameData);
+  }
+
+  _writeViewInstancingFrameUniform(views, frameUniform) {
+    let frameData = this._frameData;
+    frameData.fill(0);
+    const viewCount = Math.min(views.length, MAX_VIEW_INSTANCE_COUNT);
+    for (let i = 0; i < viewCount; ++i) {
+      mat4.multiply(
+          this._viewProjectionMatrices[i],
+          views[i].projectionMatrix,
+          views[i].viewMatrix);
+      frameData.set(this._viewProjectionMatrices[i], i * 16);
+      frameData.set(views[i].projectionMatrix, 32 + i * 16);
+      frameData.set(views[i].viewMatrix, 64 + i * 16);
+      frameData.set(this._cameraPositions[i], 96 + i * 4);
+    }
+    frameData.set(this._globalLightDir, 104);
+    frameData.set(this._globalLightColor, 108);
+    this._device.queue.writeBuffer(frameUniform.buffer, 0, frameData);
+  }
+
+  _encodeRenderPrimitives(passEncoder) {
+    for (let renderPrimitives of this._renderPrimitives) {
+      if (renderPrimitives && renderPrimitives.length) {
+        this._drawPrimitives(passEncoder, renderPrimitives);
+      }
+    }
+  }
+
+  _drawViewsOneByOne(views) {
     let commandEncoder = this._device.createCommandEncoder();
     let encodedPass = false;
 
     // For XR, we render one view at a time (each into a different texture array layer).
     for (let vi = 0; vi < views.length; vi++) {
       let view = views[vi];
-      if (!view._colorView || !view._depthView) continue;
+      if (!view._colorView) continue;
 
       let colorView = view._colorView;
       let resolveTarget = undefined;
       let depthView = view._depthView;
       let colorStoreOp = 'store';
-      if (this._sampleCount > 1) {
-        let attachmentSize = this._getViewAttachmentSize(view);
+      let attachmentSize = null;
+      if (this._sampleCount > 1 || !depthView) {
+        attachmentSize = this._getViewAttachmentSize(view);
         if (!attachmentSize) {
-          console.warn('Skipping MSAA view because no viewport size is available.');
+          console.warn('Skipping view because no depth attachment or viewport size is available.');
           continue;
         }
+      }
 
+      if (this._sampleCount > 1) {
         colorView =
             this._getMsaaAttachment(
                 this._msaaColorAttachments,
@@ -861,17 +1066,19 @@ export class GPURenderer {
                 this._depthFormat).view;
         resolveTarget = view._colorView;
         colorStoreOp = 'discard';
+      } else if (!depthView) {
+        depthView =
+            this._getMsaaAttachment(
+                this._msaaDepthAttachments,
+                vi,
+                attachmentSize.width,
+                attachmentSize.height,
+                this._depthFormat).view;
       }
 
       // Update frame uniforms for this view.
-      let frameData = this._frameData;
-      frameData.set(view.projectionMatrix, 0);    // offset 0: projection (16 floats)
-      frameData.set(view.viewMatrix, 16);          // offset 64: view (16 floats)
-      frameData.set(this._globalLightDir, 32);     // offset 128: lightDir (3 floats)
-      frameData.set(this._globalLightColor, 36);   // offset 144: lightColor (3 floats)
-      frameData.set(this._cameraPositions[vi], 40); // offset 160: cameraPos (3 floats)
       let frameUniform = this._getFrameUniform(vi);
-      this._device.queue.writeBuffer(frameUniform.buffer, 0, frameData);
+      this._writeFrameUniformForView(view, vi, frameUniform);
 
       let passEncoder = commandEncoder.beginRenderPass({
         colorAttachments: [{
@@ -895,13 +1102,7 @@ export class GPURenderer {
       }
 
       passEncoder.setBindGroup(0, frameUniform.bindGroup);
-
-      // Draw all render primitives.
-      for (let renderPrimitives of this._renderPrimitives) {
-        if (renderPrimitives && renderPrimitives.length) {
-          this._drawPrimitives(passEncoder, renderPrimitives);
-        }
-      }
+      this._encodeRenderPrimitives(passEncoder);
 
       passEncoder.end();
       encodedPass = true;
@@ -910,6 +1111,90 @@ export class GPURenderer {
     if (encodedPass) {
       this._device.queue.submit([commandEncoder.finish()]);
     }
+  }
+
+  _drawViewInstanced(views) {
+    let view = views[0];
+    if (!view._colorView) return;
+
+    const viewCount = Math.min(views.length, MAX_VIEW_INSTANCE_COUNT);
+    let colorView = view._colorView;
+    let resolveTarget = undefined;
+    let depthView = view._depthView;
+    let colorStoreOp = 'store';
+    let attachmentSize = null;
+    if (this._sampleCount > 1 || !depthView) {
+      attachmentSize = this._getViewAttachmentSize(view);
+      if (!attachmentSize) {
+        console.warn('Skipping multiview because no depth attachment or viewport size is available.');
+        return;
+      }
+    }
+
+    if (this._sampleCount > 1) {
+      colorView =
+          this._getMsaaAttachment(
+              this._msaaColorAttachments,
+              0,
+              attachmentSize.width,
+              attachmentSize.height,
+              this._colorFormat,
+              viewCount,
+              '2d-array').view;
+      depthView =
+          this._getMsaaAttachment(
+              this._msaaDepthAttachments,
+              0,
+              attachmentSize.width,
+              attachmentSize.height,
+              this._depthFormat,
+              viewCount,
+              '2d-array').view;
+      resolveTarget = view._colorView;
+      colorStoreOp = 'discard';
+    } else if (!depthView) {
+      depthView =
+          this._getMsaaAttachment(
+              this._msaaDepthAttachments,
+              0,
+              attachmentSize.width,
+              attachmentSize.height,
+              this._depthFormat,
+              viewCount,
+              '2d-array').view;
+    }
+
+    let frameUniform = this._getFrameUniform(0);
+    this._writeViewInstancingFrameUniform(views, frameUniform);
+
+    let commandEncoder = this._device.createCommandEncoder();
+    let passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: colorView,
+        resolveTarget: resolveTarget,
+        loadOp: 'clear',
+        storeOp: colorStoreOp,
+        clearValue: { r: 0, g: 0, b: 0, a: 0 },
+      }],
+      depthStencilAttachment: depthView ? {
+        view: depthView,
+        depthLoadOp: 'clear',
+        depthClearValue: 1.0,
+        depthStoreOp: 'discard',
+      } : undefined,
+      viewCount: viewCount,
+    });
+
+    if (view.viewport) {
+      let vp = view.viewport;
+      passEncoder.setViewport(vp.x, vp.y, vp.width, vp.height, 0.0, 1.0);
+    }
+
+    passEncoder.setBindGroup(0, frameUniform.bindGroup);
+    this._encodeRenderPrimitives(passEncoder);
+
+    passEncoder.end();
+    this._device.queue.submit([commandEncoder.finish()]);
   }
 
   _drawPrimitives(passEncoder, renderPrimitives) {

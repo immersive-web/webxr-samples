@@ -53,6 +53,7 @@ SOFTWARE.
         </p>
         <p id="webgpu_status"></p>
         <label><input type="checkbox" id="use_space_warp">space warp</label>
+        <label><input type="checkbox" id="use_multiview" disabled>multiview</label>
         <label><input type="checkbox" id="do_antialias" checked>MSAA</label>
         <label><input type="checkbox" id="use_ripple" checked>ripple</label>
         <div>
@@ -71,7 +72,14 @@ SOFTWARE.
       // This sample is an AI-assisted port of the equivalent WebGL sample, and may not represent WebGPU best practices.
       import {WebXRButton} from '../js/util/webxr-button.js';
       import {GPUScene, WebXRGPUView} from '../js/render/scenes/scene-gpu.js';
-      import {GPURenderer, RenderView, createWebGPUContext} from '../js/render/core/renderer-gpu.js';
+      import {
+        GPURenderer,
+        MULTISAMPLED_ARRAY_TEXTURE_FEATURES,
+        RenderView,
+        VIEW_INSTANCING_FEATURES,
+        createWebGPUContext,
+        getSupportedGPUFeature,
+      } from '../js/render/core/renderer-gpu.js';
       import {Node} from '../js/render/core/node.js';
       import {Gltf2GPUNode} from '../js/render/nodes/gltf2-gpu.js';
       import {Primitive, PrimitiveAttribute} from '../js/render/core/primitive.js';
@@ -168,12 +176,9 @@ SOFTWARE.
 struct FrameUniforms {
   projectionMatrix: mat4x4f,
   viewMatrix: mat4x4f,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPosition: vec3f,
-  _pad2: f32,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };
 @group(0) @binding(0) var<uniform> frame: FrameUniforms;
 
@@ -225,12 +230,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 struct FrameUniforms {
   projectionMatrix: mat4x4f,
   viewMatrix: mat4x4f,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPosition: vec3f,
-  _pad2: f32,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };
 @group(0) @binding(0) var<uniform> frame: FrameUniforms;
 
@@ -414,6 +416,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
       let webgpuStatus = document.getElementById('webgpu_status');
       let webgpuCanvas = document.getElementById('webgpu_canvas');
       let useSpaceWarp = document.getElementById('use_space_warp');
+      let useMultiview = document.getElementById('use_multiview');
       let doAntialias = document.getElementById('do_antialias');
       let useRipple = document.getElementById('use_ripple');
       let shapeCountControl = document.getElementById('shape_count');
@@ -427,7 +430,13 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
       let immersiveVrSupported = false;
       let spaceWarpRequested = false;
       let spaceWarpEnabled = false;
+      let viewInstancingRequested = false;
+      let viewInstancingEnabled = false;
       let identityDeltaPose = null;
+      let webgpuCapabilities = {
+        viewInstancing: null,
+        multisampledArrayTextures: null,
+      };
 
       // This WebGPU code is an AI-assisted port of the equivalent WebGL sample,
       // and may not represent WebGPU best practices.
@@ -988,6 +997,42 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         node.visible = visible;
         for (let child of node.children) {
           setNodeTreeVisible(child, visible);
+        }
+      }
+
+      function shouldRenderControllerMesh(inputSource) {
+        return inputSource.targetRayMode == 'tracked-pointer';
+      }
+
+      function getControllerMeshKey(inputSource) {
+        return inputSource.profiles[0] + '_' + inputSource.handedness;
+      }
+
+      function addControllerMesh(key, assetPath) {
+        if (controllers[key] || !scene) {
+          return;
+        }
+
+        let controllerNode = new Gltf2GPUNode({url: assetPath});
+        setNodeTreeVisible(controllerNode, false);
+        controllers[key] = controllerNode;
+        scene.addNode(controllerNode);
+      }
+
+      function loadControllerMesh(inputSource) {
+        if (!shouldRenderControllerMesh(inputSource)) {
+          return;
+        }
+
+        const key = getControllerMeshKey(inputSource);
+        fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({assetPath}) => {
+          addControllerMesh(key, assetPath);
+        });
+      }
+
+      function loadControllerMeshes(session) {
+        for (let inputSource of session.inputSources) {
+          loadControllerMesh(inputSource);
         }
       }
 
@@ -1657,8 +1702,13 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
       function createRendererAndScene(colorFormat) {
         clearPreviousMatrices();
+        const enableViewInstancing =
+            viewInstancingEnabled && canUseViewInstancing();
         renderer = new GPURenderer(device, colorFormat, {
           sampleCount: doAntialias.checked ? 4 : 1,
+          viewInstancing: enableViewInstancing,
+          viewInstancingWgslEnable:
+              webgpuCapabilities.viewInstancing?.wgslEnable,
         });
         const sceneState = createSelectionScene(renderer);
         scene = sceneState.scene;
@@ -1685,6 +1735,19 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         lasers = [];
         activeLasers = 0;
         syncShapeCount();
+      }
+
+      function canUseViewInstancing() {
+        if (!device ||
+            !webgpuCapabilities.viewInstancing ||
+            !webgpuCapabilities.multisampledArrayTextures) {
+          return false;
+        }
+
+        const maxViewCount = 'maxViewInstanceCount' in device.limits ?
+            device.limits.maxViewInstanceCount :
+            2;
+        return maxViewCount >= 2;
       }
 
       function configureCanvas(format) {
@@ -1779,6 +1842,18 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         return xrColorDepthTexture.createView(depthViewDesc);
       }
 
+      function projectionLayerUsesDepthValues() {
+        return !binding || binding.usesDepthValues !== false;
+      }
+
+      function colorPassUsesAppDepth() {
+        return !spaceWarpEnabled && !projectionLayerUsesDepthValues();
+      }
+
+      function colorPassUsesLayerDepth() {
+        return !spaceWarpEnabled && projectionLayerUsesDepthValues();
+      }
+
       function drawCanvasFrame() {
         if (!scene || !renderer || !canvasContext) {
           return;
@@ -1856,15 +1931,26 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
             !!device &&
             !!navigator.xr &&
             'XRGPUBinding' in window;
+        const canMultiview = canUseViewInstancing();
 
         if (webgpuStatus) {
           webgpuStatus.textContent = canEnter ?
-              'WebGPU XR support detected.' :
+              (canMultiview ?
+                'WebGPU XR support detected. Multiview support detected.' :
+                'WebGPU XR support detected.') :
               'WebGPU XR support was not detected.';
         }
 
         const sessionActive = !!(xrButton && xrButton.session);
         useSpaceWarp.disabled = !!benchmarkState || sessionActive;
+        useMultiview.disabled =
+            !!benchmarkState || sessionActive || !canMultiview;
+        if (!canMultiview) {
+          useMultiview.checked = false;
+        } else if (!useMultiview.dataset.initialized) {
+          useMultiview.checked = true;
+        }
+        useMultiview.dataset.initialized = 'true';
         doAntialias.disabled = !!benchmarkState || sessionActive;
         useRipple.disabled = !!benchmarkState || sessionActive;
         shapeCountControl.disabled = !!benchmarkState;
@@ -1881,11 +1967,23 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
           return;
         }
 
-        device = await createWebGPUContext({xrCompatible: true});
+        device = await createWebGPUContext({
+          xrCompatible: true,
+          optionalFeatures: [
+            ...VIEW_INSTANCING_FEATURES.map(candidate => candidate.feature),
+            ...MULTISAMPLED_ARRAY_TEXTURE_FEATURES,
+          ],
+        });
         if (!device) {
           webgpuStatus.textContent = 'Failed to create a WebGPU device.';
           return;
         }
+        webgpuCapabilities.viewInstancing =
+            getSupportedGPUFeature(device.features, VIEW_INSTANCING_FEATURES);
+        webgpuCapabilities.multisampledArrayTextures =
+            getSupportedGPUFeature(
+                device.features,
+                MULTISAMPLED_ARRAY_TEXTURE_FEATURES);
 
         canvasFormat = navigator.gpu.getPreferredCanvasFormat();
         configureCanvas(canvasFormat);
@@ -1917,6 +2015,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
       function onRequestSession() {
         spaceWarpRequested = useSpaceWarp.checked;
+        viewInstancingRequested = useMultiview.checked && canUseViewInstancing();
         const requiredFeatures = ['local-floor', 'webgpu'];
         if (spaceWarpRequested) {
           requiredFeatures.push('space-warp');
@@ -1930,6 +2029,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
       function onSessionStarted(session) {
         xrButton.setSession(session);
         spaceWarpEnabled = spaceWarpRequested;
+        viewInstancingEnabled = viewInstancingRequested && canUseViewInstancing();
         const benchmarkSession = !!benchmarkState;
         if (benchmarkSession) {
           benchmarkState.session = session;
@@ -1948,17 +2048,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
           session.addEventListener('inputsourceschange', (event) => {
             for (let inputSource of event.added) {
-              if (inputSource.targetRayMode == 'tracked-pointer') {
-                fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
-                  let key = inputSource.profiles[0] + '_' + inputSource.handedness;
-                  if (!controllers[key] && scene) {
-                    let controllerNode = new Gltf2GPUNode({url: assetPath});
-                    setNodeTreeVisible(controllerNode, false);
-                    controllers[key] = controllerNode;
-                    scene.addNode(controllerNode);
-                  }
-                });
-              }
+              loadControllerMesh(inputSource);
             }
           });
         }
@@ -1969,10 +2059,12 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
         const layerInit = {
           colorFormat: colorFormat,
-          depthStencilFormat: 'depth24plus',
           clearOnAccess: false,
         };
-        if (spaceWarpEnabled) {
+        if (spaceWarpEnabled || projectionLayerUsesDepthValues()) {
+          layerInit.depthStencilFormat = 'depth24plus';
+        }
+        if (spaceWarpEnabled || viewInstancingEnabled) {
           layerInit.textureType = 'texture-array';
         }
         layer = binding.createProjectionLayer(layerInit);
@@ -1981,6 +2073,9 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
         configureCanvas(colorFormat);
         createRendererAndScene(colorFormat);
+        if (!benchmarkSession) {
+          loadControllerMeshes(session);
+        }
 
         updateFeatureControls();
 
@@ -2002,6 +2097,8 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         binding = null;
         layer = null;
         spaceWarpEnabled = false;
+        viewInstancingRequested = false;
+        viewInstancingEnabled = false;
         identityDeltaPose = null;
         if (xrColorDepthTexture) {
           xrColorDepthTexture.destroy();
@@ -2150,10 +2247,10 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         }
 
         for (let inputSource of frame.session.inputSources) {
-          if (inputSource.gripSpace) {
+          if (shouldRenderControllerMesh(inputSource) && inputSource.gripSpace) {
             let gripPose = frame.getPose(inputSource.gripSpace, xrRefSpace);
             if (gripPose) {
-              let key = inputSource.profiles[0] + '_' + inputSource.handedness;
+              let key = getControllerMeshKey(inputSource);
               if (controllers[key]) {
                 controllers[key].matrix = gripPose.transform.matrix;
                 setNodeTreeVisible(controllers[key], true);
@@ -2299,8 +2396,50 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
         }
       }
 
+      function createTextureArrayView(texture, viewCount) {
+        return texture.createView({
+          dimension: '2d-array',
+          baseArrayLayer: 0,
+          arrayLayerCount: viewCount,
+        });
+      }
+
       function drawXRFrame(frame, pose) {
         if (!pose || !scene) {
+          return;
+        }
+
+        if (viewInstancingEnabled && pose.views.length > 0) {
+          const viewCount = Math.min(pose.views.length, 2);
+          const subImage = binding.getViewSubImage(layer, pose.views[0]);
+          const viewDesc = {
+            dimension: '2d-array',
+            baseArrayLayer: 0,
+            arrayLayerCount: viewCount,
+          };
+          const colorView = createTextureArrayView(
+              subImage.colorTexture,
+              viewCount);
+          let depthView = null;
+          if (colorPassUsesAppDepth()) {
+            depthView = getXRColorDepthView(subImage, viewDesc);
+          } else if (colorPassUsesLayerDepth() && subImage.depthStencilTexture) {
+            depthView = createTextureArrayView(
+                subImage.depthStencilTexture,
+                viewCount);
+          }
+
+          let views = [];
+          for (let i = 0; i < viewCount; ++i) {
+            let renderView =
+                new WebXRGPUView(pose.views[i], subImage, colorView, depthView);
+            applyBenchmarkViewOverrides(frame, renderView);
+            views.push(renderView);
+          }
+
+          updateSpaceWarpDeltaPose();
+          scene.drawViewArray(views);
+          renderMotionAndDepth(frame, pose);
           return;
         }
 
@@ -2312,9 +2451,9 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
           let colorView = subImage.colorTexture.createView(viewDesc);
           let depthView = null;
-          if (spaceWarpEnabled) {
+          if (colorPassUsesAppDepth()) {
             depthView = getXRColorDepthView(subImage, viewDesc);
-          } else if (subImage.depthStencilTexture) {
+          } else if (colorPassUsesLayerDepth() && subImage.depthStencilTexture) {
             depthView = subImage.depthStencilTexture.createView(viewDesc);
           }
 
@@ -2360,6 +2499,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3u) {
 
       shapeCountControl.addEventListener('input', syncShapeCount);
       useSpaceWarp.addEventListener('change', updateFeatureControls);
+      useMultiview.addEventListener('change', updateFeatureControls);
       doAntialias.addEventListener('change', rebuildCanvasPreview);
       useRipple.addEventListener('change', rebuildCanvasPreview);
       benchmarkButton.addEventListener('click', startBenchmark);

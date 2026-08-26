@@ -26,12 +26,9 @@ const WGSL_COMMON = `
 struct FrameUniforms {
   projectionMatrix: mat4x4f,
   viewMatrix: mat4x4f,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPosition: vec3f,
-  _pad2: f32,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };
 @group(0) @binding(0) var<uniform> frame: FrameUniforms;
 

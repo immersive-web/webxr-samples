@@ -22,6 +22,7 @@ import {PbrGPUMaterial} from '../materials/pbr-gpu.js';
 import {Node} from '../core/node.js';
 import {Primitive, PrimitiveAttribute} from '../core/primitive.js';
 import {ImageTexture, ColorTexture} from '../core/texture.js';
+import {ATTRIB} from '../core/renderer-gpu.js';
 
 const GLB_MAGIC = 0x46546C67;
 const CHUNK_TYPE = {
@@ -230,6 +231,13 @@ export class Gltf2GPULoader {
         let max = null;
 
         for (let name in primitive.attributes) {
+          if (!(name in ATTRIB)) {
+            // The WebGPU renderer does not implement skinning or custom vertex
+            // attributes yet. Ignore streams such as JOINTS_0 and WEIGHTS_0
+            // instead of binding them to an undefined shader location.
+            continue;
+          }
+
           let accessor = accessors[primitive.attributes[name]];
           let bufferView = bufferViews[accessor.bufferView];
           elementCount = accessor.count;

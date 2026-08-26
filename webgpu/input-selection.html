@@ -93,12 +93,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 struct FrameUniforms {
   projectionMatrix: mat4x4f,
   viewMatrix: mat4x4f,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPosition: vec3f,
-  _pad2: f32,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };
 @group(0) @binding(0) var<uniform> frame: FrameUniforms;
 
@@ -243,6 +240,42 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
       let lasers = [];
       let activeLasers = 0;
 
+      function shouldRenderControllerMesh(inputSource) {
+        return inputSource.targetRayMode == 'tracked-pointer';
+      }
+
+      function getControllerMeshKey(inputSource) {
+        return inputSource.profiles[0] + '_' + inputSource.handedness;
+      }
+
+      function addControllerMesh(key, assetPath) {
+        if (controllers[key]) {
+          return;
+        }
+
+        let controllerNode = new Gltf2GPUNode({url: assetPath});
+        controllerNode.visible = false;
+        controllers[key] = controllerNode;
+        scene.addNode(controllerNode);
+      }
+
+      function loadControllerMesh(inputSource) {
+        if (!shouldRenderControllerMesh(inputSource)) {
+          return;
+        }
+
+        const key = getControllerMeshKey(inputSource);
+        fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({assetPath}) => {
+          addControllerMesh(key, assetPath);
+        });
+      }
+
+      function loadControllerMeshes(session) {
+        for (let inputSource of session.inputSources) {
+          loadControllerMesh(inputSource);
+        }
+      }
+
       async function initXR() {
         if (!navigator.gpu) {
           console.error('WebGPU is not supported.');
@@ -311,17 +344,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
         // Load controller models when input sources are connected.
         session.addEventListener('inputsourceschange', (event) => {
           for (let inputSource of event.added) {
-            if (inputSource.targetRayMode == 'tracked-pointer') {
-              fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
-                let key = inputSource.profiles[0] + '_' + inputSource.handedness;
-                if (!controllers[key]) {
-                  let controllerNode = new Gltf2GPUNode({url: assetPath});
-                  controllerNode.visible = false;
-                  controllers[key] = controllerNode;
-                  scene.addNode(controllerNode);
-                }
-              });
-            }
+            loadControllerMesh(inputSource);
           }
         });
 
@@ -339,6 +362,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
         renderer = new GPURenderer(device, colorFormat);
         scene.setRenderer(renderer);
+        loadControllerMeshes(session);
 
         // Create the box primitive and add boxes to the scene.
         let boxPrimitive = createBoxPrimitive();
@@ -484,10 +508,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
         // Update controllers, lasers, and check if we can move grabbed objects.
         for (let inputSource of frame.session.inputSources) {
           // Position the controller model.
-          if (inputSource.gripSpace) {
+          if (shouldRenderControllerMesh(inputSource) && inputSource.gripSpace) {
             let gripPose = frame.getPose(inputSource.gripSpace, xrRefSpace);
             if (gripPose) {
-              let key = inputSource.profiles[0] + '_' + inputSource.handedness;
+              let key = getControllerMeshKey(inputSource);
               if (controllers[key]) {
                 controllers[key].matrix = gripPose.transform.matrix;
                 controllers[key].visible = true;
