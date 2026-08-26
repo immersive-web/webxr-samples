@@ -340,10 +340,10 @@ class GPURenderMaterial {
 }
 
 // Byte sizes for uniform buffer layout (std140-aligned).
-// Frame uniforms: projection(64) + view(64) + lightDir(16) + lightColor(16) + cameraPos(16) = 176
+// Frame uniforms: projection(64) + view(64) + cameraPos(16) + lightDir(16) + lightColor(16) = 176
 const FRAME_UNIFORM_SIZE = 176;
 // Multiview frame uniforms: 2 view-projection matrices, 2 projection matrices,
-// 2 view matrices, lightDir, lightColor, and 2 vec4 camera positions = 448
+// 2 view matrices, 2 vec4 camera positions, lightDir, and lightColor = 448
 const VIEW_INSTANCING_FRAME_UNIFORM_SIZE = 448;
 // Model uniforms: modelMatrix(64)
 const MODEL_UNIFORM_SIZE = 64;
@@ -354,23 +354,18 @@ const MAX_VIEW_INSTANCE_COUNT = 2;
 const STANDARD_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
   projectionMatrix: mat4x4f,
   viewMatrix: mat4x4f,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPosition: vec3f,
-  _pad2: f32,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };`;
 
 const VIEW_INSTANCING_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
   viewProjectionMatrices: array<mat4x4f, 2>,
   projectionMatrices: array<mat4x4f, 2>,
   viewMatrices: array<mat4x4f, 2>,
-  lightDirection: vec3f,
-  _pad0: f32,
-  lightColor: vec3f,
-  _pad1: f32,
   cameraPositions: array<vec4f, 2>,
+  lightDirection: vec3f,
+  lightColor: vec3f,
 };`;
 
 const MOTION_FRAME_UNIFORM_WGSL = `struct FrameUniforms {
@@ -999,9 +994,9 @@ export class GPURenderer {
     let frameData = this._frameData;
     frameData.set(view.projectionMatrix, 0);    // offset 0: projection (16 floats)
     frameData.set(view.viewMatrix, 16);          // offset 64: view (16 floats)
-    frameData.set(this._globalLightDir, 32);     // offset 128: lightDir (3 floats)
-    frameData.set(this._globalLightColor, 36);   // offset 144: lightColor (3 floats)
-    frameData.set(this._cameraPositions[viewIndex], 40); // offset 160: cameraPos (3 floats)
+    frameData.set(this._cameraPositions[viewIndex], 32); // offset 128: cameraPos (3 floats)
+    frameData.set(this._globalLightDir, 36);     // offset 144: lightDir (3 floats)
+    frameData.set(this._globalLightColor, 40);   // offset 160: lightColor (3 floats)
     this._device.queue.writeBuffer(frameUniform.buffer, 0, frameData);
   }
 
@@ -1017,10 +1012,10 @@ export class GPURenderer {
       frameData.set(this._viewProjectionMatrices[i], i * 16);
       frameData.set(views[i].projectionMatrix, 32 + i * 16);
       frameData.set(views[i].viewMatrix, 64 + i * 16);
-      frameData.set(this._cameraPositions[i], 104 + i * 4);
+      frameData.set(this._cameraPositions[i], 96 + i * 4);
     }
-    frameData.set(this._globalLightDir, 96);
-    frameData.set(this._globalLightColor, 100);
+    frameData.set(this._globalLightDir, 104);
+    frameData.set(this._globalLightColor, 108);
     this._device.queue.writeBuffer(frameUniform.buffer, 0, frameData);
   }
 
