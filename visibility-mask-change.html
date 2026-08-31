@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    <link rel='stylesheet' href='css/common.css'>
+    <title>Visibility Mask Change</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Visibility Mask Change</summary>
+        <p>
+          Demonstrates listening for the <code>visibilitymaskchange</code> event
+          on an immersive XR session and reporting which view changed.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p id='status'>Click 'Enter XR' to start listening for visibility mask changes.</p>
+      <p id='event-log'>No visibility mask changes observed yet.</p>
+    </main>
+    <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {QueryArgs} from './js/util/query-args.js';
+
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        new WebXRPolyfill();
+      }
+
+      let xrButton = null;
+      let xrRefSpace = null;
+      let gl = null;
+      let renderer = null;
+      let scene = new Scene();
+      let visibilityMaskEventCount = 0;
+
+      const statusElement = document.getElementById('status');
+      const eventLogElement = document.getElementById('event-log');
+
+      scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
+      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+
+      function initXR() {
+        xrButton = new WebXRButton({
+          onRequestSession,
+          onEndSession
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        if (navigator.xr) {
+          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            xrButton.enabled = supported;
+          });
+        }
+      }
+
+      function onRequestSession() {
+        return navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+      }
+
+      function onSessionStarted(session) {
+        xrButton.setSession(session);
+        statusElement.textContent = 'XR session active. Listening for visibility mask changes.';
+
+        session.addEventListener('end', onSessionEnded);
+        session.addEventListener('visibilitymaskchange', onVisibilityMaskChange);
+
+        gl = createWebGLContext({xrCompatible: true});
+        renderer = new Renderer(gl);
+        scene.setRenderer(renderer);
+
+        session.updateRenderState({baseLayer: new XRWebGLLayer(session, gl)});
+
+        session.requestReferenceSpace('local').then((refSpace) => {
+          xrRefSpace = refSpace;
+          session.requestAnimationFrame(onXRFrame);
+        });
+      }
+
+      function onVisibilityMaskChange(event) {
+        visibilityMaskEventCount++;
+        const eye = event.view && event.view.eye ? event.view.eye : 'unknown';
+        eventLogElement.textContent =
+          `visibilitymaskchange #${visibilityMaskEventCount}: view eye = ${eye}`;
+      }
+
+      function onEndSession(session) {
+        session.end();
+      }
+
+      function onSessionEnded() {
+        xrButton.setSession(null);
+        statusElement.textContent = 'XR session ended.';
+        renderer = null;
+      }
+
+      function onXRFrame(t, frame) {
+        const session = frame.session;
+        scene.startFrame();
+        session.requestAnimationFrame(onXRFrame);
+
+        const pose = frame.getViewerPose(xrRefSpace);
+        if (pose) {
+          const glLayer = session.renderState.baseLayer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+          for (const view of pose.views) {
+            const viewport = glLayer.getViewport(view);
+            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+            scene.draw(view.projectionMatrix, view.transform);
+          }
+        }
+
+        scene.endFrame();
+      }
+
+      initXR();
+    </script>
+  </body>
+</html>
