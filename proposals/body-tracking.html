@@ -238,7 +238,14 @@
 
           i = 0;
           for (const [key, value] of Object.entries(jointHierarchy)) {
-            let distance = dist(frame.getPose(body.get(key), body.get(value)).transform.position);
+            const relativePose = frame.getPose(body.get(key), body.get(value));
+            if (!relativePose) {
+              matrix.makeScale(0, 0, 0);
+              skeleton.setMatrixAt(i++, matrix);
+              continue;
+            }
+
+            let distance = dist(relativePose.transform.position);
             if (key.includes('right')) {
               distance = -distance;
             }
