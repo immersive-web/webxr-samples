@@ -20,17 +20,21 @@
  * SOFTWARE.
  */
 
+import { ProjectionGrid } from './projection-grid.js';
+
 class WebGPULayerTest {
   constructor(config) {
     this.config = config;
     this.button = document.getElementById('xr-button');
     this.status = document.getElementById('status');
+    this.projectionCheckbox = document.getElementById('use-projection-layer');
 
     this.device = null;
     this.session = null;
     this.binding = null;
     this.referenceSpace = null;
     this.projectionLayer = null;
+    this.projectionGrid = null;
     this.testLayer = null;
     this.image = null;
     this.imageSource = null;
@@ -121,20 +125,28 @@ class WebGPULayerTest {
 
   async onSessionStarted(session) {
     this.settings = this.config.getSettings?.() || {};
+    this.settings.useProjectionLayer = this.projectionCheckbox.checked;
+    this.projectionCheckbox.disabled = true;
     this.modeDescription = this.config.describeSettings?.(this.settings) || 'mono';
     this.binding = new XRGPUBinding(session, this.device);
     const colorFormat = this.binding.getPreferredColorFormat();
 
-    this.referenceSpace = await session.requestReferenceSpace('local');
-    this.projectionLayer = this.binding.createProjectionLayer({ colorFormat });
-    session.updateRenderState({ layers: [this.projectionLayer] });
+    const referenceSpace = await session.requestReferenceSpace('local');
+    if (session !== this.session) {
+      return;
+    }
+    this.referenceSpace = referenceSpace;
+
+    if (this.settings.useProjectionLayer) {
+      this.projectionLayer = this.binding.createProjectionLayer({ colorFormat });
+      this.projectionGrid = new ProjectionGrid(this.device, colorFormat);
+    }
 
     this.layerDrawCount = 0;
     this.redrawVerified = false;
     this.button.textContent = 'Exit VR';
     this.button.disabled = false;
     this.setStatus(`Loading the ${this.modeDescription} image...`);
-    session.requestAnimationFrame(this.onXRFrame);
 
     const imagePath = this.config.getImagePath?.(this.settings) || this.config.imagePath;
     const image = await this.getImage(imagePath);
@@ -152,9 +164,14 @@ class WebGPULayerTest {
       space: this.referenceSpace,
     });
 
-    session.updateRenderState({
-      layers: [this.testLayer, this.projectionLayer],
-    });
+    const layers = [this.testLayer];
+    if (this.projectionLayer) {
+      layers.push(this.projectionLayer);
+    }
+    session.updateRenderState({ layers });
+    // Start frames only after the composition layer is ready, so testing it
+    // alone never requires a temporary projection layer or an empty layer list.
+    session.requestAnimationFrame(this.onXRFrame);
 
     this.setStatus(
       `Waiting to draw the ${this.modeDescription} ${this.config.layerName.toLowerCase()} layer.`,
@@ -168,10 +185,12 @@ class WebGPULayerTest {
 
     this.testLayer?.destroy();
     this.projectionLayer?.destroy();
+    this.projectionGrid?.destroy();
     this.session = null;
     this.binding = null;
     this.referenceSpace = null;
     this.projectionLayer = null;
+    this.projectionGrid = null;
     this.testLayer = null;
     this.image = null;
     this.imageSource = null;
@@ -179,6 +198,7 @@ class WebGPULayerTest {
 
     this.button.textContent = 'Enter VR';
     this.button.disabled = false;
+    this.projectionCheckbox.disabled = false;
     const message = this.endStatus || `${this.config.layerName} layer test ready.`;
     this.setStatus(message, message.startsWith('Error:'));
     this.endStatus = null;
@@ -201,17 +221,14 @@ class WebGPULayerTest {
       }
 
       const shouldDrawLayer = Boolean(this.testLayer?.needsRedraw);
-      const pose = frame.getViewerPose(this.referenceSpace);
-      if (!shouldDrawLayer && !pose) {
-        return;
-      }
+      const pose = this.projectionLayer ? frame.getViewerPose(this.referenceSpace) : null;
 
       if (shouldDrawLayer) {
         this.copyImageToCompositionLayer(frame);
       }
       if (pose) {
         const commandEncoder = this.device.createCommandEncoder();
-        this.clearProjectionLayer(commandEncoder, pose);
+        this.projectionGrid.draw(commandEncoder, this.binding, this.projectionLayer, pose);
         this.device.queue.submit([commandEncoder.finish()]);
       }
 
@@ -320,31 +337,6 @@ class WebGPULayerTest {
           },
         );
       }
-    }
-  }
-
-  clearProjectionLayer(commandEncoder, pose) {
-    for (const view of pose.views) {
-      const subImage = this.binding.getViewSubImage(this.projectionLayer, view);
-      const renderPass = commandEncoder.beginRenderPass({
-        colorAttachments: [{
-          view: subImage.colorTexture.createView(subImage.getViewDescriptor()),
-          loadOp: 'clear',
-          storeOp: 'store',
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 },
-        }],
-      });
-
-      const viewport = subImage.viewport;
-      renderPass.setViewport(
-        viewport.x,
-        viewport.y,
-        viewport.width,
-        viewport.height,
-        0.0,
-        1.0,
-      );
-      renderPass.end();
     }
   }
 
