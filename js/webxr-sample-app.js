@@ -147,32 +147,9 @@ export class WebXRSampleApp {
     }
 
     this.onInitRenderer();
-    const gl = this.gl;
 
     this.scene.inputRenderer.useProfileControllerMeshes(session);
-
-    if (session.isImmersive && this.options.useMultiview) {
-      this.renderer = new Renderer(gl, true, true);
-      this.scene.setRenderer(this.renderer);
-
-      let xrGLFactory = new XRWebGLBinding(session, gl);
-      let layer = xrGLFactory.createProjectionLayer({
-        textureType: "texture-array",
-        depthFormat: gl.DEPTH_COMPONENT24,
-        useDepthSorting: true,
-      });
-      session.updateRenderState({ layers: [layer] });
-
-      if (session.supportedFrameRates && session.supportedFrameRates.length) {
-        session.updateTargetFrameRate(session.supportedFrameRates[session.supportedFrameRates.length-1]);
-      }
-    } else {
-      this.renderer = new Renderer(gl);
-      this.scene.setRenderer(this.renderer);
-      session.updateRenderState({
-        baseLayer: this.onCreateXRLayer(session)
-      });
-    }
+    this.onUpdateXRLayer(session);
 
     this.onRequestReferenceSpace(session).then((refSpace) => {
       if (session.isImmersive) {
@@ -187,6 +164,40 @@ export class WebXRSampleApp {
 
       session.requestAnimationFrame(this.frameCallback);
     });
+  }
+
+  onUpdateXRLayer(session) {
+    const gl = this.gl;
+    const useMultiview = !!(session.isImmersive && this.options.useMultiview &&
+        this.renderer.multiviewExtension);
+    const renderer = new Renderer(gl, useMultiview, useMultiview);
+    renderer.globalLightDir = this.renderer.globalLightDir;
+    renderer.globalLightColor = this.renderer.globalLightColor;
+    this.renderer = renderer;
+    this.scene.setRenderer(renderer);
+
+    let layer;
+    if (useMultiview) {
+      let xrGLFactory = new XRWebGLBinding(session, gl);
+      layer = xrGLFactory.createProjectionLayer({
+        textureType: "texture-array",
+        depthFormat: gl.DEPTH_COMPONENT24,
+        useDepthSorting: true,
+      });
+      session.updateRenderState({ layers: [layer] });
+
+      if (session.supportedFrameRates && session.supportedFrameRates.length) {
+        session.updateTargetFrameRate(session.supportedFrameRates[session.supportedFrameRates.length-1]);
+      }
+    } else {
+      layer = this.onCreateXRLayer(session);
+      session.updateRenderState({
+        baseLayer: layer
+      });
+    }
+
+    // updateRenderState takes effect at the start of a subsequent XR frame.
+    this._pendingXRLayer = {session, layer};
   }
 
   onRequestReferenceSpace(session) {
@@ -207,6 +218,15 @@ export class WebXRSampleApp {
 
   // Override to customize frame handling
   onXRFrame(time, frame, refSpace) {
+    if (this._pendingXRLayer && this._pendingXRLayer.session == frame.session) {
+      const renderState = frame.session.renderState;
+      const layer = renderState.baseLayer || renderState.layers?.[0];
+      if (layer != this._pendingXRLayer.layer) {
+        return;
+      }
+      this._pendingXRLayer = null;
+    }
+
     let pose = frame.getViewerPose(refSpace);
     if (this.options.defaultInputHandling) {
       this.scene.updateInputSources(frame, refSpace);
