@@ -1,0 +1,261 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+    <title>WebGPU Media Layers</title>
+  </head>
+  <body>
+    <header style='max-width: 800px;'>
+      <details open>
+        <summary>WebGPU Media Layers</summary>
+        <p>
+          This sample plays 180-degree and 360-degree videos using WebXR media
+          layers in an XR session with WebGPU. It requires native WebXR media
+          layer and WebGPU support.
+          <a class='back' href='./'>Back</a>
+        </p>
+      </details>
+      <p>
+        <label for='videoselect'>Choose a video</label>
+        <select id='videoselect'>
+          <option data-angle='360' data-layout='stereo-top-bottom' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_4.3k_30s_360_h264_crf23_binaural_CREDIT_JON_GRIFFITH_injected.mp4'>4.3K H.264 crf23 360</option>
+          <option data-angle='360' data-layout='stereo-top-bottom' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_5.7k_30s_360_h265_crf23_binaural_CREDIT_JON_GRIFFITH_injected.mp4'>5.7K H.265 crf23 360</option>
+          <option data-angle='180' data-layout='stereo-left-right' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_6.2k_30s_180_SBS_h264_crf27_binaural_CREDIT_JON_GRIFFITH_v2.mp4'>6.2K H.264 crf27 180 side-by-side</option>
+          <option data-angle='180' data-layout='stereo-top-bottom' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_6.2k_30s_180_TB_h264_crf27_CREDIT_JON_GRIFFITH-injected.mp4'>6.2K H.264 crf27 180 top-bottom</option>
+          <option data-angle='180' data-layout='stereo-left-right' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_8k_30s_180_SBS_h265_crf23_binaural_CREDIT_JON_GRIFFITH-injected.mp4'>8K H.265 crf23 180 side-by-side</option>
+          <option data-angle='180' data-layout='stereo-top-bottom' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_8k_30s_180_TB_h265_crf23_binaural_CREDIT_JON_GRIFFITH-injected.mp4'>8K H.265 crf23 180 top-bottom</option>
+          <option data-angle='180' data-layout='stereo-left-right' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_30s_180_SBS_vp8_crf23_binaural_CREDIT_JON_GRIFFITH-injected.webm'>VP8 crf23 180 side-by-side</option>
+          <option data-angle='180' data-layout='stereo-left-right' value='https://oculus-mp4.s3.amazonaws.com/immersive+video+8K+for+Oculus+Browser/everestvr_4k_30s_180_SBS_av1_crf23_binaural_CREDIT_JON_GRIFFITH-injected.mp4'>4K AV1 crf23 180 side-by-side</option>
+        </select>
+      </p>
+      <button id='xr-button' class='barebones-button' disabled>Checking support...</button>
+      <p id='status' role='status'>Checking WebXR and WebGPU support...</p>
+      <p>Pull the trigger to restart the video; squeeze to toggle play/pause. Hold A or X to force mono playback.</p>
+      <p>
+        Many thanks to Eric Cheng and Jon Griffith for the Everest media samples.
+        Check out Jon's work on <a href='https://alpineexposures.com/'>https://alpineexposures.com/</a>.
+      </p>
+    </header>
+    <script type='module'>
+      const xrButton = document.getElementById('xr-button');
+      const videoSelect = document.getElementById('videoselect');
+      const status = document.getElementById('status');
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.preload = 'auto';
+      video.playsInline = true;
+      video.loop = false;
+
+      let xrSupported = null;
+      let xrSession = null;
+      let mediaLayer = null;
+      let busy = false;
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.color = isError ? '#b00020' : '';
+      }
+
+      function updateControls() {
+        videoSelect.disabled = busy || !!xrSession;
+        if (xrSession) {
+          xrButton.textContent = 'Exit VR';
+          xrButton.disabled = busy;
+        } else {
+          const videoReady = video.readyState >= video.HAVE_FUTURE_DATA && !video.error;
+          xrButton.disabled = busy || !xrSupported || !videoReady;
+          xrButton.textContent = xrSupported === null ? 'Checking support...' :
+              !xrSupported ? 'VR unavailable' :
+              video.error ? 'Cannot play video' :
+              videoReady ? 'Enter VR' : 'Loading video...';
+        }
+      }
+
+      function loadSelectedVideo() {
+        video.pause();
+        video.src = videoSelect.value;
+        video.load();
+        updateControls();
+        if (xrSupported) {
+          setStatus('Loading video...');
+        }
+      }
+
+      video.addEventListener('canplay', () => {
+        updateControls();
+        if (xrSupported && !xrSession) {
+          setStatus('Media layer sample ready.');
+        }
+      });
+      video.addEventListener('error', () => {
+        updateControls();
+        setStatus(`Cannot play this video: ${video.error?.message || 'unsupported format or network error'}`, true);
+      });
+      videoSelect.addEventListener('change', loadSelectedVideo);
+
+      async function initialize() {
+        try {
+          if (!navigator.xr) {
+            throw new Error('WebXR is not supported.');
+          }
+          if (!navigator.gpu || !('XRGPUBinding' in window)) {
+            throw new Error('WebXR with WebGPU is not supported.');
+          }
+          if (!('XRMediaBinding' in window) ||
+              typeof XRMediaBinding.prototype.createEquirectLayer !== 'function') {
+            throw new Error('WebXR media layers are not supported.');
+          }
+          if (!await navigator.xr.isSessionSupported('immersive-vr')) {
+            throw new Error('Immersive VR is not supported.');
+          }
+          xrSupported = true;
+          setStatus(video.error ? 'Cannot play this video.' :
+              video.readyState >= video.HAVE_FUTURE_DATA ? 'Media layer sample ready.' : 'Loading video...', !!video.error);
+        } catch (error) {
+          xrSupported = false;
+          setStatus(error.message, true);
+        }
+        updateControls();
+      }
+
+      function playVideo() {
+        video.play().catch((error) => setStatus(`Playback failed: ${error.message}`, true));
+      }
+
+      async function onButtonClicked() {
+        busy = true;
+        updateControls();
+        if (xrSession) {
+          try {
+            await xrSession.end();
+          } catch (error) {
+            busy = false;
+            updateControls();
+            setStatus(`Could not end the session: ${error.message}`, true);
+          }
+          return;
+        }
+
+        setStatus('Starting media layer session...');
+        let session = null;
+        try {
+          // Request the session and start playback while the click still has
+          // user activation. A media-only session does not need a GPUDevice.
+          const sessionRequest = navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['webgpu', 'layers'],
+          });
+          const playback = video.play().catch((error) => error);
+          session = await sessionRequest;
+          xrSession = session;
+          session.addEventListener('end', () => onSessionEnded(session), {once: true});
+          busy = false;
+          updateControls();
+
+          const playbackError = await playback;
+          if (xrSession !== session) {
+            return;
+          }
+          if (playbackError) {
+            throw playbackError;
+          }
+          const space = await session.requestReferenceSpace('local');
+          if (xrSession !== session) {
+            return;
+          }
+
+          const option = videoSelect.selectedOptions[0];
+          const mediaBinding = new XRMediaBinding(session);
+          mediaLayer = mediaBinding.createEquirectLayer(video, {
+            space,
+            layout: option.dataset.layout,
+            centralHorizontalAngle: Number(option.dataset.angle) * Math.PI / 180,
+          });
+          session.updateRenderState({layers: [mediaLayer]});
+
+          // These events fire once per press, so holding a button does not
+          // repeatedly restart the video or toggle playback every frame.
+          session.addEventListener('selectstart', () => {
+            video.currentTime = 0;
+            playVideo();
+          });
+          session.addEventListener('squeezestart', () => {
+            if (video.paused) {
+              playVideo();
+            } else {
+              video.pause();
+            }
+          });
+          setStatus('Playing video in a WebGPU media layer session.');
+          session.requestAnimationFrame(onXRFrame);
+        } catch (error) {
+          video.pause();
+          if (session && xrSession === session) {
+            try {
+              await session.end();
+            } catch (endError) {
+              console.error(endError);
+              onSessionEnded(session);
+            }
+          }
+          busy = false;
+          updateControls();
+          setStatus(`Could not start the session: ${error.message}`, true);
+        }
+      }
+
+      function onSessionEnded(session) {
+        if (xrSession !== session) {
+          return;
+        }
+        video.pause();
+        mediaLayer?.destroy();
+        mediaLayer = null;
+        xrSession = null;
+        busy = false;
+        updateControls();
+        setStatus('Media layer session ended.');
+      }
+
+      function onXRFrame(time, frame) {
+        if (frame.session !== xrSession) {
+          return;
+        }
+        xrSession.requestAnimationFrame(onXRFrame);
+        // The browser updates the media layer directly from the video. Frames
+        // are only needed here to poll the controller's optional A/X button.
+        mediaLayer.forceMonoPresentation = Array.from(xrSession.inputSources).some(
+            (source) => source.gamepad?.buttons[4]?.pressed);
+      }
+
+      xrButton.addEventListener('click', onButtonClicked);
+      loadSelectedVideo();
+      initialize();
+    </script>
+  </body>
+</html>
