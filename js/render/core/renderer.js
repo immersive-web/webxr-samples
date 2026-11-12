@@ -841,7 +841,8 @@ export class Renderer {
   }
 
   get multisampledMultiview() {
-    return this._multisampledMultiview && this._multiview;
+    return this._multisampledMultiview && this._multiview &&
+        typeof this._mv_ext.framebufferTextureMultisampleMultiviewOVR == 'function';
   }
 
   get multiviewExtension() {
