@@ -1,0 +1,746 @@
+<!doctype html>
+<!--
+Copyright 2026 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+    <meta name='mobile-web-app-capable' content='yes'>
+    <meta name='apple-mobile-web-app-capable' content='yes'>
+    <link rel='icon' type='image/png' sizes='32x32' href='../favicon-32x32.png'>
+    <link rel='icon' type='image/png' sizes='96x96' href='../favicon-96x96.png'>
+    <link rel='stylesheet' href='../css/common.css'>
+
+    <title>Depth Sensing Occlusion (WebGPU)</title>
+  </head>
+  <body>
+    <header>
+      <details open>
+        <summary>Depth Sensing Occlusion (WebGPU)</summary>
+        <p>
+          This sample uses WebXR depth sensing to hide virtual cubes behind
+          real objects. By default, the browser aligns the depth image with
+          each view. To compare, enable WebGPU reprojection before starting AR.
+          <a class="back" href="./">Back</a>
+        </p>
+        <label>
+          <input id="use-occlusion" type="checkbox" checked>
+          Use depth occlusion
+        </label>
+        <label>
+          <input id="soften-occlusion" type="checkbox" checked>
+          Soften occlusion edges
+        </label>
+        <label>
+          <input id="app-reprojection" type="checkbox">
+          Reproject depth in WebGPU
+        </label>
+        <p id="depth-status">Depth sensing has not started.</p>
+      </details>
+    </header>
+    <main style='text-align: center;'>
+      <p>
+        Move a real object between you and the virtual cubes to see it occlude
+        them.
+      </p>
+    </main>
+    <script type="module">
+      import {WebXRButton} from '../js/util/webxr-button.js';
+
+      const CUBE_VERTEX_COUNT = 36;
+      const INSTANCE_COUNT = 15;
+      const OCCLUSION_BIAS_METERS = 0.02;
+
+      // Offsets in floats, in the order of the WGSL Uniforms fields.
+      const UNIFORM_OFFSETS = {
+        projection: 0,
+        view: 16,
+        depthProjection: 32,
+        depthView: 48,
+        normDepthBufferFromNormView: 64,
+        viewport: 80,
+        depthParams: 84,
+      };
+      const UNIFORM_FLOAT_COUNT = UNIFORM_OFFSETS.depthParams + 4;
+      const UNIFORM_BUFFER_SIZE =
+          UNIFORM_FLOAT_COUNT * Float32Array.BYTES_PER_ELEMENT;
+
+      const IDENTITY_MATRIX = new Float32Array([
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+      ]);
+
+      const DEPTH_TEXTURE_FORMATS = {
+        'luminance-alpha': 'rg8unorm',
+        'float32': 'r32float',
+        'unsigned-short': 'r16uint',
+      };
+
+      const depthStatus = document.querySelector('#depth-status');
+      const useOcclusion = document.querySelector('#use-occlusion');
+      const softenOcclusion = document.querySelector('#soften-occlusion');
+      const appReprojection = document.querySelector('#app-reprojection');
+
+      let xrButton = null;
+      let xrSession = null;
+      let xrRefSpace = null;
+      let binding = null;
+      let projectionLayer = null;
+      let matchDepthView = true;
+
+      let device = null;
+      let bindGroupLayout = null;
+      let pipeline = null;
+      let fallbackDepthTexture = null;
+      let fallbackDepthTextureView = null;
+      let viewResources = [];
+      let lastDepthStatus = '';
+
+      function createShaderSource(depthDataFormat) {
+        let depthTextureDeclaration;
+        let decodeDepth;
+
+        switch (depthDataFormat) {
+          case 'unsigned-short':
+            depthTextureDeclaration =
+                '@group(0) @binding(1) var depthTexture: texture_2d<u32>;';
+            decodeDepth = `
+              let rawDepth = textureLoad(depthTexture, texel, 0).r;
+              return f32(rawDepth) * uniforms.depthParams.x;
+            `;
+            break;
+          case 'float32':
+            depthTextureDeclaration =
+                '@group(0) @binding(1) var depthTexture: texture_2d<f32>;';
+            decodeDepth = `
+              let rawDepth = textureLoad(depthTexture, texel, 0).r;
+              return rawDepth * uniforms.depthParams.x;
+            `;
+            break;
+          case 'luminance-alpha':
+            depthTextureDeclaration =
+                '@group(0) @binding(1) var depthTexture: texture_2d<f32>;';
+            decodeDepth = `
+              let packedDepth = textureLoad(depthTexture, texel, 0).rg;
+              let rawDepth = dot(packedDepth, vec2f(255.0, 256.0 * 255.0));
+              return rawDepth * uniforms.depthParams.x;
+            `;
+            break;
+          default:
+            throw new Error(`Unsupported depth data format: ${depthDataFormat}`);
+        }
+
+        return `
+          struct Uniforms {
+            projection: mat4x4f,
+            view: mat4x4f,
+            depthProjection: mat4x4f,
+            depthView: mat4x4f,
+            normDepthBufferFromNormView: mat4x4f,
+            viewport: vec4f,
+            // x: rawValueToMeters, y: occlusion bias,
+            // z: occlusion enabled, w: edge softening enabled.
+            depthParams: vec4f,
+          }
+
+          @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+          ${depthTextureDeclaration}
+
+          override reprojectDepth: bool = false;
+
+          const CUBE_CORNERS = array<vec3f, 8>(
+            vec3f(-0.5, -0.5, -0.5),
+            vec3f( 0.5, -0.5, -0.5),
+            vec3f( 0.5,  0.5, -0.5),
+            vec3f(-0.5,  0.5, -0.5),
+            vec3f(-0.5, -0.5,  0.5),
+            vec3f( 0.5, -0.5,  0.5),
+            vec3f( 0.5,  0.5,  0.5),
+            vec3f(-0.5,  0.5,  0.5)
+          );
+
+          const FACE_CORNERS = array<vec4u, 6>(
+            vec4u(4, 5, 6, 7),
+            vec4u(1, 0, 3, 2),
+            vec4u(0, 4, 7, 3),
+            vec4u(5, 1, 2, 6),
+            vec4u(3, 7, 6, 2),
+            vec4u(0, 1, 5, 4)
+          );
+
+          const FACE_NORMALS = array<vec3f, 6>(
+            vec3f( 0.0,  0.0,  1.0),
+            vec3f( 0.0,  0.0, -1.0),
+            vec3f(-1.0,  0.0,  0.0),
+            vec3f( 1.0,  0.0,  0.0),
+            vec3f( 0.0,  1.0,  0.0),
+            vec3f( 0.0, -1.0,  0.0)
+          );
+
+          const TRIANGLE_CORNERS = array<u32, 6>(0, 1, 2, 0, 2, 3);
+
+          // The same 5x5 weighted kernel used by the WebGL occlusion sample.
+          const OCCLUSION_SAMPLE_OFFSETS = array<vec2f, 21>(
+            vec2f(-1.0, -2.0), vec2f( 1.0, -2.0),
+            vec2f(-1.0,  2.0), vec2f( 1.0,  2.0),
+            vec2f(-2.0, -1.0), vec2f( 2.0, -1.0),
+            vec2f(-2.0,  1.0), vec2f( 2.0,  1.0),
+            vec2f(-2.0,  0.0), vec2f( 2.0,  0.0),
+            vec2f( 0.0, -2.0), vec2f( 0.0,  2.0),
+            vec2f(-1.0, -1.0), vec2f( 1.0, -1.0),
+            vec2f(-1.0,  1.0), vec2f( 1.0,  1.0),
+            vec2f( 0.0, -1.0), vec2f( 0.0,  1.0),
+            vec2f(-1.0,  0.0), vec2f( 1.0,  0.0),
+            vec2f( 0.0,  0.0)
+          );
+
+          const OCCLUSION_SAMPLE_WEIGHTS = array<f32, 21>(
+             4.0,  4.0,  4.0,  4.0,  4.0,  4.0,  4.0,  4.0,
+             7.0,  7.0,  7.0,  7.0,
+            16.0, 16.0, 16.0, 16.0,
+            26.0, 26.0, 26.0, 26.0,
+            41.0
+          );
+
+          struct VertexOut {
+            @builtin(position) position: vec4f,
+            @location(0) color: vec3f,
+            @location(1) normal: vec3f,
+            @location(2) worldPosition: vec3f,
+          }
+
+          @vertex
+          fn vertexMain(
+              @builtin(vertex_index) vertexIndex: u32,
+              @builtin(instance_index) instanceIndex: u32) -> VertexOut {
+            let face = vertexIndex / 6u;
+            let triangleCorner = TRIANGLE_CORNERS[vertexIndex % 6u];
+            let cornerIndex = FACE_CORNERS[face][triangleCorner];
+            let localPosition = CUBE_CORNERS[cornerIndex];
+
+            let column = f32(i32(instanceIndex % 5u) - 2);
+            let row = f32(i32((instanceIndex / 5u) % 3u) - 1);
+            let depthOffset = f32((instanceIndex + instanceIndex / 5u) % 4u) * 0.12;
+            let instancePosition = vec3f(column * 0.22, row * 0.20, -0.70 - depthOffset);
+            let worldPosition = localPosition * 0.14 + instancePosition;
+
+            let tint = f32(instanceIndex % 5u) / 4.0;
+            var output: VertexOut;
+            output.position =
+                uniforms.projection * uniforms.view * vec4f(worldPosition, 1.0);
+            output.color = vec3f(0.2 + tint * 0.7, 0.8 - tint * 0.45, 1.0 - tint * 0.35);
+            output.normal = FACE_NORMALS[face];
+            output.worldPosition = worldPosition;
+            return output;
+          }
+
+          fn readDepthInMeters(depthUv: vec2f) -> f32 {
+            if (any(depthUv < vec2f(0.0)) || any(depthUv >= vec2f(1.0))) {
+              return 0.0;
+            }
+
+            let dimensions = vec2f(textureDimensions(depthTexture));
+            let texel = vec2i(min(
+                depthUv * dimensions,
+                dimensions - vec2f(1.0)));
+            ${decodeDepth}
+          }
+
+          fn getOcclusion(depthUv: vec2f, virtualDepth: f32) -> f32 {
+            let realDepth = readDepthInMeters(depthUv);
+            if (realDepth <= 0.0) {
+              return 0.0;
+            }
+
+            // Fade through a range equal to 1% of the virtual depth. The bias
+            // prevents depth noise from hiding nearly coplanar geometry.
+            let tolerance = max(0.005, virtualDepth * 0.01);
+            let depthDelta =
+                virtualDepth - realDepth - uniforms.depthParams.y;
+            return smoothstep(-tolerance, tolerance, depthDelta);
+          }
+
+          fn getSoftOcclusion(depthUv: vec2f, virtualDepth: f32) -> f32 {
+            let texelSize = vec2f(1.0) /
+                vec2f(textureDimensions(depthTexture));
+            var weightedOcclusion = 0.0;
+
+            for (var i = 0u; i < 21u; i++) {
+              let sampleUv =
+                  depthUv + OCCLUSION_SAMPLE_OFFSETS[i] * texelSize;
+              weightedOcclusion += getOcclusion(sampleUv, virtualDepth) *
+                  OCCLUSION_SAMPLE_WEIGHTS[i];
+            }
+
+            return weightedOcclusion / 269.0;
+          }
+
+          fn getVisibility(input: VertexOut) -> f32 {
+            if (uniforms.depthParams.z <= 0.5) {
+              return 1.0;
+            }
+
+            // Depth is measured along the depth camera's negative Z axis.
+            let sensorPosition =
+                uniforms.depthView * vec4f(input.worldPosition, 1.0);
+            let virtualDepth = -sensorPosition.z;
+            var normalizedView: vec2f;
+            if (reprojectDepth) {
+              // The depth texture describes the camera when it captured depth.
+              let depthClip = uniforms.depthProjection * sensorPosition;
+              if (depthClip.w <= 0.0) {
+                return 1.0;
+              }
+              let depthNdc = depthClip.xy / depthClip.w;
+              // Normalized view coordinates have a top-left origin.
+              normalizedView = vec2f(
+                  depthNdc.x * 0.5 + 0.5, 0.5 - depthNdc.y * 0.5);
+            } else {
+              // The browser already aligned depth with the render view.
+              normalizedView = (input.position.xy - uniforms.viewport.xy) /
+                  uniforms.viewport.zw;
+            }
+            let depthUv = (uniforms.normDepthBufferFromNormView *
+                vec4f(normalizedView, 0.0, 1.0)).xy;
+
+            if (uniforms.depthParams.w > 0.5) {
+              return 1.0 - getSoftOcclusion(depthUv, virtualDepth);
+            }
+            let realDepth = readDepthInMeters(depthUv);
+            let occluded = realDepth > 0.0 &&
+                virtualDepth > realDepth + uniforms.depthParams.y;
+            return select(1.0, 0.0, occluded);
+          }
+
+          @fragment
+          fn fragmentMain(input: VertexOut) -> @location(0) vec4f {
+            let visibility = getVisibility(input);
+            if (visibility < 0.001) {
+              discard;
+            }
+            let lightDirection = normalize(vec3f(-0.4, 0.8, 0.6));
+            let light = 0.35 +
+                0.65 * max(dot(normalize(input.normal), lightDirection), 0.0);
+            // Projection layer colors use premultiplied alpha.
+            return vec4f(input.color * light * visibility, visibility);
+          }
+        `;
+      }
+
+      async function initXR() {
+        if (!navigator.xr) {
+          depthStatus.textContent = 'WebXR is not supported.';
+          return;
+        }
+
+        if (!navigator.gpu) {
+          depthStatus.textContent = 'WebGPU is not supported.';
+          return;
+        }
+
+        if (!('XRGPUBinding' in window)) {
+          depthStatus.textContent = 'The WebXR/WebGPU binding is not supported.';
+          return;
+        }
+
+        if (!('getDepthInformation' in XRGPUBinding.prototype)) {
+          depthStatus.textContent = 'WebGPU depth sensing is not supported.';
+          return;
+        }
+
+        const adapter = await navigator.gpu.requestAdapter({xrCompatible: true});
+        if (!adapter) {
+          depthStatus.textContent = 'Could not obtain an XR-compatible GPUAdapter.';
+          return;
+        }
+        device = await adapter.requestDevice();
+
+        xrButton = new WebXRButton({
+          onRequestSession,
+          onEndSession,
+          textEnterXRTitle: 'START AR',
+          textXRNotFoundTitle: 'AR NOT FOUND',
+          textExitXRTitle: 'EXIT AR',
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
+
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
+        xrButton.enabled = supported;
+        depthStatus.textContent = supported ?
+            'Ready to start WebGPU depth occlusion.' :
+            'Immersive AR is not supported.';
+      }
+
+      async function onRequestSession() {
+        if (appReprojection.disabled) {
+          return;
+        }
+        matchDepthView = !appReprojection.checked;
+        // This setting can only be changed by starting a new session.
+        appReprojection.disabled = true;
+
+        let session;
+        try {
+          session = await navigator.xr.requestSession('immersive-ar', {
+            requiredFeatures: ['webgpu', 'depth-sensing'],
+            depthSensing: {
+              usagePreference: ['gpu-optimized'],
+              dataFormatPreference: [
+                'unsigned-short',
+                'float32',
+                'luminance-alpha',
+              ],
+              matchDepthView,
+            },
+          });
+          await onSessionStarted(session);
+        } catch (error) {
+          if (session) {
+            if (session !== xrSession) {
+              return;
+            }
+            // Setup failed after entering AR. End the session so it can be retried.
+            await session.end().catch(() => {});
+          } else {
+            appReprojection.disabled = false;
+          }
+          depthStatus.textContent =
+              `Could not start WebGPU depth occlusion: ${error.message}`;
+          throw error;
+        }
+      }
+
+      async function onSessionStarted(session) {
+        xrSession = session;
+        xrButton.setSession(session);
+        session.addEventListener('end', onSessionEnded, {once: true});
+
+        binding = new XRGPUBinding(session, device);
+        const colorFormat = binding.getPreferredColorFormat();
+        await createRenderResources(colorFormat, session);
+        if (session !== xrSession) {
+          return;
+        }
+
+        projectionLayer = binding.createProjectionLayer({
+          colorFormat,
+          depthStencilFormat: 'depth24plus',
+        });
+        projectionLayer.blendTextureSourceAlpha = true;
+        session.updateRenderState({layers: [projectionLayer]});
+
+        depthStatus.textContent =
+            `Starting ${session.depthDataFormat} WebGPU depth occlusion.`;
+        const refSpace = await session.requestReferenceSpace('local');
+        if (session === xrSession) {
+          xrRefSpace = refSpace;
+          session.requestAnimationFrame(onXRFrame);
+        }
+      }
+
+      async function createRenderResources(colorFormat, session) {
+        const depthDataFormat = session.depthDataFormat;
+        const depthTextureFormat = DEPTH_TEXTURE_FORMATS[depthDataFormat];
+        if (!depthTextureFormat) {
+          throw new Error(`Unsupported depth data format: ${depthDataFormat}`);
+        }
+
+        const depthSampleType =
+            depthDataFormat === 'unsigned-short' ? 'uint' : 'unfilterable-float';
+        const layout = device.createBindGroupLayout({
+          entries: [
+            {
+              binding: 0,
+              visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+              buffer: {type: 'uniform'},
+            },
+            {
+              binding: 1,
+              visibility: GPUShaderStage.FRAGMENT,
+              texture: {
+                sampleType: depthSampleType,
+                viewDimension: '2d',
+              },
+            },
+          ],
+        });
+
+        const shaderModule = device.createShaderModule({
+          code: createShaderSource(depthDataFormat),
+        });
+        const renderPipeline = await device.createRenderPipelineAsync({
+          layout: device.createPipelineLayout({
+            bindGroupLayouts: [layout],
+          }),
+          vertex: {
+            module: shaderModule,
+            entryPoint: 'vertexMain',
+          },
+          fragment: {
+            module: shaderModule,
+            entryPoint: 'fragmentMain',
+            constants: {reprojectDepth: matchDepthView ? 0 : 1},
+            targets: [{
+              format: colorFormat,
+              blend: {
+                color: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+              },
+            }],
+          },
+          primitive: {topology: 'triangle-list'},
+          depthStencil: {
+            format: 'depth24plus',
+            depthWriteEnabled: true,
+            depthCompare: 'less',
+          },
+        });
+        if (session !== xrSession) {
+          return;
+        }
+        bindGroupLayout = layout;
+        pipeline = renderPipeline;
+
+        // A zero-filled depth texture lets the scene keep rendering on frames
+        // for which the user agent does not return depth information.
+        fallbackDepthTexture = device.createTexture({
+          size: {width: 1, height: 1},
+          format: depthTextureFormat,
+          usage: GPUTextureUsage.TEXTURE_BINDING,
+        });
+        fallbackDepthTextureView = fallbackDepthTexture.createView();
+      }
+
+      function ensureViewResource(viewIndex) {
+        while (viewResources.length <= viewIndex) {
+          viewResources.push({
+            uniformBuffer: device.createBuffer({
+              size: UNIFORM_BUFFER_SIZE,
+              usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            }),
+            uniformData: new Float32Array(UNIFORM_FLOAT_COUNT),
+          });
+        }
+        return viewResources[viewIndex];
+      }
+
+      function updateViewUniforms(
+          resource,
+          view,
+          viewport,
+          depthInformation,
+          occlusionEnabled,
+          softenEdges) {
+        const data = resource.uniformData;
+        const viewMatrix = view.transform.inverse.matrix;
+        data.set(view.projectionMatrix, UNIFORM_OFFSETS.projection);
+        data.set(viewMatrix, UNIFORM_OFFSETS.view);
+
+        // Depth comparisons use the camera that produced the depth image.
+        const depthView = depthInformation?.transform?.inverse.matrix ?? viewMatrix;
+        data.set(depthView, UNIFORM_OFFSETS.depthView);
+        data.set(
+            depthInformation?.projectionMatrix ?? IDENTITY_MATRIX,
+            UNIFORM_OFFSETS.depthProjection);
+        data.set(
+            depthInformation?.normDepthBufferFromNormView.matrix ?? IDENTITY_MATRIX,
+            UNIFORM_OFFSETS.normDepthBufferFromNormView);
+
+        data.set([
+          viewport.x,
+          viewport.y,
+          viewport.width,
+          viewport.height,
+        ], UNIFORM_OFFSETS.viewport);
+        data.set([
+          depthInformation?.rawValueToMeters ?? 0,
+          OCCLUSION_BIAS_METERS,
+          occlusionEnabled && depthInformation ? 1 : 0,
+          softenEdges ? 1 : 0,
+        ], UNIFORM_OFFSETS.depthParams);
+        device.queue.writeBuffer(resource.uniformBuffer, 0, data);
+      }
+
+      function updateDepthStatus(
+          depthActive, firstDepthInformation, depthViewCount, viewCount,
+          missingDepthGeometry) {
+        let status;
+        if (!depthActive) {
+          status = 'Depth sensing is paused; rendering without occlusion.';
+        } else if (!firstDepthInformation) {
+          status = missingDepthGeometry ?
+              'Depth camera pose or projection unavailable; rendering without occlusion.' :
+              'No depth texture was available; rendering without occlusion.';
+        } else {
+          let state = 'Occlusion disabled';
+          if (useOcclusion.checked) {
+            state = softenOcclusion.checked ?
+                'Occlusion enabled with soft edges' :
+                'Occlusion enabled with hard edges';
+          }
+          const alignment = matchDepthView ? 'browser-aligned' : 'reprojected in WebGPU';
+          status = `${state}, depth ${alignment}: ${firstDepthInformation.width}x` +
+              `${firstDepthInformation.height} ${firstDepthInformation.texture.format}, ` +
+              `${depthViewCount}/${viewCount} views.`;
+        }
+
+        if (status !== lastDepthStatus) {
+          lastDepthStatus = status;
+          depthStatus.textContent = status;
+        }
+      }
+
+      function onXRFrame(_time, frame) {
+        const session = frame.session;
+        session.requestAnimationFrame(onXRFrame);
+
+        const pose = frame.getViewerPose(xrRefSpace);
+        if (!pose) {
+          return;
+        }
+
+        const commandEncoder = device.createCommandEncoder();
+        const depthActive = session.depthActive;
+        let firstDepthInformation = null;
+        let depthViewCount = 0;
+        let missingDepthGeometry = false;
+
+        for (let viewIndex = 0; viewIndex < pose.views.length; ++viewIndex) {
+          const view = pose.views[viewIndex];
+          const subImage = binding.getViewSubImage(projectionLayer, view);
+          const viewDescriptor = subImage.getViewDescriptor();
+          const viewport = subImage.viewport;
+          const resource = ensureViewResource(viewIndex);
+
+          let depthInformation = depthActive ?
+              binding.getDepthInformation(view) : null;
+          if (!matchDepthView && depthInformation &&
+              (!depthInformation.projectionMatrix || !depthInformation.transform)) {
+            missingDepthGeometry = true;
+            depthInformation = null;
+          }
+          let sensedDepthTextureView = fallbackDepthTextureView;
+          if (depthInformation) {
+            sensedDepthTextureView = depthInformation.texture.createView(
+                depthInformation.getViewDescriptor());
+            firstDepthInformation ??= depthInformation;
+            ++depthViewCount;
+          }
+
+          updateViewUniforms(
+              resource,
+              view,
+              viewport,
+              depthInformation,
+              useOcclusion.checked,
+              softenOcclusion.checked);
+
+          const bindGroup = device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [
+              {
+                binding: 0,
+                resource: {buffer: resource.uniformBuffer},
+              },
+              {
+                binding: 1,
+                resource: sensedDepthTextureView,
+              },
+            ],
+          });
+
+          const pass = commandEncoder.beginRenderPass({
+            colorAttachments: [{
+              view: subImage.colorTexture.createView(viewDescriptor),
+              loadOp: 'clear',
+              storeOp: 'store',
+              clearValue: {r: 0, g: 0, b: 0, a: 0},
+            }],
+            depthStencilAttachment: {
+              view: subImage.depthStencilTexture.createView(viewDescriptor),
+              depthLoadOp: 'clear',
+              depthStoreOp: 'discard',
+              depthClearValue: 1.0,
+            },
+          });
+          pass.setViewport(
+              viewport.x,
+              viewport.y,
+              viewport.width,
+              viewport.height,
+              0,
+              1);
+          pass.setPipeline(pipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.draw(CUBE_VERTEX_COUNT, INSTANCE_COUNT);
+          pass.end();
+        }
+
+        // WebGPU depth textures are frame-scoped, so submit every command that
+        // uses them before returning from this callback.
+        device.queue.submit([commandEncoder.finish()]);
+        updateDepthStatus(
+            depthActive,
+            firstDepthInformation,
+            depthViewCount,
+            pose.views.length,
+            missingDepthGeometry);
+      }
+
+      function onEndSession(session) {
+        return session.end();
+      }
+
+      function onSessionEnded() {
+        xrButton.setSession(null);
+        for (const resource of viewResources) {
+          resource.uniformBuffer.destroy();
+        }
+        viewResources = [];
+        fallbackDepthTexture?.destroy();
+        fallbackDepthTexture = null;
+        fallbackDepthTextureView = null;
+        pipeline = null;
+        bindGroupLayout = null;
+        projectionLayer = null;
+        binding = null;
+        xrRefSpace = null;
+        xrSession = null;
+        appReprojection.disabled = false;
+        lastDepthStatus = '';
+        depthStatus.textContent = 'Depth sensing session ended.';
+      }
+
+      initXR();
+    </script>
+  </body>
+</html>
